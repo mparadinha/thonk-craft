@@ -191,85 +191,89 @@ fn handleLoginPacket(
             } } });
             state.* = .play;
 
-            const PlayData = @import("server_packets.zig").PlayData;
-            _ = PlayData;
-            const blobs = @import("binary_blobs.zig");
-
-            //var overworld_id = types.String{ .value = "minecraft:overworld" };
-            //var dimension_names = [_]types.String{overworld_id};
-            //// zig fmt: off
-            //try send_data_hack(connection, PlayData{ .join_game = .{
-            //    .entity_id = 0,
-            //    .is_hardcore = false,
-            //    .gamemode = 1, // creative
-            //    .previous_gamemode = -1,
-            //    .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
-            //    .dimension_names = &dimension_names,
-            //    .dimension_codec = try genDimensionCodecBlob(allocator),
-            //    .dimension = try genDimensionBlob(allocator),
-            //    .dimension_name = overworld_id,
-            //    .hashed_seed = 0,
-            //    .max_players = types.VarInt{ .value = 420 },
-            //    .view_distance = types.VarInt{ .value = 2 }, // i think 2 is the minimum
-            //    .reduced_debug_info = false,
-            //    .enable_respawn = true,
-            //    .is_debug = false,
-            //    .is_flat = false,
-            //} }, 0);
-            //// zig fmt: on
-            std.debug.assert(blobs.witchcraft_join_game_packet_full.len == 23991);
-            _ = try connection.stream.write(&blobs.witchcraft_join_game_packet_full);
-
-            // huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
-            const witchcraft_blob = blobs.witchcraft_chunk_data_packet_data;
-            std.debug.assert(witchcraft_blob.len == 4690);
-            //try send_packet_data(connection, PlayData{ .chunk_data_and_update_light = .{} });
-            try send_packet_raw(
-                connection,
-                @enumToInt(@import("server_packets.zig").PlayId.chunk_data_and_update_light),
-                &witchcraft_blob,
-            );
-            //const packet_blob = [_]u8{ 0xd3, 0x24, 0x22 } ++ witchcraft_blob;
-            //_ = try connection.stream.write(&packet_blob);
-            //const chunk_positions = [_][2]i32{
-            //    //[2]i32{ -1, -1 }, // var int too big
-            //    //[2]i32{ -1, 0 }, // 19
-            //    //[2]i32{ -1, 1 }, // 19
-            //    //[2]i32{ 0, -1 }, // 20
-            //    [2]i32{ 0, 0 }, // 20
-            //    //[2]i32{ 0, 1 }, // 20
-            //    //[2]i32{ 1, -1 }, // 20
-            //    //[2]i32{ 1, 0 }, // 20
-            //    //[2]i32{ 1, 1 }, // 20
-            //};
-            //var chunk_section_data = try genSingleChunkSectionDataBlob(allocator);
-            //for (chunk_positions) |pos| {
-            //    try send_data_hack(connection, PlayData{ .chunk_data_and_update_light = .{
-            //        .chunk_x = pos[0],
-            //        .chunk_z = pos[1],
-            //        .heigtmaps = try genHeighmapBlob(allocator),
-            //        .size = types.VarInt{ .value = @intCast(i32, chunk_section_data.len) },
-            //        .data = chunk_section_data,
-            //        .trust_edges = true,
-            //        .sky_light_mask = 0,
-            //        .block_light_mask = 0,
-            //        .empty_sky_light_mask = 0,
-            //    } }, 0);
-            //}
-
-            try send_packet_data(connection, server_packets.PlayData{ .player_position_and_look = .{
-                .x = 0,
-                .y = 0,
-                .z = 0,
-                .yaw = 0,
-                .pitch = 0,
-                .flags = 0,
-                .teleport_id = types.VarInt{ .value = 0 },
-                .dismount_vehicle = false,
-            } });
-            //_ = connection.blobs.witchcraft_pos_and_look_packet_full;
+            try send_login_packets(connection, allocator);
         },
     }
+}
+
+fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator) !void {
+    _ = allocator;
+    const blobs = @import("binary_blobs.zig");
+
+    var overworld_id = types.String{ .value = "minecraft:overworld" };
+    var dimension_names = [_]types.String{overworld_id};
+    // zig fmt: off
+    try send_packet_data(connection, server_packets.PlayData{ .join_game = .{
+        .entity_id = 0,
+        .is_hardcore = false,
+        .gamemode = 1,
+        .previous_gamemode = 1,
+        .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
+        .dimension_names = &dimension_names,
+        .dimension_codec = try genDimensionCodecBlob(allocator),
+        .dimension = try genDimensionBlob(allocator),
+        .dimension_name = overworld_id,
+        .hashed_seed = 0,
+        .max_players = types.VarInt{ .value = 420 },
+        .view_distance = types.VarInt{ .value = 2 }, // i think 2 is the minimum
+        .simulation_distance = types.VarInt{ .value = 2 }, // i think 2 is the minimum
+        .reduced_debug_info = false,
+        .enable_respawn = false,
+        .is_debug = false,
+        .is_flat = true,
+    } });
+    // zig fmt: on
+    //std.debug.assert(blobs.witchcraft_join_game_packet_full.len == 23991);
+    //_ = try connection.stream.write(&blobs.witchcraft_join_game_packet_full);
+
+    // huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
+    const witchcraft_blob = blobs.witchcraft_chunk_data_packet_data;
+    std.debug.assert(witchcraft_blob.len == 4690);
+    //try send_packet_data(connection, PlayData{ .chunk_data_and_update_light = .{} });
+    try send_packet_raw(
+        connection,
+        @enumToInt(@import("server_packets.zig").PlayId.chunk_data_and_update_light),
+        &witchcraft_blob,
+    );
+    //const packet_blob = [_]u8{ 0xd3, 0x24, 0x22 } ++ witchcraft_blob;
+    //_ = try connection.stream.write(&packet_blob);
+    //const chunk_positions = [_][2]i32{
+    //    //[2]i32{ -1, -1 }, // var int too big
+    //    //[2]i32{ -1, 0 }, // 19
+    //    //[2]i32{ -1, 1 }, // 19
+    //    //[2]i32{ 0, -1 }, // 20
+    //    [2]i32{ 0, 0 }, // 20
+    //    //[2]i32{ 0, 1 }, // 20
+    //    //[2]i32{ 1, -1 }, // 20
+    //    //[2]i32{ 1, 0 }, // 20
+    //    //[2]i32{ 1, 1 }, // 20
+    //};
+    //var chunk_section_data = try genSingleChunkSectionDataBlob(allocator);
+    //for (chunk_positions) |pos| {
+    //    try send_data_hack(connection, PlayData{ .chunk_data_and_update_light = .{
+    //        .chunk_x = pos[0],
+    //        .chunk_z = pos[1],
+    //        .heigtmaps = try genHeighmapBlob(allocator),
+    //        .size = types.VarInt{ .value = @intCast(i32, chunk_section_data.len) },
+    //        .data = chunk_section_data,
+    //        .trust_edges = true,
+    //        .sky_light_mask = 0,
+    //        .block_light_mask = 0,
+    //        .empty_sky_light_mask = 0,
+    //    } }, 0);
+    //}
+
+    try send_packet_data(connection, server_packets.PlayData{ .player_position_and_look = .{
+        .x = 0,
+        .y = 0,
+        .z = 0,
+        .yaw = 0,
+        .pitch = 0,
+        .flags = 0,
+        .teleport_id = types.VarInt{ .value = 0 },
+        .dismount_vehicle = false,
+    } });
+    //_ = connection.blobs.witchcraft_pos_and_look_packet_full;
 }
 
 // this is a workaround. if we try to use the main Packet.encode we hit a stage1
@@ -297,21 +301,41 @@ fn cmp_slices_test(testing: []const u8, ground_truth: []const u8) bool {
     }
     return true;
 }
-test "player_position_and_look packet encoding" {
-    const hardcoded = @import("binary_blobs.zig").witchcraft_pos_and_look_packet_full;
+test "cmp to witchcraft packets" {
+    std.debug.print("\n", .{});
+    const blobs = @import("binary_blobs.zig");
+    const hardcoded = blobs.witchcraft_join_game_packet_full;
+    std.debug.print("harcoded.len=0x{x}\n", .{hardcoded.len});
+    std.debug.print("dimension codec nbt len=0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len});
+    std.debug.print("dimension nbt len=0x{x}\n", .{blobs.witchcraft_dimension_nbt.len});
+    std.debug.print("dimension nbt starts at = 0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len + 0x47});
+    std.debug.print("dimension nbt ends at = 0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len + 0x47 + blobs.witchcraft_dimension_nbt.len});
 
-    var buf: [0x4000]u8 = undefined;
+    var buf: [0x8000]u8 = undefined;
     const writer = std.io.fixedBufferStream(&buf).writer();
 
-    const data = server_packets.PlayData{ .player_position_and_look = .{
-        .x = 0,
-        .y = 0,
-        .z = 0,
-        .yaw = 0,
-        .pitch = 0,
-        .flags = 0,
-        .teleport_id = types.VarInt{ .value = 0 },
-        .dismount_vehicle = false,
+    var overworld_id = types.String{ .value = "minecraft:overworld" };
+    var nether_id = types.String{ .value = "minecraft:the_nether" };
+    var end_id = types.String{ .value = "minecraft:the_end" };
+    var dimension_names = [_]types.String{ overworld_id, nether_id, end_id };
+    const data = server_packets.PlayData{ .join_game = .{
+        .entity_id = @bitCast(i32, @as(u32, 0x0100_50bd)),
+        .is_hardcore = false,
+        .gamemode = 1,
+        .previous_gamemode = 1,
+        .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
+        .dimension_names = &dimension_names,
+        .dimension_codec = try genDimensionCodecBlob(std.testing.allocator),
+        .dimension = try genDimensionBlob(std.testing.allocator),
+        .dimension_name = overworld_id,
+        .hashed_seed = 0x1c62e2fdba3ad74a,
+        .max_players = types.VarInt{ .value = 11111 },
+        .view_distance = types.VarInt{ .value = 10 },
+        .simulation_distance = types.VarInt{ .value = 10 },
+        .reduced_debug_info = false,
+        .enable_respawn = false,
+        .is_debug = false,
+        .is_flat = true,
     } };
     try encode_packet_data(writer, data);
 
@@ -321,7 +345,9 @@ test "player_position_and_look packet encoding" {
 
 fn encode_packet_data(writer: anytype, data: anytype) !void {
     const raw_id = @intCast(i32, @enumToInt(std.meta.activeTag(data)));
-    const packet_size = types.VarInt.encodedSize(raw_id) + data.encodedSize();
+    const data_encode_size = data.encodedSize();
+    const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
+
     try types.VarInt.encode(writer, @intCast(i32, packet_size));
     try types.VarInt.encode(writer, raw_id);
     try data.encode(writer);
@@ -417,7 +443,8 @@ fn send_data_hack(connection: StreamServer.Connection, data: anytype, tmp: i32) 
 }
 
 fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
-    const blob = @embedFile("../dimension_codec_blob.nbt")[0..];
+    //const blob = @embedFile("../dimension_codec_blob.nbt")[0..];
+    const blob = @import("binary_blobs.zig").witchcraft_dimension_codec_nbt;
     return types.NBT{ .blob = try allocator.dupe(u8, blob) };
 
     //var buf = try allocator.alloc(u8, 0x4000);
@@ -505,8 +532,9 @@ fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
 
 // same as overworld element in dimension codec for now
 fn genDimensionBlob(allocator: Allocator) !types.NBT {
-    const blob = @embedFile("../dimension_blob.nbt")[0..];
-    return types.NBT{ .blob = try allocator.dupe(u8, blob) };
+    //const blob = @embedFile("../dimension_blob.nbt")[0..];
+    const blob = @import("binary_blobs.zig").witchcraft_dimension_nbt;
+    return types.NBT{ .blob = try allocator.dupe(u8, &blob) };
 
     //var buf = try allocator.alloc(u8, 0x4000);
     //const writer = std.io.fixedBufferStream(buf).writer();

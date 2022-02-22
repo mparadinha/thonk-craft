@@ -153,6 +153,8 @@ pub const PlayId = enum(u7) {
     player_position = 0x11,
     player_position_and_rotation = 0x12,
     player_rotation = 0x13,
+    player_abilities = 0x19,
+    entity_action = 0x1b,
 };
 
 pub const PlayData = union(PlayId) {
@@ -193,6 +195,15 @@ pub const PlayData = union(PlayId) {
         pitch: f32,
         on_ground: bool,
     },
+    player_abilities: struct {
+        /// bit mask, 0x02 = is flying.
+        flags: i8,
+    },
+    entity_action: struct {
+        entity_id: VarInt,
+        action_id: VarInt, // enum. see: https://wiki.vg/Protocol#Entity_Action
+        jump_boost: VarInt,
+    },
 
     pub fn decode(id: PlayId, reader: anytype, allocator: Allocator) !PlayData {
         _ = reader;
@@ -204,6 +215,8 @@ pub const PlayData = union(PlayId) {
             .player_position => return genericDecodeById(PlayData, .player_position, reader, allocator),
             .player_position_and_rotation => return genericDecodeById(PlayData, .player_position_and_rotation, reader, allocator),
             .player_rotation => return genericDecodeById(PlayData, .player_rotation, reader, allocator),
+            .player_abilities => return genericDecodeById(PlayData, .player_abilities, reader, allocator),
+            .entity_action => return genericDecodeById(PlayData, .entity_action, reader, allocator),
         }
     }
 };

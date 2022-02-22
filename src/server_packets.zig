@@ -218,6 +218,7 @@ pub const PlayData = union(PlayId) {
         hashed_seed: i64,
         max_players: VarInt,
         view_distance: VarInt,
+        simulation_distance: VarInt,
         reduced_debug_info: bool,
         enable_respawn: bool,
         is_debug: bool,
