@@ -4,18 +4,9 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const types = @import("types.zig");
-
-pub const State = enum(i32) {
-    /// All connection start in this state. Not part of the protocol.
-    handshaking,
-
-    status = 1,
-    login = 2,
-    play = 3,
-
-    /// Not part of the protocol, used to signal that we're meant to close the connection.
-    close_connection,
-};
+const VarInt = types.VarInt;
+const String = types.String;
+const State = @import("main.zig").State;
 
 pub const Packet = union(enum) {
     handshaking: HandshakingData,
@@ -27,8 +18,9 @@ pub const Packet = union(enum) {
 
     /// Call `deinit` to cleanup resources.
     pub fn decode(reader: anytype, allocator: Allocator, state: State) !Packet {
-        _ = try types.VarInt.decode(reader); // id+data length
-        const raw_id = (try types.VarInt.decode(reader)).value;
+        const id_data_len = (try VarInt.decode(reader)).value;
+        const raw_id = (try VarInt.decode(reader)).value;
+        std.debug.print("raw_id=0x{x}\n", .{raw_id});
 
         switch (state) {
             .handshaking => {
@@ -38,6 +30,19 @@ pub const Packet = union(enum) {
             .status => {
                 const id = @intToEnum(StatusId, raw_id);
                 return Packet{ .status = try StatusData.decode(id, reader, allocator) };
+            },
+            .login => {
+                const id = @intToEnum(LoginId, raw_id);
+                return Packet{ .login = try LoginData.decode(id, reader, allocator) };
+            },
+            .play => {
+                const id = @intToEnum(PlayId, raw_id);
+                // ignore these packets for now, we don't need them yet
+                if (id == PlayId.plugin_message) {
+                    try reader.skipBytes(@intCast(u64, id_data_len - VarInt.encodedSize(raw_id)), .{});
+                    return Packet{ .play = .{ .plugin_message = {} } };
+                }
+                return Packet{ .play = try PlayData.decode(id, reader, allocator) };
             },
             else => unreachable,
         }
@@ -59,10 +64,13 @@ pub fn genericDecodeData(comptime DataType: type, reader: anytype, allocator: Al
 
     inline for (struct_info.fields) |field| {
         @field(data, field.name) = switch (field.field_type) {
+            bool => (try reader.readByte()) == 1,
             u8, u16, u32, u64, i8, i16, i32, i64 => try reader.readIntBig(field.field_type),
-            types.VarInt => try types.VarInt.decode(reader),
-            types.String => try types.String.decode(reader, allocator),
-            State => @intToEnum(State, (try types.VarInt.decode(reader)).value),
+            f32 => @bitCast(f32, try reader.readIntBig(u32)),
+            f64 => @bitCast(f64, try reader.readIntBig(u64)),
+            VarInt => try VarInt.decode(reader),
+            String => try String.decode(reader, allocator),
+            State => @intToEnum(State, (try VarInt.decode(reader)).value),
             else => @panic("TODO decode type " ++ @typeName(field.field_type)),
         };
     }
@@ -90,8 +98,8 @@ pub const HandshakingId = enum(u7) {
 
 pub const HandshakingData = union(HandshakingId) {
     handshake: struct {
-        protocol_version: types.VarInt,
-        server_addr: types.String,
+        protocol_version: VarInt,
+        server_addr: String,
         server_port: u16,
         next_state: State,
     },
@@ -116,7 +124,7 @@ pub const StatusData = union(StatusId) {
 
     pub fn decode(id: StatusId, reader: anytype, allocator: Allocator) !StatusData {
         switch (id) {
-            .request => return StatusData{ .request = {} },
+            .request => return genericDecodeById(StatusData, .request, reader, allocator),
             .ping => return genericDecodeById(StatusData, .ping, reader, allocator),
         }
     }
@@ -127,15 +135,77 @@ pub const LoginId = enum(u7) {
 };
 
 pub const LoginData = union(LoginId) {
-    login_start: void,
+    login_start: struct {
+        name: String,
+    },
+
+    pub fn decode(id: LoginId, reader: anytype, allocator: Allocator) !LoginData {
+        switch (id) {
+            .login_start => return genericDecodeById(LoginData, .login_start, reader, allocator),
+        }
+    }
 };
 
 pub const PlayId = enum(u7) {
     teleport_confirm = 0x00,
+    client_settings = 0x05,
+    plugin_message = 0x0a,
+    player_position = 0x11,
+    player_position_and_rotation = 0x12,
+    player_rotation = 0x13,
 };
 
 pub const PlayData = union(PlayId) {
-    teleport_confirm: void,
+    teleport_confirm: struct {
+        teleport_id: VarInt,
+    },
+    client_settings: struct {
+        locale: String,
+        view_distance: i8,
+        /// enum: 0=enable, 1=commands only, 2=hidden
+        chat_mode: VarInt,
+        chat_colors: bool,
+        /// bit mask. the body parts are: (from bit 0 (0x01) to bit 6 (0x40))
+        /// cape, jacket, left sleeve, right sleeve, left pants, right pants, hat
+        displayed_skin_parts: u8,
+        /// enum: 0=left, 1=right
+        main_hand: VarInt,
+        enable_text_filtering: bool,
+        allow_server_listing: bool,
+    },
+    plugin_message: void,
+    player_position: struct {
+        x: f64,
+        feet_y: f64,
+        z: f64,
+        on_ground: bool,
+    },
+    player_position_and_rotation: struct {
+        x: f64,
+        feet_y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+        on_ground: bool,
+    },
+    player_rotation: struct {
+        yaw: f32,
+        pitch: f32,
+        on_ground: bool,
+    },
+
+    pub fn decode(id: PlayId, reader: anytype, allocator: Allocator) !PlayData {
+        _ = reader;
+        _ = allocator;
+        switch (id) {
+            .teleport_confirm => return genericDecodeById(PlayData, .teleport_confirm, reader, allocator),
+            .client_settings => return genericDecodeById(PlayData, .client_settings, reader, allocator),
+            .plugin_message => return genericDecodeById(PlayData, .plugin_message, reader, allocator),
+            .player_position => return genericDecodeById(PlayData, .player_position, reader, allocator),
+            .player_position_and_rotation => return genericDecodeById(PlayData, .player_position_and_rotation, reader, allocator),
+            .player_rotation => return genericDecodeById(PlayData, .player_rotation, reader, allocator),
+        }
+    }
 };
 
 /// Right now all the packet ID's fit in 7 or less bits, which means

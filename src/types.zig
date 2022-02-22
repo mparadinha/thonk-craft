@@ -11,26 +11,25 @@ pub const VarInt = struct {
     value: i32,
 
     /// Returns how many bytes this VarInt would take when encoded.
-    pub fn encodedSize(self: VarInt) u8 {
+    pub fn encodedSize(raw_value: i32) u8 {
         var byte_count: u8 = 0;
-        var value = self.value;
+        var value = @bitCast(u32, raw_value);
         while (true) {
-            if (value & @bitCast(i32, ~@as(u32, 0x7f)) == 0) return byte_count + 1;
+            if (value & ~@as(u32, 0x7f) == 0) return byte_count + 1;
             byte_count += 1;
             value >>= 7;
         }
-        return byte_count;
     }
 
     /// Result is guaranteed to be, at most, 5 bytes.
-    pub fn encode(writer: anytype, varint: VarInt) !void {
-        var value = varint.value;
+    pub fn encode(writer: anytype, raw_value: i32) !void {
+        var value = @bitCast(u32, raw_value);
         while (true) {
-            if (value & @bitCast(i32, ~@as(u32, 0x7f)) == 0) {
-                try writer.writeByte(@bitCast(u8, @truncate(i8, value)));
+            if (value & ~@as(u32, 0x7f) == 0) {
+                try writer.writeByte(@truncate(u8, value));
                 return;
             }
-            try writer.writeByte(@bitCast(u8, @truncate(i8, (value & 0x7f) | 0x80)));
+            try writer.writeByte(@truncate(u8, (value & 0x7f) | 0x80));
             value >>= 7;
         }
     }
@@ -49,11 +48,23 @@ pub const VarInt = struct {
 };
 
 pub const String = struct {
-    value: []u8,
+    value: []const u8,
 
-    pub fn encode(writer: anytype, string: String) !void {
-        try VarInt.encode(writer, VarInt{ .value = @intCast(i32, string.value.len) });
-        _ = try writer.write(string.value);
+    pub fn fromLiteral(allocator: Allocator, literal: []const u8) !String {
+        _ = allocator;
+        return String{ .value = literal };
+        //var str = String{ .value = try allocator.alloc(u8, literal.len) };
+        //for (literal) |byte, i| str.value[i] = byte;
+        //return str;
+    }
+
+    pub fn encodedSize(value: []const u8) usize {
+        return VarInt.encodedSize(@intCast(i32, value.len)) + value.len;
+    }
+
+    pub fn encode(writer: anytype, value: []const u8) !void {
+        try VarInt.encode(writer, @intCast(i32, value.len));
+        _ = try writer.write(value);
     }
 
     pub fn decode(reader: anytype, allocator: Allocator) !String {
@@ -62,5 +73,36 @@ pub const String = struct {
         const read_len = try reader.read(str);
         std.debug.assert(read_len == len);
         return String{ .value = str };
+    }
+};
+
+pub const Position = struct {
+    x: i26,
+    y: i12,
+    z: i26,
+
+    pub fn encode(self: Position, writer: anytype) !void {
+        const as_int64 =
+            (@intCast(i64, self.x) << 38) |
+            (@intCast(i64, self.y) << 26) |
+            (@intCast(i64, self.z));
+        try writer.writeIntBig(i64, as_int64);
+    }
+
+    pub fn decode(reader: anytype) !Position {
+        const as_int64 = try reader.readIntBig(i64);
+        return Position{
+            .x = @intCast(i26, (as_int64 & 0xffff_fff0_0000_0000) >> 38),
+            .y = @intCast(i12, (as_int64 & 0x0000_000f_f000_0000) >> 26),
+            .z = @intCast(i26, (as_int64 & 0x0000_0000_0fff_ffff)),
+        };
+    }
+};
+
+pub const NBT = struct {
+    blob: []u8,
+
+    pub fn encode(self: NBT, writer: anytype) !void {
+        _ = try writer.write(self.blob);
     }
 };
