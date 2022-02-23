@@ -114,7 +114,6 @@ fn handleHandshakingPacket(
 ) !void {
     _ = connection;
     _ = allocator;
-
     switch (packet_data) {
         .handshake => |data| {
             state.* = data.next_state;
@@ -155,9 +154,9 @@ fn handleStatusPacket(
             var tmpbuf: [0x4000]u8 = undefined;
             const response_str = try std.fmt.bufPrint(&tmpbuf, response_str_fmt, .{base64_png});
 
-            try sendPacket(connection, ServerPacket{
-                .status = .{ .response = .{ .json_response = types.String{ .value = response_str } } },
-            });
+            try sendPacket(connection, ServerPacket{ .status = .{ .response = .{
+                .json_response = types.String{ .value = response_str },
+            } } });
         },
         .ping => |data| {
             try sendPacket(connection, ServerPacket{ .status = .{ .pong = .{
@@ -197,12 +196,11 @@ fn handleLoginPacket(
 }
 
 fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator) !void {
-    _ = allocator;
     const blobs = @import("binary_blobs.zig");
+    _ = blobs;
 
     var overworld_id = types.String{ .value = "minecraft:overworld" };
     var dimension_names = [_]types.String{overworld_id};
-    // zig fmt: off
     try send_packet_data(connection, server_packets.PlayData{ .join_game = .{
         .entity_id = 0,
         .is_hardcore = false,
@@ -215,53 +213,39 @@ fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator)
         .dimension_name = overworld_id,
         .hashed_seed = 0,
         .max_players = types.VarInt{ .value = 420 },
-        .view_distance = types.VarInt{ .value = 2 }, // i think 2 is the minimum
-        .simulation_distance = types.VarInt{ .value = 2 }, // i think 2 is the minimum
+        .view_distance = types.VarInt{ .value = 10 },
+        .simulation_distance = types.VarInt{ .value = 10 },
         .reduced_debug_info = false,
         .enable_respawn = false,
         .is_debug = false,
         .is_flat = true,
     } });
-    // zig fmt: on
-    //std.debug.assert(blobs.witchcraft_join_game_packet_full.len == 23991);
-    //_ = try connection.stream.write(&blobs.witchcraft_join_game_packet_full);
 
-    // huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
-    const witchcraft_blob = blobs.witchcraft_chunk_data_packet_data;
-    std.debug.assert(witchcraft_blob.len == 4690);
-    //try send_packet_data(connection, PlayData{ .chunk_data_and_update_light = .{} });
-    try send_packet_raw(
-        connection,
-        @enumToInt(@import("server_packets.zig").PlayId.chunk_data_and_update_light),
-        &witchcraft_blob,
-    );
-    //const packet_blob = [_]u8{ 0xd3, 0x24, 0x22 } ++ witchcraft_blob;
-    //_ = try connection.stream.write(&packet_blob);
-    //const chunk_positions = [_][2]i32{
-    //    //[2]i32{ -1, -1 }, // var int too big
-    //    //[2]i32{ -1, 0 }, // 19
-    //    //[2]i32{ -1, 1 }, // 19
-    //    //[2]i32{ 0, -1 }, // 20
-    //    [2]i32{ 0, 0 }, // 20
-    //    //[2]i32{ 0, 1 }, // 20
-    //    //[2]i32{ 1, -1 }, // 20
-    //    //[2]i32{ 1, 0 }, // 20
-    //    //[2]i32{ 1, 1 }, // 20
-    //};
-    //var chunk_section_data = try genSingleChunkSectionDataBlob(allocator);
-    //for (chunk_positions) |pos| {
-    //    try send_data_hack(connection, PlayData{ .chunk_data_and_update_light = .{
-    //        .chunk_x = pos[0],
-    //        .chunk_z = pos[1],
-    //        .heigtmaps = try genHeighmapBlob(allocator),
-    //        .size = types.VarInt{ .value = @intCast(i32, chunk_section_data.len) },
-    //        .data = chunk_section_data,
-    //        .trust_edges = true,
-    //        .sky_light_mask = 0,
-    //        .block_light_mask = 0,
-    //        .empty_sky_light_mask = 0,
-    //    } }, 0);
-    //}
+    const chunk_data = try genSingleChunkSectionDataBlob(allocator);
+    defer allocator.free(chunk_data);
+    const chunk_positions = [_][2]i32{
+        // zig fmt: off
+        [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
+        [2]i32{  0, -1 }, [2]i32{  0, 0 }, [2]i32{  0, 1 },
+        [2]i32{  1, -1 }, [2]i32{  1, 0 }, [2]i32{  1, 1 },
+        // zig fmt: on
+    };
+    for (chunk_positions) |pos| {
+        const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
+            .chunk_x = pos[0],
+            .chunk_z = pos[1],
+            .heightmaps = try genHeighmapBlob(allocator),
+            .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
+            .data = chunk_data,
+            .trust_edges = true,
+            .sky_light_mask = 0,
+            .block_light_mask = 0,
+            .empty_sky_light_mask = 0,
+            .empty_block_light_mask = 0,
+        } };
+        defer allocator.free(data.chunk_data_and_update_light.heightmaps.blob);
+        try send_packet_data(connection, data);
+    }
 
     try send_packet_data(connection, server_packets.PlayData{ .player_position_and_look = .{
         .x = 0,
@@ -273,84 +257,6 @@ fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator)
         .teleport_id = types.VarInt{ .value = 0 },
         .dismount_vehicle = false,
     } });
-    //_ = connection.blobs.witchcraft_pos_and_look_packet_full;
-}
-
-// this is a workaround. if we try to use the main Packet.encode we hit a stage1
-// compiler bug where the union tag value is getting overwritten (only for PlayData member)
-// when copying over the actual data when doing ServerPacket{ .play = data }.
-// looks like a codegen error.
-fn send_packet_data(connection: StreamServer.Connection, data: anytype) !void {
-    std.debug.print("sending a ??::{s} packet...\n", .{@tagName(std.meta.activeTag(data))});
-    try encode_packet_data(connection.stream.writer(), data);
-}
-
-fn cmp_slices_test(testing: []const u8, ground_truth: []const u8) bool {
-    if (testing.len != ground_truth.len) {
-        std.debug.print("different lengths: {} should be {}\n", .{ testing.len, ground_truth.len });
-        return false;
-    }
-    for (testing) |byte, i| {
-        if (byte != ground_truth[i]) {
-            std.debug.print(
-                "byte 0x{x} is different: 0x{x} should be 0x{x}\n",
-                .{ i, byte, ground_truth[i] },
-            );
-            return false;
-        }
-    }
-    return true;
-}
-test "cmp to witchcraft packets" {
-    std.debug.print("\n", .{});
-    const blobs = @import("binary_blobs.zig");
-    const hardcoded = blobs.witchcraft_join_game_packet_full;
-    std.debug.print("harcoded.len=0x{x}\n", .{hardcoded.len});
-    std.debug.print("dimension codec nbt len=0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len});
-    std.debug.print("dimension nbt len=0x{x}\n", .{blobs.witchcraft_dimension_nbt.len});
-    std.debug.print("dimension nbt starts at = 0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len + 0x47});
-    std.debug.print("dimension nbt ends at = 0x{x}\n", .{blobs.witchcraft_dimension_codec_nbt.len + 0x47 + blobs.witchcraft_dimension_nbt.len});
-
-    var buf: [0x8000]u8 = undefined;
-    const writer = std.io.fixedBufferStream(&buf).writer();
-
-    var overworld_id = types.String{ .value = "minecraft:overworld" };
-    var nether_id = types.String{ .value = "minecraft:the_nether" };
-    var end_id = types.String{ .value = "minecraft:the_end" };
-    var dimension_names = [_]types.String{ overworld_id, nether_id, end_id };
-    const data = server_packets.PlayData{ .join_game = .{
-        .entity_id = @bitCast(i32, @as(u32, 0x0100_50bd)),
-        .is_hardcore = false,
-        .gamemode = 1,
-        .previous_gamemode = 1,
-        .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
-        .dimension_names = &dimension_names,
-        .dimension_codec = try genDimensionCodecBlob(std.testing.allocator),
-        .dimension = try genDimensionBlob(std.testing.allocator),
-        .dimension_name = overworld_id,
-        .hashed_seed = 0x1c62e2fdba3ad74a,
-        .max_players = types.VarInt{ .value = 11111 },
-        .view_distance = types.VarInt{ .value = 10 },
-        .simulation_distance = types.VarInt{ .value = 10 },
-        .reduced_debug_info = false,
-        .enable_respawn = false,
-        .is_debug = false,
-        .is_flat = true,
-    } };
-    try encode_packet_data(writer, data);
-
-    const genblob = writer.context.getWritten();
-    try std.testing.expect(cmp_slices_test(genblob, &hardcoded));
-}
-
-fn encode_packet_data(writer: anytype, data: anytype) !void {
-    const raw_id = @intCast(i32, @enumToInt(std.meta.activeTag(data)));
-    const data_encode_size = data.encodedSize();
-    const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
-
-    try types.VarInt.encode(writer, @intCast(i32, packet_size));
-    try types.VarInt.encode(writer, raw_id);
-    try data.encode(writer);
 }
 
 fn handlePlayPacket(
@@ -376,191 +282,76 @@ fn handlePlayPacket(
     }
 }
 
+// this is a workaround. if we try to use the main Packet.encode we hit a stage1
+// compiler bug where the union tag value is getting overwritten (only for PlayData member)
+// when copying over the actual data when doing ServerPacket{ .play = data }.
+// looks like a codegen error.
+// also:
+// I'm getting a compiler crash (codegen.cpp:8603 in gen_const_val) when I try to
+// send `ServerPacket.play` packets using the a normal `sendPacket` function.
+// (this is a known stage1 bug with deeply nested annonymous structures)
+// I have no idea why only that specific enum in the ServerPacket union crashes though.
+fn send_packet_data(connection: StreamServer.Connection, data: anytype) !void {
+    std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
+    try encode_packet_data(connection.stream.writer(), data);
+    std.debug.print("done.\n", .{});
+}
+
+fn encode_packet_data(writer: anytype, data: anytype) !void {
+    const raw_id = @intCast(i32, @enumToInt(std.meta.activeTag(data)));
+    const data_encode_size = data.encodedSize();
+    const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
+
+    try types.VarInt.encode(writer, @intCast(i32, packet_size));
+    try types.VarInt.encode(writer, raw_id);
+    try data.encode(writer);
+}
+
 fn sendPacket(connection: StreamServer.Connection, packet: ServerPacket) !void {
-    var sendbuf: [0x8000]u8 = undefined;
-    const writer = std.io.fixedBufferStream(&sendbuf).writer();
-    try packet.encode(writer);
-
-    const packet_slice = writer.context.getWritten();
-
     const inner_tag_name = switch (packet) {
         .status => |data| @tagName(data),
         .login => |data| @tagName(data),
         .play => |data| @tagName(data),
     };
     std.debug.print("sending a {s}::{s} packet... ", .{ @tagName(packet), inner_tag_name });
-    const bytes_sent = try connection.stream.write(packet_slice);
-    std.debug.print("done. ({d} bytes)\n", .{bytes_sent});
-}
-
-fn send_packet_raw(connection: StreamServer.Connection, id: i32, data: []const u8) !void {
-    var sendbuf: [0x8000]u8 = undefined;
-    const writer = std.io.fixedBufferStream(&sendbuf).writer();
-
-    const packet_size = types.VarInt.encodedSize(id) + data.len;
-
-    try types.VarInt.encode(writer, @intCast(i32, packet_size));
-    try types.VarInt.encode(writer, id);
-    _ = try writer.write(data);
-
-    const packet_slice = writer.context.getWritten();
-    std.debug.print("sending a raw packet (id={}, data.len={})... ", .{ id, data.len });
-    const bytes_sent = try connection.stream.write(packet_slice);
-    std.debug.print("done. ({d} bytes)\n", .{bytes_sent});
-}
-
-// for some reason I'm getting a compiler crash (codegen.cpp:8603 in gen_const_val)
-// when I try to send `ServerPacket.play` packets using the a normal `sendPacket`
-// function. I have no idea why only that specific enum in the ServerPacket union
-// crashes. this is a workaround.
-fn send_data_hack(connection: StreamServer.Connection, data: anytype, tmp: i32) !void {
-    var sendbuf: [0x8000]u8 = undefined;
-    const writer = std.io.fixedBufferStream(&sendbuf).writer();
-
-    const id = std.meta.activeTag(data);
-    const raw_id = @intCast(i32, @enumToInt(id));
-    const packet_size = types.VarInt.encodedSize(raw_id) + data.encodedSize();
-
-    //try types.VarInt.encode(writer, @intCast(i32, packet_size));
-    try types.VarInt.encode(writer, @intCast(i32, packet_size + 1) + tmp);
-    // ^ this makes no sense. but if I try to just use packet size, the client crashes like so:
-    //   "Internal Exception: io.netty.handler.codec.DecoderException:
-    //    java.lang.IndexOutOfBoundsException: readerIndex(`packet_size`) + length(1) exceeds
-    //    writerIndex(`packet_size`): PooledUnsafeDirectByteBuf(ridx: `packet_size`, widx: `packet_size`, cap: `packet_size`)"
-    try types.VarInt.encode(writer, raw_id);
-    try data.encode(writer);
-
-    std.debug.print("packet_size={d}, raw_id={d}\n", .{ packet_size, raw_id });
-    std.debug.print("encodedSizes: packet_size => {d}, raw_id => {d}, data => {d}\n", .{
-        types.VarInt.encodedSize(@intCast(i32, packet_size)), types.VarInt.encodedSize(raw_id),
-        data.encodedSize(),
-    });
-
-    const packet_slice = writer.context.getWritten();
-    std.debug.print("sending a ??::{s} packet... ", .{@tagName(id)});
-    const bytes_sent = try connection.stream.write(packet_slice);
-    std.debug.print("done. ({d} bytes)\n", .{bytes_sent});
+    try packet.encode(connection.stream.writer());
+    std.debug.print("done.\n", .{});
 }
 
 fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
-    //const blob = @embedFile("../dimension_codec_blob.nbt")[0..];
     const blob = @import("binary_blobs.zig").witchcraft_dimension_codec_nbt;
-    return types.NBT{ .blob = try allocator.dupe(u8, blob) };
-
-    //var buf = try allocator.alloc(u8, 0x4000);
-    //const writer = std.io.fixedBufferStream(buf).writer();
-
-    //{
-    //    try nbt.Compound.startNamed(writer, "");
-    //    defer nbt.Compound.end(writer) catch unreachable;
-
-    //    {
-    //        try nbt.Compound.startNamed(writer, "minecraft:dimension_type");
-    //        defer nbt.Compound.end(writer) catch unreachable;
-
-    //        try nbt.String.addNamed(writer, "type", "minecraft:dimension_type");
-    //        try nbt.List.startNamed(writer, "value", .compound, 1);
-    //        {
-    //            defer nbt.Compound.end(writer) catch unreachable;
-
-    //            try nbt.String.addNamed(writer, "name", "minecraft:overworld");
-    //            try nbt.Int.addNamed(writer, "id", 0);
-    //            {
-    //                try nbt.Compound.startNamed(writer, "element");
-    //                defer nbt.Compound.end(writer) catch unreachable;
-
-    //                try nbt.Byte.addNamed(writer, "piglin_safe", 0);
-    //                try nbt.Byte.addNamed(writer, "natural", 1);
-    //                try nbt.Float.addNamed(writer, "ambient_light", 0);
-    //                try nbt.String.addNamed(writer, "infiniburn", "minecraft:infiniburn_overworld");
-    //                try nbt.Byte.addNamed(writer, "respawn_anchor_works", 0);
-    //                try nbt.Byte.addNamed(writer, "has_skylight", 1);
-    //                try nbt.Byte.addNamed(writer, "bed_works", 1);
-    //                try nbt.String.addNamed(writer, "effects", "minecraft:overworld");
-    //                try nbt.Byte.addNamed(writer, "has_raids", 1);
-    //                try nbt.Int.addNamed(writer, "min_y", -64);
-    //                try nbt.Int.addNamed(writer, "height", 384);
-    //                try nbt.Int.addNamed(writer, "logical_height", 384);
-    //                try nbt.Float.addNamed(writer, "coordinate_scale", 1);
-    //                try nbt.Byte.addNamed(writer, "ultrawarm", 0);
-    //                try nbt.Byte.addNamed(writer, "has_ceiling", 0);
-    //            }
-    //        }
-    //    }
-    //    {
-    //        try nbt.Compound.startNamed(writer, "minecraft:worldgen/biome");
-    //        defer nbt.Compound.end(writer) catch unreachable;
-
-    //        try nbt.String.addNamed(writer, "type", "minecraft:worldgen/biome");
-    //        try nbt.List.startNamed(writer, "value", .compound, 1);
-    //        {
-    //            defer nbt.Compound.end(writer) catch unreachable;
-    //            {
-    //                try nbt.String.addNamed(writer, "name", "minecraft:ocean");
-    //                try nbt.Int.addNamed(writer, "id", 0);
-    //                {
-    //                    try nbt.Compound.startNamed(writer, "element");
-    //                    defer nbt.Compound.end(writer) catch unreachable;
-
-    //                    try nbt.String.addNamed(writer, "precipitation", "rain");
-    //                    // this "depth" field in not present in the packet send from
-    //                    // a vanilla server, freshly installed (on 1.18.1), despite
-    //                    // what the wiki says.
-    //                    //try nbt.Float.addNamed(writer, "depth", -1);
-    //                    try nbt.Float.addNamed(writer, "temperature", 0.5);
-    //                    // same as "depth"
-    //                    //try nbt.Float.addNamed(writer, "scale", 0.1);
-    //                    try nbt.Float.addNamed(writer, "downfall", 0.5);
-    //                    try nbt.String.addNamed(writer, "category", "ocean");
-    //                    {
-    //                        try nbt.Compound.startNamed(writer, "effects");
-    //                        defer nbt.Compound.end(writer) catch unreachable;
-
-    //                        try nbt.Int.addNamed(writer, "sky_color", 8103167);
-    //                        try nbt.Int.addNamed(writer, "water_fog_color", 329011);
-    //                        try nbt.Int.addNamed(writer, "fog_color", 12638463);
-    //                        try nbt.Int.addNamed(writer, "water_color", 4159204);
-    //                    }
-    //                }
-    //            }
-    //        }
-    //    }
-    //}
-
-    //return types.NBT{ .blob = writer.context.getWritten() };
+    return types.NBT{ .blob = try allocator.dupe(u8, &blob) };
 }
 
 // same as overworld element in dimension codec for now
 fn genDimensionBlob(allocator: Allocator) !types.NBT {
-    //const blob = @embedFile("../dimension_blob.nbt")[0..];
-    const blob = @import("binary_blobs.zig").witchcraft_dimension_nbt;
-    return types.NBT{ .blob = try allocator.dupe(u8, &blob) };
+    var buf = try allocator.alloc(u8, 0x4000);
+    const writer = std.io.fixedBufferStream(buf).writer();
 
-    //var buf = try allocator.alloc(u8, 0x4000);
-    //const writer = std.io.fixedBufferStream(buf).writer();
+    {
+        try nbt.Compound.startNamed(writer, "");
+        defer nbt.Compound.end(writer) catch unreachable;
 
-    //{
-    //    try nbt.Compound.startNamed(writer, "");
-    //    defer nbt.Compound.end(writer) catch unreachable;
+        try nbt.Byte.addNamed(writer, "piglin_safe", 0);
+        try nbt.Byte.addNamed(writer, "natural", 1);
+        try nbt.Float.addNamed(writer, "ambient_light", 0);
+        try nbt.String.addNamed(writer, "infiniburn", "minecraft:infiniburn_overworld");
+        try nbt.Byte.addNamed(writer, "respawn_anchor_works", 0);
+        try nbt.Byte.addNamed(writer, "has_skylight", 1);
+        try nbt.Byte.addNamed(writer, "bed_works", 1);
+        try nbt.String.addNamed(writer, "effects", "minecraft:overworld");
+        try nbt.Byte.addNamed(writer, "has_raids", 1);
+        try nbt.Int.addNamed(writer, "min_y", -64);
+        try nbt.Int.addNamed(writer, "height", 384);
+        try nbt.Int.addNamed(writer, "logical_height", 384);
+        try nbt.Double.addNamed(writer, "coordinate_scale", 1);
+        try nbt.Byte.addNamed(writer, "ultrawarm", 0);
+        try nbt.Byte.addNamed(writer, "has_ceiling", 0);
+    }
 
-    //    try nbt.Byte.addNamed(writer, "piglin_safe", 0);
-    //    try nbt.Byte.addNamed(writer, "natural", 1);
-    //    try nbt.Float.addNamed(writer, "ambient_light", 0);
-    //    try nbt.String.addNamed(writer, "infiniburn", "minecraft:infiniburn_overworld");
-    //    try nbt.Byte.addNamed(writer, "respawn_anchor_works", 0);
-    //    try nbt.Byte.addNamed(writer, "has_skylight", 1);
-    //    try nbt.Byte.addNamed(writer, "bed_works", 1);
-    //    try nbt.String.addNamed(writer, "effects", "minecraft:overworld");
-    //    try nbt.Byte.addNamed(writer, "has_raids", 1);
-    //    try nbt.Int.addNamed(writer, "min_y", -64);
-    //    try nbt.Int.addNamed(writer, "height", 384);
-    //    try nbt.Int.addNamed(writer, "logical_height", 384);
-    //    try nbt.Float.addNamed(writer, "coordinate_scale", 1);
-    //    try nbt.Byte.addNamed(writer, "ultrawarm", 0);
-    //    try nbt.Byte.addNamed(writer, "has_ceiling", 0);
-    //}
-
-    //return types.NBT{ .blob = writer.context.getWritten() };
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return types.NBT{ .blob = blob };
 }
 
 fn genHeighmapBlob(allocator: Allocator) !types.NBT {
@@ -577,43 +368,95 @@ fn genHeighmapBlob(allocator: Allocator) !types.NBT {
         try nbt.LongArray.addNamed(writer, "MOTION_BLOCKING", &array_values);
     }
 
-    return types.NBT{ .blob = writer.context.getWritten() };
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return types.NBT{ .blob = blob };
 }
 
+// huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
 fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
-    return writer.context.getWritten();
 
-    //// see https://wiki.vg/Chunk_Format#Chunk_Section_structure for more information
+    // see https://wiki.vg/Chunk_Format#Chunk_Section_structure for more information
 
-    //const block_ids_palette = [_]i32{
-    //    0x00, 0x01, 0x09, 0x0a, 0x0e, 0x0f, 0x15, 0x21,
-    //};
+    const block_ids_palette = [_]i32{
+        0x00, // air
+        0x01, // stone
+        0x09, // grass block
+        0x0a, // dirt
+        0x0e, // cobblestone
+        0x0f, // planks
+        0x15, // sapling
+        0x21, // bedrock
+        0x31, // water
+        0x41, // lava
+        0x42, // sand
+        0x44, // gravel
+        0x45, // gold ore
+        0x47, // iron ore
+        0x49, // coal ore
+        0x4d, // wood
+        0x94, // leaves
+        0x104, // sponge
+        0x106, // glass
+        0x107, // lapis ore
+        0x109,
+        0x116, // sandstone
+        0x576, // tallgrass
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+    };
 
-    //try writer.writeIntBig(i16, 1); // number of non-air blocks
-    //{ // block states (paletted container)
-    //    try writer.writeByte(8); // bits per entry
-    //    { // palette
-    //        try types.VarInt.encode(writer, @intCast(i32, block_ids_palette.len));
-    //        for (block_ids_palette) |entry| try types.VarInt.encode(writer, entry);
-    //    }
+    try writer.writeIntBig(i16, 0x7fff); // number of non-air blocks
+    { // block states (paletted container)
+        try writer.writeByte(8); // bits per block
+        { // palette
+            try types.VarInt.encode(writer, @intCast(i32, block_ids_palette.len));
+            for (block_ids_palette) |entry| try types.VarInt.encode(writer, entry);
+        }
 
-    //    const data_array = [_]u8{1} ** (16 * 0x100);
-    //    try types.VarInt.encode(writer, @intCast(i32, data_array.len));
-    //    for (data_array) |entry| try writer.writeIntBig(u8, entry);
-    //}
+        // 4096 entries (# of blocks in chunk section)
+        const data_array = [_]u8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} ** (0x100);
+        try types.VarInt.encode(writer, @intCast(i32, 0x200)); // 0x200=8004 ???? (not 0x1000??)
+        //try types.VarInt.encode(writer, @intCast(i32, data_array.len));
+        for (data_array) |entry| try writer.writeIntBig(u8, entry);
+    }
 
-    //{ // biomes (paletted container)
-    //    try writer.writeIntBig(u16, 0x0001); // palette ??
-    //    const biomes = [_]u64{1} ** 26;
-    //    for (biomes) |entry| try writer.writeIntBig(u64, entry);
+    { // biomes (paletted container)
+        try writer.writeByte(0); // bits per block
+        { // palette
+            try types.VarInt.encode(writer, 1); // plains
+        }
+        const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
+        for (biomes) |entry| try writer.writeIntBig(u64, entry);
+    }
 
-    //    //try writer.writeByte(4); // bits per entry
-    //    //try types.VarInt.encode(writer, 1); // single value palette (oops! all plains!)
-    //    //try types.VarInt.encode(writer, 64); // data array length
-    //    //// data array
-    //}
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return blob;
+}
 
-    //return writer.context.getWritten();
+/// usefull for testing
+fn cmp_slices_test(testing: []const u8, ground_truth: []const u8) bool {
+    if (testing.len != ground_truth.len) {
+        std.debug.print("different lengths: {} should be {}\n", .{ testing.len, ground_truth.len });
+        return false;
+    }
+    for (testing) |byte, i| {
+        if (byte != ground_truth[i]) {
+            std.debug.print(
+                "byte 0x{x} is different: 0x{x} should be 0x{x}\n",
+                .{ i, byte, ground_truth[i] },
+            );
+            return false;
+        }
+    }
+    return true;
 }

@@ -18,8 +18,6 @@ pub const Packet = union(enum) {
     pub fn encode(self: Packet, writer: anytype) !void {
         const raw_id = self.rawDataId();
         const packet_size = VarInt.encodedSize(raw_id) + self.encodedDataSize();
-        std.debug.print("Packet active tag = {}\n", .{std.meta.activeTag(self)});
-        std.debug.print("raw_id={}, packet_size={}\n", .{ raw_id, packet_size });
 
         try VarInt.encode(writer, @intCast(i32, packet_size));
         try VarInt.encode(writer, raw_id);
@@ -180,7 +178,7 @@ pub const PlayData = union(PlayId) {
     chunk_data_and_update_light: struct {
         chunk_x: i32,
         chunk_z: i32,
-        heigtmaps: NBT,
+        heightmaps: NBT,
         size: VarInt,
         data: []u8,
         number_of_block_entities: VarInt = VarInt{ .value = 0 },
@@ -194,6 +192,7 @@ pub const PlayData = union(PlayId) {
         sky_light_mask: u8,
         block_light_mask: u8,
         empty_sky_light_mask: u8,
+        empty_block_light_mask: u8,
         sky_light_array_count: VarInt = VarInt{ .value = 0 },
         //sky_light_arrays: []struct {
         //    length: VarInt,
