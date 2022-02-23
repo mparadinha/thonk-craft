@@ -90,11 +90,11 @@ pub const Position = struct {
     }
 
     pub fn decode(reader: anytype) !Position {
-        const as_int64 = try reader.readIntBig(i64);
+        const as_uint = try reader.readIntBig(u64);
         return Position{
-            .x = @intCast(i26, (as_int64 & 0xffff_fff0_0000_0000) >> 38),
-            .y = @intCast(i12, (as_int64 & 0x0000_000f_f000_0000) >> 26),
-            .z = @intCast(i26, (as_int64 & 0x0000_0000_0fff_ffff)),
+            .x = @bitCast(i26, @truncate(u26, (as_uint & 0xffff_ffc0_0000_0000) >> 38)),
+            .y = @bitCast(i12, @truncate(u12, (as_uint & 0x0000_003f_fc00_0000) >> 26)),
+            .z = @bitCast(i26, @truncate(u26, (as_uint & 0x0000_0000_03ff_ffff))),
         };
     }
 };

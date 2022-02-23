@@ -6,6 +6,7 @@ const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
 const VarInt = types.VarInt;
 const String = types.String;
+const Position = types.Position;
 const State = @import("main.zig").State;
 
 pub const Packet = union(enum) {
@@ -71,7 +72,8 @@ pub fn genericDecodeData(comptime DataType: type, reader: anytype, allocator: Al
             VarInt => try VarInt.decode(reader),
             String => try String.decode(reader, allocator),
             State => @intToEnum(State, (try VarInt.decode(reader)).value),
-            else => @panic("TODO decode type " ++ @typeName(field.field_type)),
+            Position => try Position.decode(reader),
+            else => @compileError("TODO decode type " ++ @typeName(field.field_type)),
         };
     }
 
@@ -150,11 +152,14 @@ pub const PlayId = enum(u7) {
     teleport_confirm = 0x00,
     client_settings = 0x05,
     plugin_message = 0x0a,
+    keep_alive = 0x0f,
     player_position = 0x11,
     player_position_and_rotation = 0x12,
     player_rotation = 0x13,
     player_abilities = 0x19,
+    player_digging = 0x1a,
     entity_action = 0x1b,
+    animation = 0x2c,
 };
 
 pub const PlayData = union(PlayId) {
@@ -176,6 +181,9 @@ pub const PlayData = union(PlayId) {
         allow_server_listing: bool,
     },
     plugin_message: void,
+    keep_alive: struct {
+        keep_alive_id: i64,
+    },
     player_position: struct {
         x: f64,
         feet_y: f64,
@@ -199,10 +207,19 @@ pub const PlayData = union(PlayId) {
         /// bit mask, 0x02 = is flying.
         flags: i8,
     },
+    player_digging: struct {
+        status: VarInt, // enum. see: https://wiki.vg/Protocol#Player_Digging
+        location: Position,
+        /// values 0 to 5 map to: -Y, +Y, -Z, +Z, -X, +X
+        face: i8,
+    },
     entity_action: struct {
         entity_id: VarInt,
         action_id: VarInt, // enum. see: https://wiki.vg/Protocol#Entity_Action
         jump_boost: VarInt,
+    },
+    animation: struct {
+        hand: VarInt, // 0 for main hand, 1 for off hand
     },
 
     pub fn decode(id: PlayId, reader: anytype, allocator: Allocator) !PlayData {
@@ -212,11 +229,14 @@ pub const PlayData = union(PlayId) {
             .teleport_confirm => return genericDecodeById(PlayData, .teleport_confirm, reader, allocator),
             .client_settings => return genericDecodeById(PlayData, .client_settings, reader, allocator),
             .plugin_message => return genericDecodeById(PlayData, .plugin_message, reader, allocator),
+            .keep_alive => return genericDecodeById(PlayData, .keep_alive, reader, allocator),
             .player_position => return genericDecodeById(PlayData, .player_position, reader, allocator),
             .player_position_and_rotation => return genericDecodeById(PlayData, .player_position_and_rotation, reader, allocator),
             .player_rotation => return genericDecodeById(PlayData, .player_rotation, reader, allocator),
             .player_abilities => return genericDecodeById(PlayData, .player_abilities, reader, allocator),
+            .player_digging => return genericDecodeById(PlayData, .player_digging, reader, allocator),
             .entity_action => return genericDecodeById(PlayData, .entity_action, reader, allocator),
+            .animation => return genericDecodeById(PlayData, .animation, reader, allocator),
         }
     }
 };

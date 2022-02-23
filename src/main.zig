@@ -25,13 +25,6 @@ pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
 
-    { // dump nbt data for debugging
-        const tmp_file = try std.fs.cwd().createFile("my_nbt_dump.nbt", .{});
-        defer tmp_file.close();
-        const nbt_dump = try genDimensionCodecBlob(gpa);
-        _ = try tmp_file.write(nbt_dump.blob);
-    }
-
     var server = StreamServer.init(.{
         // I shouldn't need this here. but sometimes we crash and this way we don't have
         // to wait for timeout after TIME_WAIT to run the program again.
@@ -43,7 +36,6 @@ pub fn main() !void {
     try server.listen(local_server_ip);
     std.debug.print("listening on localhost:{d}...\n", .{local_server_ip.getPort()});
     defer server.close();
-    errdefer server.close();
 
     while (true) {
         std.debug.print("waiting for connection...\n", .{});
@@ -58,17 +50,46 @@ pub fn main() !void {
     }
 }
 
+var waiting_for_client_keep_alive = false;
+var last_keep_alive_id_sent: i64 = undefined;
+fn keep_alive_loop(connection: StreamServer.Connection, is_alive: *bool) !void {
+    while (true) {
+        const time_of_send = std.time.milliTimestamp();
+        try send_packet_data(connection, server_packets.PlayData{ .keep_alive = .{
+            .keep_alive_id = time_of_send,
+        } });
+        waiting_for_client_keep_alive = true;
+        last_keep_alive_id_sent = time_of_send;
+
+        std.time.sleep(20 * std.time.ns_per_s);
+
+        // TODO: check that the last keep alive was reciprocated by client
+    }
+    is_alive.* = false;
+}
+
 fn handleConnection(connection: StreamServer.Connection, allocator: Allocator) !void {
     var state = State.handshaking;
+
+    var is_alive = true;
+    var keep_alive_thread: ?std.Thread = null;
+    defer if (keep_alive_thread) |thread| thread.join();
 
     while (true) {
         var peek_conn_stream = std.io.peekStream(1, connection.stream.reader());
         var reader = peek_conn_stream.reader();
 
+        if (state == State.play and keep_alive_thread == null) {
+            std.debug.print("spawning new keep alive loop thread\n", .{});
+            keep_alive_thread = try std.Thread.spawn(.{}, keep_alive_loop, .{ connection, &is_alive });
+        }
+
         std.debug.print("waiting for data from connection...\n", .{});
 
-        // handle legacy ping
         const first_byte = try peek_conn_stream.reader().readByte();
+        try peek_conn_stream.putBackByte(first_byte);
+
+        // handle legacy ping
         if (first_byte == 0xfe and state == State.handshaking) {
             std.debug.print("got a legacy ping packet. sending kick packet...\n", .{});
             var kick_packet_data = [_]u8{
@@ -83,7 +104,6 @@ fn handleConnection(connection: StreamServer.Connection, allocator: Allocator) !
             _ = try connection.stream.write(&kick_packet_data);
             break;
         }
-        try peek_conn_stream.putBackByte(first_byte);
 
         const packet = try ClientPacket.decode(reader, allocator, state);
 
@@ -275,6 +295,15 @@ fn handlePlayPacket(
         },
         .player_position => |data| {
             std.debug.print("player_position=({}, {}, {}, on_ground={})\n", data);
+        },
+        .player_digging => |data| {
+            std.debug.print("digging {{status={}, location={}, face={}}}\n", .{
+                data.status.value, data.location, data.face
+            });
+        },
+        .animation => |data| {
+            const hand = if (data.hand.value == 0) "main hand"  else "off hand";
+            std.debug.print("animation: {s}\n", .{hand});
         },
 
         // ignore everything else right now, cause our server doesn't do shit yet
