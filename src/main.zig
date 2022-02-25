@@ -9,6 +9,7 @@ const client_packets = @import("client_packets.zig");
 const ClientPacket = client_packets.Packet;
 const server_packets = @import("server_packets.zig");
 const ServerPacket = server_packets.Packet;
+const Session = @import("Session.zig");
 
 pub const State = enum(u8) {
     /// All connection start in this state. Not part of the protocol.
@@ -24,22 +25,49 @@ pub const State = enum(u8) {
 
 /// contains all global state of the server. info on player connections, as well as the actual
 /// minecraft world data
-var server_state = (struct {
+pub const ServerState = struct {
     world_state: WorldState,
-    connections: []Connection,
-}){};
+};
+
+pub const EntityPos = struct { x: f32, feet_y: f32, z: f32 };
 
 /// all the actual 'stuff' in a minecraft world. player info, block/chunks info, etc.
-pub const WorldState = struct {};
+/// note: don't modify directly, use member functions to be thread-safe
+pub const WorldState = struct {
+    the_chunk: [4096]BlockId,
+    mutex: std.Thread.Mutex,
+    players: std.ArrayList(EntityPos),
+
+    /// `x`, `y` and `z` are the block coords relative to the chunk section
+    pub fn changeBlock(self: *WorldState, x: u4, y: u4, z: u4, new_id: BlockId) void {
+        self.mutex.lock();
+        defer self.mutex.release();
+        self.the_chunk[y * 64 + z * 16 + x] = new_id;
+    }
+
+    pub fn removeBlock(self: *WorldState, x: u4, y: u4, z: u4) void {
+        self.changeBlock(x, y, z, BlockId.air);
+    }
+};
+
+const BlockId = enum(u15) {
+    air = 0,
+    stone = 1,
+    dirt = 10,
+    glass = 106,
+};
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
 
-    {
-        const tmp_file = try std.fs.cwd().createFile("dimension_codec.nbt", .{});
-        defer tmp_file.close();
-        _ = try tmp_file.write(&@import("binary_blobs.zig").witchcraft_dimension_codec_nbt);
+    var world_state = WorldState{
+        .the_chunk = [_]BlockId{.stone} ** 4096,
+        .mutex = std.Thread.Mutex{},
+        .players = std.ArrayList(EntityPos).init(gpa),
+    };
+    defer {
+        world_state.players.deinit();
     }
 
     var server = StreamServer.init(.{
@@ -54,304 +82,13 @@ pub fn main() !void {
     std.debug.print("listening on localhost:{d}...\n", .{local_server_ip.getPort()});
     defer server.close();
 
-    var threads = std.ArrayList(std.Thread).init(gpa);
-
     while (true) {
         std.debug.print("waiting for connection...\n", .{});
         const connection = try server.accept();
-        //defer connection.stream.close();
         std.debug.print("connection: {}\n", .{connection});
 
-        const thread = try std.Thread.spawn(.{}, handle_and_close_connection, .{ connection, gpa });
-        try threads.append(thread);
-    }
-
-    for (threads) |thread| thread.join();
-}
-
-fn handle_and_close_connection(connection: Connection, allocator: Allocator) void {
-    defer connection.stream.close();
-    handleConnection(connection, allocator) catch |err| {
-        std.debug.print("handleConnection returned err={}\n", .{err});
-    };
-    std.debug.print("connection closed\n", .{});
-    //handleConnection(connection, gpa) catch |err| switch (err) {
-    //    error.EndOfStream => {},
-    //    else => return err,
-    //};
-}
-
-//var waiting_for_client_keep_alive = false;
-//var last_keep_alive_id_sent: i64 = undefined;
-//fn keep_alive_loop(connection: Connection, is_alive: *bool) !void {
-//    while (true) {
-//        const time_of_send = std.time.milliTimestamp();
-//        send_packet_data(connection, server_packets.PlayData{ .keep_alive = .{
-//            .keep_alive_id = time_of_send,
-//        } }) catch {
-//            is_alive.* = false;
-//            return;
-//        };
-//        waiting_for_client_keep_alive = true;
-//        last_keep_alive_id_sent = time_of_send;
-//
-//        std.time.sleep(20 * std.time.ns_per_s);
-//
-//        // TODO: check that the last keep alive was reciprocated by client
-//    }
-//    is_alive.* = false;
-//}
-
-fn handleConnection(connection: Connection, allocator: Allocator) !void {
-    var state = State.handshaking;
-
-    //var is_alive = true;
-    //var keep_alive_thread: ?std.Thread = null;
-    //defer if (keep_alive_thread) |thread| thread.join();
-
-    //while (is_alive) {
-    while (true) {
-        var peek_conn_stream = std.io.peekStream(1, connection.stream.reader());
-        var reader = peek_conn_stream.reader();
-
-        //if (state == State.play and keep_alive_thread == null) {
-        //    std.debug.print("spawning new keep alive loop thread\n", .{});
-        //    keep_alive_thread = try std.Thread.spawn(.{}, keep_alive_loop, .{ connection, &is_alive });
-        //}
-        if (state == State.play) {
-            try send_packet_data(connection, server_packets.PlayData{
-                .keep_alive = .{
-                    .keep_alive_id = 4, // xkcd.com/221
-                },
-            });
-        }
-
-        std.debug.print("waiting for data from connection...\n", .{});
-
-        const first_byte = try peek_conn_stream.reader().readByte();
-        try peek_conn_stream.putBackByte(first_byte);
-
-        // handle legacy ping
-        if (first_byte == 0xfe and state == State.handshaking) {
-            std.debug.print("got a legacy ping packet. sending kick packet...\n", .{});
-            var kick_packet_data = [_]u8{
-                0xff, // kick packet ID
-                0x00, 0x0c, // length of string (big endian u16)
-                0x00, '§', 0x00, '1', 0x00, 0x00, // string start ("§1")
-                0x00, '7', 0x00, '2', 0x00, '1', 0x00, 0x00, // protocol version ("127")
-                0x00, 0x00, // message of the day ("")
-                0x00, '0', 0x00, 0x00, // current player count ("0")
-                0x00, '0', 0x00, 0x00, // max players ("0")
-            };
-            _ = try connection.stream.write(&kick_packet_data);
-            break;
-        }
-
-        const packet = try ClientPacket.decode(reader, allocator, state);
-
-        const inner_tag_name = switch (packet) {
-            .handshaking => |data| @tagName(data),
-            .status => |data| @tagName(data),
-            .login => |data| @tagName(data),
-            .play => |data| @tagName(data),
-        };
-        std.debug.print("got a {s}::{s} packet\n", .{ @tagName(packet), inner_tag_name });
-
-        switch (packet) {
-            .handshaking => |data| try handleHandshakingPacket(data, &state, connection, allocator),
-            .status => |data| try handleStatusPacket(data, &state, connection, allocator),
-            .login => |data| try handleLoginPacket(data, &state, connection, allocator),
-            .play => |data| try handlePlayPacket(data, &state, connection, allocator),
-        }
-
-        if (state == State.close_connection) break;
-    }
-}
-
-fn handleHandshakingPacket(
-    packet_data: std.meta.TagPayload(ClientPacket, .handshaking),
-    state: *State,
-    connection: Connection,
-    allocator: Allocator,
-) !void {
-    _ = connection;
-    _ = allocator;
-    switch (packet_data) {
-        .handshake => |data| {
-            state.* = data.next_state;
-        },
-    }
-}
-
-fn handleStatusPacket(
-    packet_data: std.meta.TagPayload(ClientPacket, .status),
-    state: *State,
-    connection: Connection,
-    allocator: Allocator,
-) !void {
-    _ = state;
-    _ = allocator;
-
-    switch (packet_data) {
-        .request => {
-            const response_str_fmt =
-                \\{{
-                \\    "version": {{
-                \\        "name": "1.18.1",
-                \\        "protocol": 757
-                \\    }},
-                \\    "players": {{
-                \\        "max": 420,
-                \\        "online": 69
-                \\    }},
-                \\    "description": {{
-                \\        "text": "rly makes u think (powered by Zig!)"
-                \\    }},
-                \\    "favicon": "data:image/png;base64,{s}"
-                \\}}
-            ;
-            const thonk_png_data = @embedFile("../thonk_64x64.png");
-            var base64_buffer: [0x4000]u8 = undefined;
-            const base64_png = std.base64.standard.Encoder.encode(&base64_buffer, thonk_png_data);
-            var tmpbuf: [0x4000]u8 = undefined;
-            const response_str = try std.fmt.bufPrint(&tmpbuf, response_str_fmt, .{base64_png});
-
-            try sendPacket(connection, ServerPacket{ .status = .{ .response = .{
-                .json_response = types.String{ .value = response_str },
-            } } });
-        },
-        .ping => |data| {
-            try sendPacket(connection, ServerPacket{ .status = .{ .pong = .{
-                .payload = data.payload,
-            } } });
-            state.* = .close_connection;
-        },
-    }
-}
-
-fn handleLoginPacket(
-    packet_data: std.meta.TagPayload(ClientPacket, .login),
-    state: *State,
-    connection: Connection,
-    allocator: Allocator,
-) !void {
-    _ = allocator;
-
-    // https://wiki.vg/Protocol#Login
-    switch (packet_data) {
-        .login_start => |data| {
-            std.debug.print("player name: {s}\n", .{data.name.value});
-
-            // start the login sequence.
-            // see "https://wiki.vg/Protocol_FAQ#What.27s_the_normal_login_sequence_for_a_client.3F"
-            // more information.
-
-            try sendPacket(connection, ServerPacket{ .login = .{ .login_success = .{
-                .uuid = 0,
-                .username = try types.String.fromLiteral(allocator, "OfflinePlayer"),
-            } } });
-            state.* = .play;
-
-            try send_login_packets(connection, allocator);
-        },
-    }
-}
-
-fn send_login_packets(connection: Connection, allocator: Allocator) !void {
-    const blobs = @import("binary_blobs.zig");
-    _ = blobs;
-
-    var overworld_id = types.String{ .value = "minecraft:overworld" };
-    var dimension_names = [_]types.String{overworld_id};
-    try send_packet_data(connection, server_packets.PlayData{ .join_game = .{
-        .entity_id = 0,
-        .is_hardcore = false,
-        .gamemode = 1,
-        .previous_gamemode = 1,
-        .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
-        .dimension_names = &dimension_names,
-        .dimension_codec = try genDimensionCodecBlob(allocator),
-        .dimension = try genDimensionBlob(allocator),
-        .dimension_name = overworld_id,
-        .hashed_seed = 0,
-        .max_players = types.VarInt{ .value = 420 },
-        .view_distance = types.VarInt{ .value = 10 },
-        .simulation_distance = types.VarInt{ .value = 10 },
-        .reduced_debug_info = false,
-        .enable_respawn = false,
-        .is_debug = false,
-        .is_flat = true,
-    } });
-
-    const test_chunk_data = try genSingleChunkSectionDataBlob(allocator);
-    defer allocator.free(test_chunk_data);
-    const chunk_positions = [_][2]i32{
-        // zig fmt: off
-        [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
-        [2]i32{  0, -1 }, [2]i32{  0, 0 }, [2]i32{  0, 1 },
-        [2]i32{  1, -1 }, [2]i32{  1, 0 }, [2]i32{  1, 1 },
-        // zig fmt: on
-    };
-    for (chunk_positions) |pos| {
-        const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-            try genSingleBlockTypeChunkSection(allocator, 0x01) else test_chunk_data;
-        const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
-            .chunk_x = pos[0],
-            .chunk_z = pos[1],
-            .heightmaps = try genHeighmapBlob(allocator),
-            .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
-            .data = chunk_data,
-            .trust_edges = true,
-            .sky_light_mask = 0,
-            .block_light_mask = 0,
-            .empty_sky_light_mask = 0,
-            .empty_block_light_mask = 0,
-        } };
-        defer allocator.free(data.chunk_data_and_update_light.heightmaps.blob);
-        try send_packet_data(connection, data);
-    }
-
-    try send_packet_data(connection, server_packets.PlayData{ .player_position_and_look = .{
-        .x = 0,
-        .y = 0,
-        .z = 0,
-        .yaw = 0,
-        .pitch = 0,
-        .flags = 0,
-        .teleport_id = types.VarInt{ .value = 0 },
-        .dismount_vehicle = false,
-    } });
-}
-
-fn handlePlayPacket(
-    packet_data: std.meta.TagPayload(ClientPacket, .play),
-    state: *State,
-    connection: Connection,
-    allocator: Allocator,
-) !void {
-    _ = state;
-    _ = connection;
-    _ = allocator;
-
-    switch (packet_data) {
-        .teleport_confirm => |data| {
-            std.debug.print("teleport_id={d}\n", .{data.teleport_id});
-        },
-        .player_position => |data| {
-            std.debug.print("player_position=({}, {}, {}, on_ground={})\n", data);
-        },
-        .player_digging => |data| {
-            std.debug.print("digging {{status={}, location={}, face={}}}\n", .{
-                data.status.value, data.location, data.face
-            });
-        },
-        .animation => |data| {
-            const hand = if (data.hand.value == 0) "main hand"  else "off hand";
-            std.debug.print("animation: {s}\n", .{hand});
-        },
-
-        // ignore everything else right now, cause our server doesn't do shit yet
-        else => {},
+        const thread = try std.Thread.spawn(.{}, Session.start, .{ connection, gpa, &world_state });
+        thread.detach();
     }
 }
 
@@ -364,7 +101,7 @@ fn handlePlayPacket(
 // send `ServerPacket.play` packets using the a normal `sendPacket` function.
 // (this is a known stage1 bug with deeply nested annonymous structures)
 // I have no idea why only that specific enum in the ServerPacket union crashes though.
-fn send_packet_data(connection: Connection, data: anytype) !void {
+pub fn sendPacketData(connection: Connection, data: anytype) !void {
     std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
     try encode_packet_data(connection.stream.writer(), data);
     std.debug.print("done.\n", .{});
@@ -391,13 +128,13 @@ fn sendPacket(connection: Connection, packet: ServerPacket) !void {
     std.debug.print("done.\n", .{});
 }
 
-fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
+pub fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
     const blob = @import("binary_blobs.zig").witchcraft_dimension_codec_nbt;
     return types.NBT{ .blob = try allocator.dupe(u8, &blob) };
 }
 
 // same as overworld element in dimension codec for now
-fn genDimensionBlob(allocator: Allocator) !types.NBT {
+pub fn genDimensionBlob(allocator: Allocator) !types.NBT {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
 
@@ -427,7 +164,7 @@ fn genDimensionBlob(allocator: Allocator) !types.NBT {
     return types.NBT{ .blob = blob };
 }
 
-fn genHeighmapBlob(allocator: Allocator) !types.NBT {
+pub fn genHeighmapBlob(allocator: Allocator) !types.NBT {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
 
@@ -447,7 +184,7 @@ fn genHeighmapBlob(allocator: Allocator) !types.NBT {
 }
 
 // huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
-fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
+pub fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
 
@@ -496,7 +233,7 @@ fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
         }
 
         // 4096 entries (# of blocks in chunk section)
-        const data_array = [_]u8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} ** (0x100);
+        const data_array = [_]u8{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 } ** (0x100);
         // `data array length` is the number of *longs* in the array
         const data_array_len = @sizeOf(@TypeOf(data_array)) / @sizeOf(u64);
         //try types.VarInt.encode(writer, @intCast(i32, 0x200)); // 0x200=8004 ???? (not 0x1000??)
@@ -522,7 +259,7 @@ fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
     return blob;
 }
 
-fn genSingleBlockTypeChunkSection(allocator: Allocator, global_palette_block_id: u15) ![]u8 {
+pub fn genSingleBlockTypeChunkSection(allocator: Allocator, global_palette_block_id: u15) ![]u8 {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
 

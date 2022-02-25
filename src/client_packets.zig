@@ -17,32 +17,38 @@ pub const Packet = union(enum) {
 
     const Self = @This();
 
+    pub const DecodeError = error{UnknownId};
+
     /// Call `deinit` to cleanup resources.
     pub fn decode(reader: anytype, allocator: Allocator, state: State) !Packet {
         const id_data_len = (try VarInt.decode(reader)).value;
         const raw_id = (try VarInt.decode(reader)).value;
+        const data_len = @intCast(usize, id_data_len - types.VarInt.encodedSize(raw_id));
         std.debug.print("raw_id=0x{x}\n", .{raw_id});
 
         switch (state) {
             .handshaking => {
-                const id = @intToEnum(HandshakingId, raw_id);
+                const id = std.meta.intToEnum(HandshakingId, raw_id) catch unreachable;
                 return Packet{ .handshaking = try HandshakingData.decode(id, reader, allocator) };
             },
             .status => {
-                const id = @intToEnum(StatusId, raw_id);
+                const id = std.meta.intToEnum(StatusId, raw_id) catch unreachable;
                 return Packet{ .status = try StatusData.decode(id, reader, allocator) };
             },
             .login => {
-                const id = @intToEnum(LoginId, raw_id);
+                const id = std.meta.intToEnum(LoginId, raw_id) catch {
+                    std.debug.print("unknown login packet (id=0x{x}). skiping.\n", .{raw_id});
+                    try reader.skipBytes(data_len, .{});
+                    return DecodeError.UnknownId;
+                };
                 return Packet{ .login = try LoginData.decode(id, reader, allocator) };
             },
             .play => {
-                const id = @intToEnum(PlayId, raw_id);
-                // ignore these packets for now, we don't need them yet
-                if (id == PlayId.plugin_message) {
-                    try reader.skipBytes(@intCast(u64, id_data_len - VarInt.encodedSize(raw_id)), .{});
-                    return Packet{ .play = .{ .plugin_message = {} } };
-                }
+                const id = std.meta.intToEnum(PlayId, raw_id) catch {
+                    std.debug.print("unknown play packet (id=0x{x}). skiping.\n", .{raw_id});
+                    try reader.skipBytes(data_len, .{});
+                    return DecodeError.UnknownId;
+                };
                 return Packet{ .play = try PlayData.decode(id, reader, allocator) };
             },
             else => unreachable,
@@ -151,7 +157,6 @@ pub const LoginData = union(LoginId) {
 pub const PlayId = enum(u7) {
     teleport_confirm = 0x00,
     client_settings = 0x05,
-    plugin_message = 0x0a,
     keep_alive = 0x0f,
     player_position = 0x11,
     player_position_and_rotation = 0x12,
@@ -180,7 +185,6 @@ pub const PlayData = union(PlayId) {
         enable_text_filtering: bool,
         allow_server_listing: bool,
     },
-    plugin_message: void,
     keep_alive: struct {
         keep_alive_id: i64,
     },
@@ -228,7 +232,6 @@ pub const PlayData = union(PlayId) {
         switch (id) {
             .teleport_confirm => return genericDecodeById(PlayData, .teleport_confirm, reader, allocator),
             .client_settings => return genericDecodeById(PlayData, .client_settings, reader, allocator),
-            .plugin_message => return genericDecodeById(PlayData, .plugin_message, reader, allocator),
             .keep_alive => return genericDecodeById(PlayData, .keep_alive, reader, allocator),
             .player_position => return genericDecodeById(PlayData, .player_position, reader, allocator),
             .player_position_and_rotation => return genericDecodeById(PlayData, .player_position_and_rotation, reader, allocator),
