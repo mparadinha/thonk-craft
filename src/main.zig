@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const StreamServer = std.net.StreamServer;
+const Connection = StreamServer.Connection;
 
 const types = @import("types.zig");
 const nbt = @import("nbt.zig");
@@ -21,9 +22,25 @@ pub const State = enum(u8) {
     close_connection,
 };
 
+/// contains all global state of the server. info on player connections, as well as the actual
+/// minecraft world data
+var server_state = (struct {
+    world_state: WorldState,
+    connections: []Connection,
+}){};
+
+/// all the actual 'stuff' in a minecraft world. player info, block/chunks info, etc.
+pub const WorldState = struct {};
+
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const gpa = general_purpose_allocator.allocator();
+
+    {
+        const tmp_file = try std.fs.cwd().createFile("dimension_codec.nbt", .{});
+        defer tmp_file.close();
+        _ = try tmp_file.write(&@import("binary_blobs.zig").witchcraft_dimension_codec_nbt);
+    }
 
     var server = StreamServer.init(.{
         // I shouldn't need this here. but sometimes we crash and this way we don't have
@@ -37,51 +54,76 @@ pub fn main() !void {
     std.debug.print("listening on localhost:{d}...\n", .{local_server_ip.getPort()});
     defer server.close();
 
+    var threads = std.ArrayList(std.Thread).init(gpa);
+
     while (true) {
         std.debug.print("waiting for connection...\n", .{});
         const connection = try server.accept();
-        defer connection.stream.close();
+        //defer connection.stream.close();
         std.debug.print("connection: {}\n", .{connection});
 
-        handleConnection(connection, gpa) catch |err| switch (err) {
-            error.EndOfStream => {},
-            else => return err,
-        };
+        const thread = try std.Thread.spawn(.{}, handle_and_close_connection, .{ connection, gpa });
+        try threads.append(thread);
     }
+
+    for (threads) |thread| thread.join();
 }
 
-var waiting_for_client_keep_alive = false;
-var last_keep_alive_id_sent: i64 = undefined;
-fn keep_alive_loop(connection: StreamServer.Connection, is_alive: *bool) !void {
-    while (true) {
-        const time_of_send = std.time.milliTimestamp();
-        try send_packet_data(connection, server_packets.PlayData{ .keep_alive = .{
-            .keep_alive_id = time_of_send,
-        } });
-        waiting_for_client_keep_alive = true;
-        last_keep_alive_id_sent = time_of_send;
-
-        std.time.sleep(20 * std.time.ns_per_s);
-
-        // TODO: check that the last keep alive was reciprocated by client
-    }
-    is_alive.* = false;
+fn handle_and_close_connection(connection: Connection, allocator: Allocator) void {
+    defer connection.stream.close();
+    handleConnection(connection, allocator) catch |err| {
+        std.debug.print("handleConnection returned err={}\n", .{err});
+    };
+    std.debug.print("connection closed\n", .{});
+    //handleConnection(connection, gpa) catch |err| switch (err) {
+    //    error.EndOfStream => {},
+    //    else => return err,
+    //};
 }
 
-fn handleConnection(connection: StreamServer.Connection, allocator: Allocator) !void {
+//var waiting_for_client_keep_alive = false;
+//var last_keep_alive_id_sent: i64 = undefined;
+//fn keep_alive_loop(connection: Connection, is_alive: *bool) !void {
+//    while (true) {
+//        const time_of_send = std.time.milliTimestamp();
+//        send_packet_data(connection, server_packets.PlayData{ .keep_alive = .{
+//            .keep_alive_id = time_of_send,
+//        } }) catch {
+//            is_alive.* = false;
+//            return;
+//        };
+//        waiting_for_client_keep_alive = true;
+//        last_keep_alive_id_sent = time_of_send;
+//
+//        std.time.sleep(20 * std.time.ns_per_s);
+//
+//        // TODO: check that the last keep alive was reciprocated by client
+//    }
+//    is_alive.* = false;
+//}
+
+fn handleConnection(connection: Connection, allocator: Allocator) !void {
     var state = State.handshaking;
 
-    var is_alive = true;
-    var keep_alive_thread: ?std.Thread = null;
-    defer if (keep_alive_thread) |thread| thread.join();
+    //var is_alive = true;
+    //var keep_alive_thread: ?std.Thread = null;
+    //defer if (keep_alive_thread) |thread| thread.join();
 
+    //while (is_alive) {
     while (true) {
         var peek_conn_stream = std.io.peekStream(1, connection.stream.reader());
         var reader = peek_conn_stream.reader();
 
-        if (state == State.play and keep_alive_thread == null) {
-            std.debug.print("spawning new keep alive loop thread\n", .{});
-            keep_alive_thread = try std.Thread.spawn(.{}, keep_alive_loop, .{ connection, &is_alive });
+        //if (state == State.play and keep_alive_thread == null) {
+        //    std.debug.print("spawning new keep alive loop thread\n", .{});
+        //    keep_alive_thread = try std.Thread.spawn(.{}, keep_alive_loop, .{ connection, &is_alive });
+        //}
+        if (state == State.play) {
+            try send_packet_data(connection, server_packets.PlayData{
+                .keep_alive = .{
+                    .keep_alive_id = 4, // xkcd.com/221
+                },
+            });
         }
 
         std.debug.print("waiting for data from connection...\n", .{});
@@ -129,7 +171,7 @@ fn handleConnection(connection: StreamServer.Connection, allocator: Allocator) !
 fn handleHandshakingPacket(
     packet_data: std.meta.TagPayload(ClientPacket, .handshaking),
     state: *State,
-    connection: StreamServer.Connection,
+    connection: Connection,
     allocator: Allocator,
 ) !void {
     _ = connection;
@@ -144,7 +186,7 @@ fn handleHandshakingPacket(
 fn handleStatusPacket(
     packet_data: std.meta.TagPayload(ClientPacket, .status),
     state: *State,
-    connection: StreamServer.Connection,
+    connection: Connection,
     allocator: Allocator,
 ) !void {
     _ = state;
@@ -190,7 +232,7 @@ fn handleStatusPacket(
 fn handleLoginPacket(
     packet_data: std.meta.TagPayload(ClientPacket, .login),
     state: *State,
-    connection: StreamServer.Connection,
+    connection: Connection,
     allocator: Allocator,
 ) !void {
     _ = allocator;
@@ -215,7 +257,7 @@ fn handleLoginPacket(
     }
 }
 
-fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator) !void {
+fn send_login_packets(connection: Connection, allocator: Allocator) !void {
     const blobs = @import("binary_blobs.zig");
     _ = blobs;
 
@@ -241,8 +283,8 @@ fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator)
         .is_flat = true,
     } });
 
-    const chunk_data = try genSingleChunkSectionDataBlob(allocator);
-    defer allocator.free(chunk_data);
+    const test_chunk_data = try genSingleChunkSectionDataBlob(allocator);
+    defer allocator.free(test_chunk_data);
     const chunk_positions = [_][2]i32{
         // zig fmt: off
         [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
@@ -251,6 +293,8 @@ fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator)
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
+        const chunk_data = if (pos[0] == 0 and pos[1] == 0)
+            try genSingleBlockTypeChunkSection(allocator, 0x01) else test_chunk_data;
         const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
             .chunk_x = pos[0],
             .chunk_z = pos[1],
@@ -282,7 +326,7 @@ fn send_login_packets(connection: StreamServer.Connection, allocator: Allocator)
 fn handlePlayPacket(
     packet_data: std.meta.TagPayload(ClientPacket, .play),
     state: *State,
-    connection: StreamServer.Connection,
+    connection: Connection,
     allocator: Allocator,
 ) !void {
     _ = state;
@@ -320,7 +364,7 @@ fn handlePlayPacket(
 // send `ServerPacket.play` packets using the a normal `sendPacket` function.
 // (this is a known stage1 bug with deeply nested annonymous structures)
 // I have no idea why only that specific enum in the ServerPacket union crashes though.
-fn send_packet_data(connection: StreamServer.Connection, data: anytype) !void {
+fn send_packet_data(connection: Connection, data: anytype) !void {
     std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
     try encode_packet_data(connection.stream.writer(), data);
     std.debug.print("done.\n", .{});
@@ -336,7 +380,7 @@ fn encode_packet_data(writer: anytype, data: anytype) !void {
     try data.encode(writer);
 }
 
-fn sendPacket(connection: StreamServer.Connection, packet: ServerPacket) !void {
+fn sendPacket(connection: Connection, packet: ServerPacket) !void {
     const inner_tag_name = switch (packet) {
         .status => |data| @tagName(data),
         .login => |data| @tagName(data),
@@ -453,15 +497,50 @@ fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
 
         // 4096 entries (# of blocks in chunk section)
         const data_array = [_]u8{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15} ** (0x100);
-        try types.VarInt.encode(writer, @intCast(i32, 0x200)); // 0x200=8004 ???? (not 0x1000??)
-        //try types.VarInt.encode(writer, @intCast(i32, data_array.len));
+        // `data array length` is the number of *longs* in the array
+        const data_array_len = @sizeOf(@TypeOf(data_array)) / @sizeOf(u64);
+        //try types.VarInt.encode(writer, @intCast(i32, 0x200)); // 0x200=8004 ???? (not 0x1000??)
+        try types.VarInt.encode(writer, @intCast(i32, data_array_len));
         for (data_array) |entry| try writer.writeIntBig(u8, entry);
     }
 
+    // as far as I can tell the equivalent of the block id global palette for biomes
+    // is the dimension codec, sent in the "join game" packet.
+    // entries in the "minecraft:worldgen/biome" part of that NBT data have an 'id'
+    // field. the biome palette for chunk sections maps to these 'id's.
     { // biomes (paletted container)
         try writer.writeByte(0); // bits per block
         { // palette
             try types.VarInt.encode(writer, 1); // plains
+        }
+        const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
+        for (biomes) |entry| try writer.writeIntBig(u64, entry);
+    }
+
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return blob;
+}
+
+fn genSingleBlockTypeChunkSection(allocator: Allocator, global_palette_block_id: u15) ![]u8 {
+    var buf = try allocator.alloc(u8, 0x4000);
+    const writer = std.io.fixedBufferStream(buf).writer();
+
+    if (global_palette_block_id == 0x00) @panic("if the chunk is all air, just don't send it");
+
+    try writer.writeIntBig(i16, 0x1000); // number of non-air blocks
+    { // block states (paletted container)
+        try writer.writeByte(0); // bits per block
+        { // palette
+            try types.VarInt.encode(writer, @intCast(i32, global_palette_block_id));
+            try types.VarInt.encode(writer, 0); // data entries
+        }
+    }
+    { // biomes (paletted container)
+        try writer.writeByte(0); // bits per block
+        { // palette
+            //try types.VarInt.encode(writer, 1); // plains
+            try types.VarInt.encode(writer, 2);
         }
         const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
         for (biomes) |entry| try writer.writeIntBig(u64, entry);
