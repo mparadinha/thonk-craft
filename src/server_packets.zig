@@ -8,7 +8,7 @@ const VarInt = types.VarInt;
 const String = types.String;
 const Position = types.Position;
 const NBT = types.NBT;
-const State = @import("main.zig").State;
+const State = @import("Session.zig").State;
 
 pub const Packet = union(enum) {
     status: StatusData,

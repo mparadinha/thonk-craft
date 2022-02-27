@@ -1,8 +1,10 @@
+//! This struct handles a single connection to a single client.
+//! This is usually run in its own thread.
+
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Connection = std.net.StreamServer.Connection;
-const State = @import("main.zig").State;
-const WorldState = @import("main.zig").WorldState;
+const WorldState = @import("WorldState.zig");
 
 const types = @import("types.zig");
 const nbt = @import("nbt.zig");
@@ -11,9 +13,19 @@ const ClientPacket = client_packets.Packet;
 const server_packets = @import("server_packets.zig");
 const ServerPacket = server_packets.Packet;
 
-const sendPacketData = @import("main.zig").sendPacketData;
-
 const Self = @This();
+
+pub const State = enum(u8) {
+    /// All connection start in this state. Not part of the protocol.
+    handshaking,
+
+    status = 1,
+    login = 2,
+    play = 3,
+
+    /// Not part of the protocol, used to signal that we're meant to close the connection.
+    close_connection,
+};
 
 connection: Connection,
 allocator: Allocator,
@@ -33,9 +45,8 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) v
     };
     defer self.deinit();
 
-    self.handleConnection() catch |err| switch (err) {
-        error.EndOfStream => {},
-        else => unreachable,
+    self.handleConnection() catch |err| {
+        std.debug.print("err={}\n", .{err});
     };
 }
 
@@ -131,12 +142,12 @@ fn handleStatusPacket(
             var tmpbuf: [0x4000]u8 = undefined;
             const response_str = try std.fmt.bufPrint(&tmpbuf, response_str_fmt, .{base64_png});
 
-            try sendPacketData(self.connection, server_packets.StatusData{ .response = .{
+            try self.sendPacketData(server_packets.StatusData{ .response = .{
                 .json_response = types.String{ .value = response_str },
             } });
         },
         .ping => |data| {
-            try sendPacketData(self.connection, server_packets.StatusData{ .pong = .{
+            try self.sendPacketData(server_packets.StatusData{ .pong = .{
                 .payload = data.payload,
             } });
             self.state = .close_connection;
@@ -156,7 +167,7 @@ fn handleLoginPacket(
             // see "https://wiki.vg/Protocol_FAQ#What.27s_the_normal_login_sequence_for_a_client.3F"
             // more information.
 
-            try sendPacketData(self.connection, server_packets.LoginData{ .login_success = .{
+            try self.sendPacketData(server_packets.LoginData{ .login_success = .{
                 .uuid = 0,
                 .username = try types.String.fromLiteral(self.allocator, "OfflinePlayer"),
             } });
@@ -176,15 +187,15 @@ fn sendLoginPackets(self: *Self) !void {
 
     var overworld_id = types.String{ .value = "minecraft:overworld" };
     var dimension_names = [_]types.String{overworld_id};
-    try sendPacketData(self.connection, server_packets.PlayData{ .join_game = .{
+    try self.sendPacketData(server_packets.PlayData{ .join_game = .{
         .entity_id = 0,
         .is_hardcore = false,
         .gamemode = 1,
         .previous_gamemode = 1,
         .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
         .dimension_names = &dimension_names,
-        .dimension_codec = try @import("main.zig").genDimensionCodecBlob(self.allocator),
-        .dimension = try @import("main.zig").genDimensionBlob(self.allocator),
+        .dimension_codec = try WorldState.genDimensionCodecBlob(self.allocator),
+        .dimension = try WorldState.genDimensionBlob(self.allocator),
         .dimension_name = overworld_id,
         .hashed_seed = 0,
         .max_players = types.VarInt{ .value = 420 },
@@ -196,7 +207,8 @@ fn sendLoginPackets(self: *Self) !void {
         .is_flat = true,
     } });
 
-    const test_chunk_data = try @import("main.zig").genSingleChunkSectionDataBlob(self.allocator);
+    const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator);
+    //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
     defer self.allocator.free(test_chunk_data);
     const chunk_positions = [_][2]i32{
         // zig fmt: off
@@ -207,11 +219,11 @@ fn sendLoginPackets(self: *Self) !void {
     };
     for (chunk_positions) |pos| {
         const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-            try @import("main.zig").genSingleBlockTypeChunkSection(self.allocator, 0x01) else test_chunk_data;
+             try self.world.encodeChunkSectionData() else test_chunk_data;
         const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
             .chunk_x = pos[0],
             .chunk_z = pos[1],
-            .heightmaps = try @import("main.zig").genHeighmapBlob(self.allocator),
+            .heightmaps = try WorldState.genHeighmapBlob(self.allocator),
             .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
             .data = chunk_data,
             .trust_edges = true,
@@ -221,12 +233,12 @@ fn sendLoginPackets(self: *Self) !void {
             .empty_block_light_mask = 0,
         } };
         defer self.allocator.free(data.chunk_data_and_update_light.heightmaps.blob);
-        try sendPacketData(self.connection, data);
+        try self.sendPacketData(data);
     }
 
-    try sendPacketData(self.connection, server_packets.PlayData{ .player_position_and_look = .{
+    try self.sendPacketData(server_packets.PlayData{ .player_position_and_look = .{
         .x = 0,
-        .y = 0,
+        .y = -40,
         .z = 0,
         .yaw = 0,
         .pitch = 0,
@@ -240,8 +252,11 @@ fn handlePlayPacket(
     self: *Self,
     packet_data: std.meta.TagPayload(ClientPacket, .play),
 ) !void {
-    _ = self;
     switch (packet_data) {
+        // sent as confirmation that the client got our 'player position and look' packet
+        // maybe we should check for this and resend that packet if this one never arrives?
+        .teleport_confirm => {},
+
         .keep_alive => |data| {
             const is_alive = self.checkKeepAliveId(data.keep_alive_id);
             if (!is_alive) {
@@ -249,21 +264,20 @@ fn handlePlayPacket(
                 self.state = .close_connection;
             }
         },
-        //.teleport_confirm => |data| {
-        //    std.debug.print("teleport_id={d}\n", .{data.teleport_id});
-        //},
-        //.player_position => |data| {
-        //    std.debug.print("player_position=({}, {}, {}, on_ground={})\n", data);
-        //},
-        //.player_digging => |data| {
-        //    std.debug.print("digging {{status={}, location={}, face={}}}\n", .{
-        //        data.status.value, data.location, data.face
-        //    });
-        //},
-        //.animation => |data| {
-        //    const hand = if (data.hand.value == 0) "main hand"  else "off hand";
-        //    std.debug.print("animation: {s}\n", .{hand});
-        //},
+
+        .player_digging => |data| {
+            std.debug.print("{}\n", .{data});
+            const status = data.status.value;
+            if (status == 0 or status == 1) {
+                const pos = data.location;
+                const chunk_x = @truncate(u4, if (pos.x < 0) @intCast(u32, 16 + @rem(pos.x, 16)) else @intCast(u32, pos.x) % 16);
+                const chunk_y = @truncate(u4, if (pos.y < 0) @intCast(u32, 16 + @rem(pos.y, 16)) else @intCast(u32, pos.y) % 16);
+                const chunk_z = @truncate(u4, if (pos.z < 0) @intCast(u32, 16 + @rem(pos.z, 16)) else @intCast(u32, pos.z) % 16);
+                self.world.removeBlock(chunk_x, chunk_y, chunk_z); 
+
+                // TODO: update all other players of the change 
+            }
+        },
 
         // ignore everything else right now, cause our server doesn't do shit yet
         else => {},
@@ -277,7 +291,7 @@ fn keepAliveLoop(self: *Self) void {
 
     while (true) {
         const time_of_send = std.time.milliTimestamp();
-        sendPacketData(self.connection, server_packets.PlayData{ .keep_alive = .{
+        self.sendPacketData(server_packets.PlayData{ .keep_alive = .{
             .keep_alive_id = time_of_send,
         } }) catch { return; };
 
@@ -320,5 +334,43 @@ fn checkKeepAliveId(self: *Self, check_id: i64) bool {
 
     // TODO: if both are null, then the check doesn't make any sense, maybe I should return
     // and error in that case.
-    unreachable;
+    return false;
+    //unreachable;
 }
+
+// this is a workaround. if we try to use the main Packet.encode we hit a stage1
+// compiler bug where the union tag value is getting overwritten (only for PlayData member)
+// when copying over the actual data when doing ServerPacket{ .play = data }.
+// looks like a codegen error.
+// also:
+// I'm getting a compiler crash (codegen.cpp:8603 in gen_const_val) when I try to
+// send `ServerPacket.play` packets using the a normal `sendPacket` function.
+// (this is a known stage1 bug with deeply nested annonymous structures)
+// I have no idea why only that specific enum in the ServerPacket union crashes though.
+fn sendPacketData(self: *Self, data: anytype) !void {
+    std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
+    try encode_packet_data(self.connection.stream.writer(), data);
+    std.debug.print("done.\n", .{});
+}
+
+fn encode_packet_data(writer: anytype, data: anytype) !void {
+    const raw_id = @intCast(i32, @enumToInt(std.meta.activeTag(data)));
+    const data_encode_size = data.encodedSize();
+    const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
+
+    try types.VarInt.encode(writer, @intCast(i32, packet_size));
+    try types.VarInt.encode(writer, raw_id);
+    try data.encode(writer);
+}
+
+fn sendPacket(self: *Self, packet: ServerPacket) !void {
+    const inner_tag_name = switch (packet) {
+        .status => |data| @tagName(data),
+        .login => |data| @tagName(data),
+        .play => |data| @tagName(data),
+    };
+    std.debug.print("sending a {s}::{s} packet... ", .{ @tagName(packet), inner_tag_name });
+    try packet.encode(self.connection.stream.writer());
+    std.debug.print("done.\n", .{});
+}
+

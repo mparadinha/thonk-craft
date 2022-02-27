@@ -7,7 +7,7 @@ const types = @import("types.zig");
 const VarInt = types.VarInt;
 const String = types.String;
 const Position = types.Position;
-const State = @import("main.zig").State;
+const State = @import("Session.zig").State;
 
 pub const Packet = union(enum) {
     handshaking: HandshakingData,

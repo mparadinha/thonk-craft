@@ -78,23 +78,24 @@ pub const String = struct {
 
 pub const Position = struct {
     x: i26,
-    y: i12,
     z: i26,
+    y: i12,
 
     pub fn encode(self: Position, writer: anytype) !void {
-        const as_int64 =
-            (@intCast(i64, self.x) << 38) |
-            (@intCast(i64, self.y) << 26) |
-            (@intCast(i64, self.z));
-        try writer.writeIntBig(i64, as_int64);
+        const as_uint =
+            ((@bitCast(u64, @intCast(i64, self.x)) << 38) & 0xffff_ffc0_0000_0000) |
+            ((@bitCast(u64, @intCast(i64, self.z)) << 12) & 0x0000_003f_ffff_f000) |
+            ((@bitCast(u64, @intCast(i64, self.y)) << 00) & 0x0000_0000_0000_0fff);
+        try writer.writeIntBig(u64, as_uint);
     }
 
     pub fn decode(reader: anytype) !Position {
         const as_uint = try reader.readIntBig(u64);
+        std.debug.print("decoding position from 0x{x}\n", .{as_uint});
         return Position{
             .x = @bitCast(i26, @truncate(u26, (as_uint & 0xffff_ffc0_0000_0000) >> 38)),
-            .y = @bitCast(i12, @truncate(u12, (as_uint & 0x0000_003f_fc00_0000) >> 26)),
-            .z = @bitCast(i26, @truncate(u26, (as_uint & 0x0000_0000_03ff_ffff))),
+            .z = @bitCast(i26, @truncate(u26, (as_uint & 0x0000_003f_ffff_f000) >> 12)),
+            .y = @bitCast(i12, @truncate(u12, (as_uint & 0x0000_0000_0000_0fff))),
         };
     }
 };
