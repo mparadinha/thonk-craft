@@ -34,21 +34,3 @@ pub fn main() !void {
         thread.detach();
     }
 }
-
-/// usefull for testing
-fn cmp_slices_test(testing: []const u8, ground_truth: []const u8) bool {
-    if (testing.len != ground_truth.len) {
-        std.debug.print("different lengths: {} should be {}\n", .{ testing.len, ground_truth.len });
-        return false;
-    }
-    for (testing) |byte, i| {
-        if (byte != ground_truth[i]) {
-            std.debug.print(
-                "byte 0x{x} is different: 0x{x} should be 0x{x}\n",
-                .{ i, byte, ground_truth[i] },
-            );
-            return false;
-        }
-    }
-    return true;
-}

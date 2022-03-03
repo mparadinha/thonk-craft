@@ -107,3 +107,22 @@ pub const NBT = struct {
         _ = try writer.write(self.blob);
     }
 };
+
+pub const Slot = struct {
+    present: bool,
+    item_id: VarInt,
+    item_count: i8,
+    nbt: NBT,
+
+    pub fn decode(reader: anytype) !Slot {
+        var self: Slot = undefined;
+        self.present = (try reader.readByte()) != 0;
+        if (self.present) {
+            self.item_id = try VarInt.decode(reader);
+            self.item_count = @intCast(i8, try reader.readByte());
+            const first_nbt_byte = try reader.readByte();
+            std.debug.assert(first_nbt_byte == 0); // (TAG_end, empty NBT)
+        }
+        return self;
+    }
+};

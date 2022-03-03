@@ -59,7 +59,7 @@ fn handleConnection(self: *Self) !void {
         var peek_conn_stream = std.io.peekStream(1, self.connection.stream.reader());
         var reader = peek_conn_stream.reader();
 
-        std.debug.print("waiting for data from connection...\n", .{});
+        //std.debug.print("waiting for data from connection...\n", .{});
 
         const first_byte = try peek_conn_stream.reader().readByte();
         try peek_conn_stream.putBackByte(first_byte);
@@ -86,13 +86,13 @@ fn handleConnection(self: *Self) !void {
             else => return err,
         };
 
-        const inner_tag_name = switch (packet) {
-            .handshaking => |data| @tagName(data),
-            .status => |data| @tagName(data),
-            .login => |data| @tagName(data),
-            .play => |data| @tagName(data),
-        };
-        std.debug.print("got a {s}::{s} packet\n", .{ @tagName(packet), inner_tag_name });
+        //const inner_tag_name = switch (packet) {
+        //    .handshaking => |data| @tagName(data),
+        //    .status => |data| @tagName(data),
+        //    .login => |data| @tagName(data),
+        //    .play => |data| @tagName(data),
+        //};
+        //std.debug.print("got a {s}::{s} packet\n", .{ @tagName(packet), inner_tag_name });
 
         switch (packet) {
             .handshaking => |data| self.handleHandshakingPacket(data),
@@ -199,8 +199,8 @@ fn sendLoginPackets(self: *Self) !void {
         .dimension_name = overworld_id,
         .hashed_seed = 0,
         .max_players = types.VarInt{ .value = 420 },
-        .view_distance = types.VarInt{ .value = 10 },
-        .simulation_distance = types.VarInt{ .value = 10 },
+        .view_distance = types.VarInt{ .value = 32 },
+        .simulation_distance = types.VarInt{ .value = 32 },
         .reduced_debug_info = false,
         .enable_respawn = false,
         .is_debug = false,
@@ -208,8 +208,11 @@ fn sendLoginPackets(self: *Self) !void {
     } });
 
     const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator);
-    //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
     defer self.allocator.free(test_chunk_data);
+    //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
+    var official_chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, 0, 0);
+    const official_chunk_data = try official_chunk.makeIntoPacketFormat(self.allocator);
+    defer self.allocator.free(official_chunk_data);
     const chunk_positions = [_][2]i32{
         // zig fmt: off
         [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
@@ -218,12 +221,16 @@ fn sendLoginPackets(self: *Self) !void {
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
+        //const chunk_data = if (pos[0] == 0 and pos[1] == 0)
+        //     try self.world.encodeChunkSectionData() else test_chunk_data;
         const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-             try self.world.encodeChunkSectionData() else test_chunk_data;
+             official_chunk_data else test_chunk_data;
         const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
             .chunk_x = pos[0],
             .chunk_z = pos[1],
             .heightmaps = try WorldState.genHeighmapBlob(self.allocator),
+            //.heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
+            //.heightmaps = try WorldState.genHeightmapSeaLevel(self.allocator),
             .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
             .data = chunk_data,
             .trust_edges = true,
@@ -238,7 +245,7 @@ fn sendLoginPackets(self: *Self) !void {
 
     try self.sendPacketData(server_packets.PlayData{ .player_position_and_look = .{
         .x = 0,
-        .y = -40,
+        .y = 80,
         .z = 0,
         .yaw = 0,
         .pitch = 0,
@@ -277,6 +284,10 @@ fn handlePlayPacket(
 
                 // TODO: update all other players of the change 
             }
+        },
+
+        .creative_inventory_action => |data| {
+            std.debug.print("creative_inventory_action: {any}\n", .{data});
         },
 
         // ignore everything else right now, cause our server doesn't do shit yet
@@ -373,4 +384,3 @@ fn sendPacket(self: *Self, packet: ServerPacket) !void {
     try packet.encode(self.connection.stream.writer());
     std.debug.print("done.\n", .{});
 }
-

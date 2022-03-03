@@ -8,6 +8,7 @@ const Allocator = std.mem.Allocator;
 
 const types = @import("types.zig");
 const nbt = @import("nbt.zig");
+const Chunk = @import("chunk.zig").Chunk;
 
 const Self = @This();
 
@@ -285,4 +286,110 @@ pub fn genSingleBlockTypeChunkSection(allocator: Allocator, global_palette_block
     const blob = writer.context.getWritten();
     buf = allocator.resize(buf, blob.len).?;
     return blob;
+}
+
+pub fn fullStoneChunk(allocator: Allocator) ![]u8 {
+    var full_data = std.ArrayList(u8).init(allocator);
+
+    var i: usize = 0;
+    while (i < 24) : (i += 1) {
+        const section_data = try genSingleBlockTypeChunkSection(allocator, 1);
+        defer allocator.free(section_data);
+        try full_data.appendSlice(section_data);
+    }
+
+    return full_data.toOwnedSlice();
+}
+
+pub fn genHeightmapSeaLevel(allocator: Allocator) !types.NBT {
+    var buf = try allocator.alloc(u8, 0x4000);
+    const writer = std.io.fixedBufferStream(buf).writer();
+
+    {
+        try nbt.Compound.startNamed(writer, "");
+        defer nbt.Compound.end(writer) catch unreachable;
+
+        const array_values = [_]i64{0x7ffefcf9f3e7cf1f} ** 37;
+        try nbt.LongArray.addNamed(writer, "MOTION_BLOCKING", &array_values);
+    }
+
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return types.NBT{ .blob = blob };
+}
+
+pub fn genHeightmapSingleHeight(allocator: Allocator, height: u9) !types.NBT {
+    var buf = try allocator.alloc(u8, 0x4000);
+    const writer = std.io.fixedBufferStream(buf).writer();
+
+    {
+        try nbt.Compound.startNamed(writer, "");
+        defer nbt.Compound.end(writer) catch unreachable;
+
+        const one_long =
+            (@intCast(u64, height) << 55) |
+            (@intCast(u64, height) << 46) |
+            (@intCast(u64, height) << 37) |
+            (@intCast(u64, height) << 28) |
+            (@intCast(u64, height) << 19) |
+            (@intCast(u64, height) << 10) |
+            (@intCast(u64, height) << 1);
+        var array_values: [37]i64 = undefined;
+        for (array_values) |*value| value.* = @bitCast(i64, one_long);
+
+        try nbt.LongArray.addNamed(writer, "MOTION_BLOCKING", &array_values);
+    }
+
+    const blob = writer.context.getWritten();
+    buf = allocator.resize(buf, blob.len).?;
+    return types.NBT{ .blob = blob };
+}
+
+fn specialMod(n: i32, comptime mod: comptime_int) u32 {
+    const rem = @rem(n, mod);
+    if (rem < 0) {
+        return @intCast(u32, mod + rem);
+    } else {
+        return @intCast(u32, rem);
+    }
+}
+
+test "specialMod" {
+    const expect = std.testing.expect;
+    try expect(specialMod(-1, 16) == 15);
+    try expect(specialMod(-16, 16) == 0);
+}
+
+pub fn getChunkFromRegionFile(
+    filename: []const u8,
+    allocator: Allocator,
+    chunk_x: i32,
+    chunk_z: i32,
+) !Chunk {
+    const file = try std.fs.cwd().openFile(filename, .{});
+    defer file.close();
+    const file_bytes = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+    defer allocator.free(file_bytes);
+    const location_table: []const u8 = file_bytes[0..0x1000];
+
+    const table_offset = (specialMod(chunk_x, 32) + specialMod(chunk_z, 32) * 32) * 4;
+    const loc_start = 0x1000 * (@intCast(u32, location_table[table_offset + 0]) << 16 |
+        @intCast(u32, location_table[table_offset + 1]) << 8 |
+        @intCast(u32, location_table[table_offset + 2]));
+    const loc_size = 0x1000 * @intCast(u32, location_table[3]);
+
+    const chunk_data: []const u8 = file_bytes[loc_start .. loc_start + loc_size];
+    const compression_type = chunk_data[4];
+    std.debug.assert(compression_type == 2); // zlib
+
+    const zlib_data = chunk_data[5..];
+    var zlib_data_stream = std.io.fixedBufferStream(zlib_data);
+    var zlib_stream = try std.compress.zlib.zlibStream(allocator, zlib_data_stream.reader());
+    defer zlib_stream.deinit();
+    const decomp_data = try zlib_stream.reader().readAllAlloc(allocator, std.math.maxInt(usize));
+    defer allocator.free(decomp_data);
+
+    const reader = std.io.fixedBufferStream(decomp_data).reader();
+    const chunk = try Chunk.fromNBT(reader, allocator);
+    return chunk;
 }

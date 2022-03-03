@@ -7,6 +7,7 @@ const types = @import("types.zig");
 const VarInt = types.VarInt;
 const String = types.String;
 const Position = types.Position;
+const Slot = types.Slot;
 const State = @import("Session.zig").State;
 
 pub const Packet = union(enum) {
@@ -24,7 +25,6 @@ pub const Packet = union(enum) {
         const id_data_len = (try VarInt.decode(reader)).value;
         const raw_id = (try VarInt.decode(reader)).value;
         const data_len = @intCast(usize, id_data_len - types.VarInt.encodedSize(raw_id));
-        std.debug.print("raw_id=0x{x}\n", .{raw_id});
 
         switch (state) {
             .handshaking => {
@@ -79,6 +79,7 @@ pub fn genericDecodeData(comptime DataType: type, reader: anytype, allocator: Al
             String => try String.decode(reader, allocator),
             State => @intToEnum(State, (try VarInt.decode(reader)).value),
             Position => try Position.decode(reader),
+            Slot => try Slot.decode(reader),
             else => @compileError("TODO decode type " ++ @typeName(field.field_type)),
         };
     }
@@ -164,6 +165,7 @@ pub const PlayId = enum(u7) {
     player_abilities = 0x19,
     player_digging = 0x1a,
     entity_action = 0x1b,
+    creative_inventory_action = 0x28,
     animation = 0x2c,
 };
 
@@ -222,6 +224,10 @@ pub const PlayData = union(PlayId) {
         action_id: VarInt, // enum. see: https://wiki.vg/Protocol#Entity_Action
         jump_boost: VarInt,
     },
+    creative_inventory_action: struct {
+        slot: i16,
+        clicked_item: Slot,
+    },
     animation: struct {
         hand: VarInt, // 0 for main hand, 1 for off hand
     },
@@ -239,6 +245,7 @@ pub const PlayData = union(PlayId) {
             .player_abilities => return genericDecodeById(PlayData, .player_abilities, reader, allocator),
             .player_digging => return genericDecodeById(PlayData, .player_digging, reader, allocator),
             .entity_action => return genericDecodeById(PlayData, .entity_action, reader, allocator),
+            .creative_inventory_action => return genericDecodeById(PlayData, .creative_inventory_action, reader, allocator),
             .animation => return genericDecodeById(PlayData, .animation, reader, allocator),
         }
     }
