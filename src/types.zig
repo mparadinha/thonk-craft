@@ -91,7 +91,6 @@ pub const Position = struct {
 
     pub fn decode(reader: anytype) !Position {
         const as_uint = try reader.readIntBig(u64);
-        std.debug.print("decoding position from 0x{x}\n", .{as_uint});
         return Position{
             .x = @bitCast(i26, @truncate(u26, (as_uint & 0xffff_ffc0_0000_0000) >> 38)),
             .z = @bitCast(i26, @truncate(u26, (as_uint & 0x0000_003f_ffff_f000) >> 12)),

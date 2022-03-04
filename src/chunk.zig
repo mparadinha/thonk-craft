@@ -348,7 +348,6 @@ pub const Chunk = struct {
                 break :blk 0;
             }
         };
-        std.debug.print("{s}=>{d}\n", .{ loc, id });
         return id;
     }
 
@@ -359,7 +358,6 @@ pub const Chunk = struct {
 
         if (palette.len == 1) {
             const block_id = resourceLocationToId(palette[0].name);
-            std.debug.print("section Y={d} only has {s} (id={d})\n", .{ section.ypos, palette[0].name, block_id });
             try writer.writeIntBig(i16, 0x100); // number of non-air blocks
             { // block states
                 try writer.writeByte(0); // bits per block
@@ -369,11 +367,6 @@ pub const Chunk = struct {
                 }
             }
         } else {
-            const b_per_long = (64 / bits_per_block);
-            std.debug.print(
-                "section Y={d}: bits/block={d}, blocks/long={d}, data len={d} -> {d}\n",
-                .{ section.ypos, bits_per_block, b_per_long, block_data.len, b_per_long * block_data.len },
-            );
             try writer.writeIntBig(i16, 0x100); // number of non-air blocks
             { // block states
                 // bits per block
@@ -419,4 +412,140 @@ pub fn Palette(comptime Type: type) type {
         palette: []Type,
         data: []u64,
     };
+}
+
+pub fn newStoneChunkSection(allocator: Allocator) !ChunkSection {
+    var chunk_section = ChunkSection.init(allocator);
+    try chunk_section.block_palette.append(1); // stone
+    try chunk_section.block_palette.append(0); // air
+    try chunk_section.packed_block_data.appendSlice(&([_]u64{0} ** 256));
+    return chunk_section;
+}
+
+/// keeps the data in the same u64 packed format that we send over the network
+/// because it takes less memory (and to not waste time converting back and forth)
+pub const ChunkSection = struct {
+    block_palette: std.ArrayList(u16),
+    packed_block_data: std.ArrayList(u64),
+    biome_palette: []u16,
+    packed_biome_data: []u64,
+
+    allocator: Allocator,
+
+    /// Call `deinit` to free up resources
+    pub fn init(allocator: Allocator) ChunkSection {
+        return ChunkSection{
+            .block_palette = std.ArrayList(u16).init(allocator),
+            .packed_block_data = std.ArrayList(u64).init(allocator),
+            .biome_palette = undefined,
+            .packed_biome_data = undefined,
+            .allocator = allocator,
+        };
+    }
+
+    pub fn deinit(self: *ChunkSection) void {
+        self.block_palette.deinit();
+        self.packed_block_data.deinit();
+        if (self.biome_palette.len != 0) self.allocator.free(self.biome_palette);
+        if (self.packed_biome_data.len != 0) self.allocator.free(self.packed_biome_data);
+    }
+
+    fn bitsPerBlock(self: ChunkSection) u4 {
+        return palettedContainerBitsPerBlock(self.block_palette.items);
+    }
+
+    /// `x`, `y` and `z` are chunk section relative block coordinates
+    pub fn getBlock(self: ChunkSection, x: u4, y: u4, z: u4) u16 {
+        const bits_per_block = self.bitsPerBlock();
+        if (bits_per_block == 0) {
+            if (self.block_palette.len == 0) return 0; // air
+            return self.block_palette[0];
+        }
+
+        const blocks_per_long = 64 / @intCast(u8, bits_per_block);
+        const block_idx = x + (@intCast(usize, z) * 16) + (@intCast(usize, y) * 16 * 16);
+        const idx_in_long = block_idx % blocks_per_long;
+
+        const long = self.packed_block_data.items[block_idx / blocks_per_long];
+        const block = long >> idx_in_long * bits_per_block;
+        const mask = (~@as(u64, 0)) >> (63 - @intCast(u6, bits_per_block) + 1);
+        return @intCast(u16, block & mask);
+    }
+
+    /// `x`, `y` and `z` are chunk section relative block coordinates
+    // TODO: make this function thread safe?
+    pub fn changeBlock(self: *ChunkSection, x: u4, y: u4, z: u4, new_block: u16) !void {
+        const bits_per_block = self.bitsPerBlock();
+        if (self.block_palette.items.len == 1 and new_block == self.block_palette.items[0]) return;
+        const palette_idx = try self.getOrInsertPaletteEntry(new_block);
+        if (self.bitsPerBlock() > bits_per_block) @panic("TODO rebuild packed block data");
+
+        const blocks_per_long = 64 / @intCast(u8, bits_per_block);
+        const block_idx = x + (@intCast(usize, z) * 16) + (@intCast(usize, y) * 16 * 16);
+        const idx_in_long = block_idx % blocks_per_long;
+        const shift_len = @intCast(u6, idx_in_long * bits_per_block);
+
+        const long = self.packed_block_data.items[block_idx / blocks_per_long];
+        const shifted_block = @intCast(u64, palette_idx) << shift_len;
+        const mask = ~(((~@as(u64, 0)) >> (63 - @intCast(u6, bits_per_block) + 1)) << shift_len);
+
+        const new_long = (long & mask) | shifted_block;
+        self.packed_block_data.items[block_idx / blocks_per_long] = new_long;
+    }
+
+    /// Return the index in the palette that corresponds to this block id.
+    /// Inserts a new item in the palette if it's a new block id.
+    fn getOrInsertPaletteEntry(self: *ChunkSection, block_id: u16) !usize {
+        for (self.block_palette.items) |entry, i| {
+            if (entry == block_id) return i;
+        } else {
+            try self.block_palette.append(block_id);
+            return self.block_palette.items.len - 1;
+        }
+    }
+
+    /// Encode this chunk section data into the format that is sent over the network
+    pub fn encode(self: ChunkSection, writer: anytype) !void {
+        // TODO actually keep track of the non air blocks.
+        try writer.writeIntBig(i16, 4096); // number of non-air blocks
+
+        try encodePalettedContainer(writer, self.block_palette.items, self.packed_block_data.items);
+
+        // as far as I can tell the equivalent of the block id global palette for biomes
+        // is the dimension codec, sent in the "join game" packet.
+        // entries in the "minecraft:worldgen/biome" part of that NBT data have an 'id'
+        // field. the biome palette for chunk sections maps to these 'id's.
+        { // biomes (paletted container)
+            try writer.writeByte(0); // bits per block
+            // palette
+            try types.VarInt.encode(writer, 1); // plains
+            // biome data
+            const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
+            for (biomes) |entry| try writer.writeIntBig(u64, entry);
+        }
+    }
+};
+
+fn palettedContainerBitsPerBlock(palette: []u16) u4 {
+    if (palette.len <= 1) return 0;
+    var n_bits: u4 = 4;
+    while ((@as(usize, 1) << (n_bits - 1)) < palette.len) n_bits += 1;
+    return n_bits;
+}
+
+fn encodePalettedContainer(writer: anytype, palette: []u16, packed_data: []u64) !void {
+    const bits_per_block = palettedContainerBitsPerBlock(palette);
+
+    if (bits_per_block == 0) {
+        if (palette.len < 1) @panic("TODO implement full air chunk");
+        try writer.writeByte(0); // bits per block
+        try types.VarInt.encode(writer, @intCast(i32, palette[0])); // single entry type
+        try types.VarInt.encode(writer, 0); // size of data array (empty)
+    } else {
+        try writer.writeByte(bits_per_block);
+        try types.VarInt.encode(writer, @intCast(i32, palette.len));
+        for (palette) |entry| try types.VarInt.encode(writer, entry);
+        try types.VarInt.encode(writer, @intCast(i32, packed_data.len));
+        for (packed_data) |entry| try writer.writeIntBig(u64, entry);
+    }
 }

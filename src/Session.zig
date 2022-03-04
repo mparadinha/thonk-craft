@@ -221,10 +221,10 @@ fn sendLoginPackets(self: *Self) !void {
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
-        //const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-        //     try self.world.encodeChunkSectionData() else test_chunk_data;
         const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-             official_chunk_data else test_chunk_data;
+             try self.world.encodeChunkSectionData() else test_chunk_data;
+        //const chunk_data = if (pos[0] == 0 and pos[1] == 0)
+        //     official_chunk_data else test_chunk_data;
         const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
             .chunk_x = pos[0],
             .chunk_z = pos[1],
@@ -245,7 +245,7 @@ fn sendLoginPackets(self: *Self) !void {
 
     try self.sendPacketData(server_packets.PlayData{ .player_position_and_look = .{
         .x = 0,
-        .y = 80,
+        .y = -40,
         .z = 0,
         .yaw = 0,
         .pitch = 0,
@@ -273,7 +273,7 @@ fn handlePlayPacket(
         },
 
         .player_digging => |data| {
-            std.debug.print("{}\n", .{data});
+            std.debug.print("dig: status={}, loc={}, face={}\n", data);
             const status = data.status.value;
             if (status == 0 or status == 1) {
                 const pos = data.location;
