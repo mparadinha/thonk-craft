@@ -32,6 +32,7 @@ allocator: Allocator,
 state: State = .handshaking,
 world: *WorldState,
 
+keep_alive_thread: ?std.Thread = null,
 keep_alive_ids: [2]?i64 = [2]?i64{ null, null },
 /// set to `true` by the keep alive loop if the client doesn't respond for 30 seconds
 timed_out: bool = false,
@@ -48,6 +49,8 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) v
     self.handleConnection() catch |err| {
         std.debug.print("err={}\n", .{err});
     };
+
+    if (self.keep_alive_thread) |thread| thread.join();
 }
 
 pub fn deinit(self: *Self) void {
@@ -173,8 +176,7 @@ fn handleLoginPacket(
             } });
             self.state = .play;
 
-            const thread = try std.Thread.spawn(.{}, Self.keepAliveLoop, .{self});
-            thread.detach();
+            self.keep_alive_thread = try std.Thread.spawn(.{}, Self.keepAliveLoop, .{self});
 
             try self.sendLoginPackets();
         },
