@@ -108,7 +108,9 @@ pub const NBT = struct {
 };
 
 pub const Slot = struct {
+    /// the fields below are only valid if this is true
     present: bool,
+
     item_id: VarInt,
     item_count: i8,
     nbt: NBT,

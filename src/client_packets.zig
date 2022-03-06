@@ -165,8 +165,10 @@ pub const PlayId = enum(u7) {
     player_abilities = 0x19,
     player_digging = 0x1a,
     entity_action = 0x1b,
+    held_item_change = 0x25,
     creative_inventory_action = 0x28,
     animation = 0x2c,
+    player_block_placement = 0x2e,
 };
 
 pub const PlayData = union(PlayId) {
@@ -224,12 +226,28 @@ pub const PlayData = union(PlayId) {
         action_id: VarInt, // enum. see: https://wiki.vg/Protocol#Entity_Action
         jump_boost: VarInt,
     },
+    held_item_change: struct {
+        slot: i16,
+    },
     creative_inventory_action: struct {
         slot: i16,
         clicked_item: Slot,
     },
     animation: struct {
         hand: VarInt, // 0 for main hand, 1 for off hand
+    },
+    player_block_placement: struct {
+        hand: VarInt, // 0 for main hand, 1 for off hand
+        location: Position,
+        face: VarInt, // same meaning as `face` in `player_digging` packet
+        /// these cursor position are of the block the player clicked on
+        /// while placing. used to determine which version of slab (top or bottom)
+        /// to place, for example.
+        cursor_pos_x: f32,
+        cursor_pos_y: f32,
+        cursor_pos_z: f32,
+        /// used for placing blocks while on scaffolding
+        inside_block: bool, // if player's head is inside a block
     },
 
     pub fn decode(id: PlayId, reader: anytype, allocator: Allocator) !PlayData {
@@ -245,8 +263,10 @@ pub const PlayData = union(PlayId) {
             .player_abilities => return genericDecodeById(PlayData, .player_abilities, reader, allocator),
             .player_digging => return genericDecodeById(PlayData, .player_digging, reader, allocator),
             .entity_action => return genericDecodeById(PlayData, .entity_action, reader, allocator),
+            .held_item_change => return genericDecodeById(PlayData, .held_item_change, reader, allocator),
             .creative_inventory_action => return genericDecodeById(PlayData, .creative_inventory_action, reader, allocator),
             .animation => return genericDecodeById(PlayData, .animation, reader, allocator),
+            .player_block_placement => return genericDecodeById(PlayData, .player_block_placement, reader, allocator),
         }
     }
 };

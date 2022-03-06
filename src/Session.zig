@@ -37,6 +37,9 @@ keep_alive_ids: [2]?i64 = [2]?i64{ null, null },
 /// set to `true` by the keep alive loop if the client doesn't respond for 30 seconds
 timed_out: bool = false,
 
+active_slot: usize = 0,
+player_slots: [9]WorldState.BlockId = [_]WorldState.BlockId{.air} ** 9,
+
 /// After this call `connection` is owned by this object and will be cleaned up.
 pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) void {
     var self = Self{
@@ -49,6 +52,8 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) v
     self.handleConnection() catch |err| {
         std.debug.print("err={}\n", .{err});
     };
+
+    self.state = .close_connection;
 
     if (self.keep_alive_thread) |thread| thread.join();
 }
@@ -261,6 +266,7 @@ fn handlePlayPacket(
     self: *Self,
     packet_data: std.meta.TagPayload(ClientPacket, .play),
 ) !void {
+            const specialMod = @import("WorldState.zig").specialMod;
     switch (packet_data) {
         // sent as confirmation that the client got our 'player position and look' packet
         // maybe we should check for this and resend that packet if this one never arrives?
@@ -276,20 +282,55 @@ fn handlePlayPacket(
 
         .player_digging => |data| {
             std.debug.print("dig: status={}, loc={}, face={}\n", data);
+            const pos = data.location;
+            const chunk_x = @truncate(u4, specialMod(pos.x, 16));
+            const chunk_y = @truncate(u4, specialMod(pos.y, 16));
+            const chunk_z = @truncate(u4, specialMod(pos.z, 16));
             const status = data.status.value;
             if (status == 0 or status == 1) {
-                const pos = data.location;
-                const chunk_x = @truncate(u4, if (pos.x < 0) @intCast(u32, 16 + @rem(pos.x, 16)) else @intCast(u32, pos.x) % 16);
-                const chunk_y = @truncate(u4, if (pos.y < 0) @intCast(u32, 16 + @rem(pos.y, 16)) else @intCast(u32, pos.y) % 16);
-                const chunk_z = @truncate(u4, if (pos.z < 0) @intCast(u32, 16 + @rem(pos.z, 16)) else @intCast(u32, pos.z) % 16);
                 self.world.removeBlock(chunk_x, chunk_y, chunk_z); 
 
                 // TODO: update all other players of the change 
             }
         },
 
+        .held_item_change => |data| {
+            std.debug.print("held item change: slot={}\n", data);
+            self.active_slot = @intCast(usize, data.slot);
+        },
+
         .creative_inventory_action => |data| {
             std.debug.print("creative_inventory_action: {any}\n", .{data});
+
+            if (data.clicked_item.present and data.slot >= 36) {
+                const slot = @intCast(usize, data.slot - 36);
+                const raw_item_id = data.clicked_item.item_id.value;
+                const block_id = WorldState.itemIdToBlockId(raw_item_id);
+                self.player_slots[slot] = block_id;
+                std.debug.print("player_slot[{d}] = {}\n", .{slot, block_id});
+            }
+        },
+
+        .player_block_placement => |data| {
+            std.debug.print("block place: hand={}, loc={}, face={}, cursor_pos=({},{},{}), inside_block={}\n", data);
+
+            const click_pos = data.location;
+            var pos = click_pos;
+            switch (data.face.value) {
+                0 => pos.y -= 1, // clicked on -Y face
+                1 => pos.y += 1, // clicked on +Y face
+                2 => pos.z -= 1, // clicked on -Z face
+                3 => pos.z += 1, // clicked on +Z face
+                4 => pos.x -= 1, // clicked on -X face
+                5 => pos.x += 1, // clicked on +X face
+                else => unreachable,
+            }
+            const chunk_x = @truncate(u4, specialMod(pos.x, 16));
+            const chunk_y = @truncate(u4, specialMod(pos.y, 16));
+            const chunk_z = @truncate(u4, specialMod(pos.z, 16));
+            const new_block = self.player_slots[self.active_slot];
+            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{new_block, chunk_x, chunk_y, chunk_z});
+            self.world.changeBlock(chunk_x, chunk_y, chunk_z, new_block);
         },
 
         // ignore everything else right now, cause our server doesn't do shit yet
@@ -303,6 +344,11 @@ fn keepAliveLoop(self: *Self) void {
     // there can only be two of these packets in flight at the same time
 
     while (true) {
+        if (self.state == .close_connection) {
+            std.debug.print("state is close_connection. returning from keep alive loop\n", .{});
+            return;
+        }
+
         const time_of_send = std.time.milliTimestamp();
         self.sendPacketData(server_packets.PlayData{ .keep_alive = .{
             .keep_alive_id = time_of_send,

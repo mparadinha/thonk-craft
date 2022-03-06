@@ -18,27 +18,81 @@ mutex: std.Thread.Mutex,
 players: std.ArrayList(EntityPos),
 allocator: Allocator,
 
-const BlockId = enum(u15) {
+/// actually this is the block *state* id. different from block id
+pub const BlockId = enum(u15) {
     air = 0,
     stone = 1,
+    granite = 2,
+    polished_granite = 3,
+    diorite = 4,
+    polished_diorite = 5,
+    andesite = 6,
+    polished_andesite = 7,
+    snowy_grass_block = 8,
+    grass_block = 9,
     dirt = 10,
+    coarse_dirt = 11,
+    snowy_podzol = 12,
+    podzol = 13,
+    cobblestone = 14,
+    oak_planks = 15,
+    spruce_planks = 16,
+    birch_planks = 17,
+    jungle_planks = 18,
+    acacia_planks = 19,
+    dark_oak_planks = 20,
+    bedrock = 33,
     glass = 106,
+    short_piston_head_north = 1416,
+    piston_head_north = 1418,
 };
+
+pub fn itemIdToBlockId(item_id: i32) BlockId {
+    switch (item_id) {
+        0...7 => return @intToEnum(BlockId, item_id),
+        15 => return .dirt,
+        16 => return .coarse_dirt,
+        17 => return .podzol,
+        21...27 => return @intToEnum(BlockId, item_id - (21 - @enumToInt(BlockId.cobblestone))),
+        36 => return .bedrock,
+        else => {
+            std.debug.print("unknown item_id={d}. crashing.\n", .{item_id});
+            unreachable;
+        },
+    }
+}
 
 const EntityPos = struct { x: f32, feet_y: f32, z: f32 };
 
 /// Call `deinit` to cleanup resources.
 pub fn init(allocator: Allocator) Self {
-    return Self{
-        .the_chunk = @import("chunk.zig").newStoneChunkSection(allocator) catch unreachable,
+    var self = Self{
+        .the_chunk = undefined,
         .mutex = std.Thread.Mutex{},
         .players = std.ArrayList(EntityPos).init(allocator),
         .allocator = allocator,
     };
+    //self.the_chunk = @import("chunk.zig").newSingleBlockChunkSection(
+    //    allocator,
+    //    //@enumToInt(BlockId.stone),
+    //    1404, // extended piston, facing north
+    //) catch unreachable;
+    self.the_chunk = @import("chunk.zig").new16BlockChunkSection(
+        allocator,
+        [16]u16{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
+        1,
+    ) catch unreachable;
+
+    return self;
 }
 
 pub fn deinit(self: *Self) void {
     self.players.deinit();
+}
+
+/// `x`, `y` and `z` are the block coords relative to the chunk section
+pub fn getBlock(self: *Self, x: u4, y: u4, z: u4) u16 {
+    return self.the_chunk.getBlock(x, y, z);
 }
 
 /// `x`, `y` and `z` are the block coords relative to the chunk section
@@ -52,8 +106,8 @@ pub fn changeBlock(self: *Self, x: u4, y: u4, z: u4, new_id: BlockId) void {
     self.mutex.lock();
     defer self.mutex.unlock();
     self.the_chunk.changeBlock(x, y, z, @enumToInt(new_id)) catch unreachable;
-    //const idx = @intCast(usize, y) * 256 + @intCast(usize, z) * 16 + @intCast(usize, x);
-    //self.the_chunk[idx] = new_id;
+
+    // TODO check for redstone block and pistons
 }
 
 pub fn encodeChunkSectionData(self: *Self) ![]u8 {
@@ -349,7 +403,7 @@ pub fn genHeightmapSingleHeight(allocator: Allocator, height: u9) !types.NBT {
     return types.NBT{ .blob = blob };
 }
 
-fn specialMod(n: i32, comptime mod: comptime_int) u32 {
+pub fn specialMod(n: i32, comptime mod: comptime_int) u32 {
     const rem = @rem(n, mod);
     if (rem < 0) {
         return @intCast(u32, mod + rem);

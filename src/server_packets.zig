@@ -168,6 +168,7 @@ pub const LoginData = union(LoginId) {
 };
 
 pub const PlayId = enum(u7) {
+    block_change = 0x0c,
     keep_alive = 0x21,
     chunk_data_and_update_light = 0x22,
     join_game = 0x26,
@@ -176,6 +177,10 @@ pub const PlayId = enum(u7) {
 };
 
 pub const PlayData = union(PlayId) {
+    block_change: struct {
+        location: Position,
+        block_id: VarInt,
+    },
     keep_alive: struct {
         keep_alive_id: i64,
     },
@@ -244,6 +249,7 @@ pub const PlayData = union(PlayId) {
 
     pub fn encodedSize(self: PlayData) usize {
         return switch (self) {
+            .block_change => |data| genericEncodedDataSize(data),
             .keep_alive => |data| genericEncodedDataSize(data),
             .chunk_data_and_update_light => |data| genericEncodedDataSize(data),
             .join_game => |data| genericEncodedDataSize(data),
@@ -254,6 +260,7 @@ pub const PlayData = union(PlayId) {
 
     pub fn encode(self: PlayData, writer: anytype) !void {
         switch (self) {
+            .block_change => |data| try genericEncodeData(data, writer),
             .keep_alive => |data| try genericEncodeData(data, writer),
             .chunk_data_and_update_light => |data| try genericEncodeData(data, writer),
             .join_game => |data| try genericEncodeData(data, writer),

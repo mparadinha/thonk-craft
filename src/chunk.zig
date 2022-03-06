@@ -414,17 +414,32 @@ pub fn Palette(comptime Type: type) type {
     };
 }
 
-pub fn newStoneChunkSection(allocator: Allocator) !ChunkSection {
+pub fn newSingleBlockChunkSection(allocator: Allocator, block_id: u16) !ChunkSection {
     var chunk_section = ChunkSection.init(allocator);
-    try chunk_section.block_palette.append(1); // stone
-    try chunk_section.block_palette.append(0); // air
-    try chunk_section.packed_block_data.appendSlice(&([_]u64{0} ** 256));
+    try chunk_section.block_palette.append(block_id);
+    return chunk_section;
+}
+
+pub fn new16BlockChunkSection(allocator: Allocator, block_ids: [16]u16, fill_block_idx: u4) !ChunkSection {
+    var chunk_section = ChunkSection.init(allocator);
+
+    try chunk_section.block_palette.appendSlice(&block_ids);
+
+    const two = (@intCast(u8, fill_block_idx) << 4) | @intCast(u8, fill_block_idx);
+    const four = (@intCast(u16, two) << 8) | @intCast(u16, two);
+    const eight = (@intCast(u32, four) << 16) | @intCast(u32, four);
+    const packed_long = (@intCast(u64, eight) << 32) | @intCast(u64, eight);
+    try chunk_section.packed_block_data.appendNTimes(packed_long, 256);
+
+    chunk_section.bits_per_block = chunk_section.bitsPerBlockNeeded();
+
     return chunk_section;
 }
 
 /// keeps the data in the same u64 packed format that we send over the network
 /// because it takes less memory (and to not waste time converting back and forth)
 pub const ChunkSection = struct {
+    bits_per_block: u4,
     block_palette: std.ArrayList(u16),
     packed_block_data: std.ArrayList(u64),
     biome_palette: []u16,
@@ -435,6 +450,7 @@ pub const ChunkSection = struct {
     /// Call `deinit` to free up resources
     pub fn init(allocator: Allocator) ChunkSection {
         return ChunkSection{
+            .bits_per_block = 0,
             .block_palette = std.ArrayList(u16).init(allocator),
             .packed_block_data = std.ArrayList(u64).init(allocator),
             .biome_palette = undefined,
@@ -450,47 +466,95 @@ pub const ChunkSection = struct {
         if (self.packed_biome_data.len != 0) self.allocator.free(self.packed_biome_data);
     }
 
-    fn bitsPerBlock(self: ChunkSection) u4 {
+    /// How many bits we need to encode all the different values in the palette.
+    /// If we're in the middle of re-packing the packed data (because the palette
+    /// grew, for e.g.) this will not be value that correctly un-packs the data that
+    /// is currently in the `packed_block_data` field. For that use the `bits_per_block` field.
+    fn bitsPerBlockNeeded(self: ChunkSection) u4 {
         return palettedContainerBitsPerBlock(self.block_palette.items);
     }
 
     /// `x`, `y` and `z` are chunk section relative block coordinates
     pub fn getBlock(self: ChunkSection, x: u4, y: u4, z: u4) u16 {
-        const bits_per_block = self.bitsPerBlock();
-        if (bits_per_block == 0) {
-            if (self.block_palette.len == 0) return 0; // air
-            return self.block_palette[0];
+        std.debug.assert(self.bits_per_block == self.bitsPerBlockNeeded());
+
+        if (self.bits_per_block == 0) {
+            if (self.block_palette.items.len == 0) return 0; // air
+            return self.block_palette.items[0];
         }
 
-        const blocks_per_long = 64 / @intCast(u8, bits_per_block);
+        const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
         const block_idx = x + (@intCast(usize, z) * 16) + (@intCast(usize, y) * 16 * 16);
         const idx_in_long = block_idx % blocks_per_long;
+        const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
+
+        const unused_bitlen = @intCast(u6, 64 - @intCast(u8, self.bits_per_block));
+        const mask = (~@as(u64, 0)) >> unused_bitlen;
 
         const long = self.packed_block_data.items[block_idx / blocks_per_long];
-        const block = long >> idx_in_long * bits_per_block;
-        const mask = (~@as(u64, 0)) >> (63 - @intCast(u6, bits_per_block) + 1);
-        return @intCast(u16, block & mask);
+        const palette_idx = (long >> shift_len) & mask;
+        return self.block_palette.items[palette_idx];
     }
 
     /// `x`, `y` and `z` are chunk section relative block coordinates
     // TODO: make this function thread safe?
     pub fn changeBlock(self: *ChunkSection, x: u4, y: u4, z: u4, new_block: u16) !void {
-        const bits_per_block = self.bitsPerBlock();
         if (self.block_palette.items.len == 1 and new_block == self.block_palette.items[0]) return;
         const palette_idx = try self.getOrInsertPaletteEntry(new_block);
-        if (self.bitsPerBlock() > bits_per_block) @panic("TODO rebuild packed block data");
+        if (self.bitsPerBlockNeeded() > self.bits_per_block) try self.rebuildPackedData();
 
-        const blocks_per_long = 64 / @intCast(u8, bits_per_block);
+        const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
         const block_idx = x + (@intCast(usize, z) * 16) + (@intCast(usize, y) * 16 * 16);
         const idx_in_long = block_idx % blocks_per_long;
-        const shift_len = @intCast(u6, idx_in_long * bits_per_block);
+        const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
+
+        const shifted_block = @intCast(u64, palette_idx) << shift_len;
+        const unused_bitlen = @intCast(u6, 64 - @intCast(u8, self.bits_per_block));
+        const mask = ~(((~@as(u64, 0)) >> unused_bitlen) << shift_len);
 
         const long = self.packed_block_data.items[block_idx / blocks_per_long];
-        const shifted_block = @intCast(u64, palette_idx) << shift_len;
-        const mask = ~(((~@as(u64, 0)) >> (63 - @intCast(u6, bits_per_block) + 1)) << shift_len);
-
         const new_long = (long & mask) | shifted_block;
         self.packed_block_data.items[block_idx / blocks_per_long] = new_long;
+    }
+
+    fn rebuildPackedData(self: *ChunkSection) !void {
+        std.debug.print("rebuild packed data (bits_per_block: {d} -> {d}\n", .{ self.bits_per_block, self.bitsPerBlockNeeded() });
+        // unpack all the block data into this array
+        var unpacked_data = [_]u16{0} ** 4096;
+        if (self.bits_per_block == 0 and self.block_palette.items.len != 0) {
+            // all the block are the 0th index in the palette
+        } else {
+            const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
+            const unused_bitlen = @intCast(u6, 64 - @intCast(u8, self.bits_per_block));
+            const mask = (~@as(u64, 0)) >> unused_bitlen;
+            for (unpacked_data) |*data, i| {
+                const idx_in_long = i % blocks_per_long;
+                const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
+                const long = self.packed_block_data.items[i / blocks_per_long];
+                data.* = @intCast(u16, (long >> shift_len) & mask);
+            }
+        }
+
+        self.bits_per_block = self.bitsPerBlockNeeded();
+
+        // repack all the blocks now with the new bits_per_block packing
+        const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
+        const longs_needed = std.math.ceil(4096 / @intToFloat(f32, blocks_per_long));
+        std.debug.print("b/long={}, longs need = {}\n", .{ blocks_per_long, longs_needed });
+        try self.packed_block_data.resize(@floatToInt(usize, longs_needed));
+        for (unpacked_data) |data, i| {
+            const idx_in_long = i % blocks_per_long;
+            const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
+
+            const shifted_block = @intCast(u64, data) << shift_len;
+            const unused_bitlen = @intCast(u6, 64 - @intCast(u8, self.bits_per_block));
+            const mask = ~(((~@as(u64, 0)) >> unused_bitlen) << shift_len);
+
+            //std.debug.print("i={}, blocks/long={}, len={}\n", .{ i, blocks_per_long, self.packed_block_data.items.len });
+            const long = self.packed_block_data.items[i / blocks_per_long];
+            const new_long = (long & mask) | shifted_block;
+            self.packed_block_data.items[i / blocks_per_long] = new_long;
+        }
     }
 
     /// Return the index in the palette that corresponds to this block id.
@@ -500,6 +564,10 @@ pub const ChunkSection = struct {
             if (entry == block_id) return i;
         } else {
             try self.block_palette.append(block_id);
+            std.debug.print(
+                "added new id to palette (.len={d}, bits/block={d})\n",
+                .{ self.block_palette.items.len, self.bits_per_block },
+            );
             return self.block_palette.items.len - 1;
         }
     }
@@ -529,7 +597,7 @@ pub const ChunkSection = struct {
 fn palettedContainerBitsPerBlock(palette: []u16) u4 {
     if (palette.len <= 1) return 0;
     var n_bits: u4 = 4;
-    while ((@as(usize, 1) << (n_bits - 1)) < palette.len) n_bits += 1;
+    while ((@as(usize, 1) << n_bits) < palette.len) n_bits += 1;
     return n_bits;
 }
 
