@@ -5,6 +5,7 @@ const Connection = StreamServer.Connection;
 
 const Session = @import("Session.zig");
 const WorldState = @import("WorldState.zig");
+const world = @import("world.zig");
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -12,6 +13,9 @@ pub fn main() !void {
 
     var world_state = WorldState.init(gpa);
     defer world_state.deinit();
+
+    var world_manager = try world.Manager.init("r.0.0.mca", gpa);
+    _ = world_manager;
 
     var server = StreamServer.init(.{
         // I shouldn't need this here. but sometimes we crash and this way we don't have

@@ -228,15 +228,18 @@ fn sendLoginPackets(self: *Self) !void {
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
-        const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-             try self.world.encodeChunkSectionData() else test_chunk_data;
-        //const chunk_data = if (pos[0] == 0 and pos[1] == 0)
-        //     official_chunk_data else test_chunk_data;
+        const chunk_data = blk: {
+            if (pos[0] == 0 and pos[1] == 0) {
+                break :blk try self.world.encodeChunkSectionData();
+            } else if (pos[0] == 1 and pos[1] == 1) {
+                break :blk official_chunk_data;
+            } else break :blk test_chunk_data;
+        };
         const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
             .chunk_x = pos[0],
             .chunk_z = pos[1],
-            .heightmaps = try WorldState.genHeighmapBlob(self.allocator),
-            //.heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
+            //.heightmaps = try WorldState.genHeighmapBlob(self.allocator),
+            .heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
             //.heightmaps = try WorldState.genHeightmapSeaLevel(self.allocator),
             .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
             .data = chunk_data,

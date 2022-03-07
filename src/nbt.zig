@@ -1,4 +1,5 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 pub const Tag = enum(u8) {
     end,
@@ -14,6 +15,173 @@ pub const Tag = enum(u8) {
     compound,
     int_array,
     long_array,
+};
+
+pub const Token = struct {
+    name: ?[]const u8,
+    data: union(Tag) {
+        end: void,
+        byte: i8,
+        short: i16,
+        int: i32,
+        long: i64,
+        float: f32,
+        double: f64,
+        byte_array: Array(i8),
+        string: []const u8,
+        list: struct { tag: Tag, len: usize },
+        compound: void,
+        int_array: Array(i32),
+        long_array: Array(i64),
+    },
+
+    pub fn Array(comptime ElementType: type) type {
+        return struct {
+            len: usize,
+            array_data: []const u8,
+
+            const Self = @This();
+
+            pub fn getElemsAlloc(self: Self, allocator: Allocator) ![]ElementType {
+                var array = try allocator.alloc(ElementType, self.len);
+                const reader = std.io.fixedBufferStream(self.array_data).reader();
+                for (array) |*entry| entry.* = try reader.readIntBig(ElementType);
+                return array;
+            }
+        };
+    }
+};
+
+pub const TokenStream = struct {
+    data: []const u8,
+    pos: usize,
+
+    pub const Error = error{InvalidTag};
+
+    pub fn init(nbt_data: []const u8) TokenStream {
+        return TokenStream{ .data = nbt_data, .pos = 0 };
+    }
+
+    pub fn next(self: *TokenStream) Error!?Token {
+        if (self.pos == self.data.len) return null;
+        const tag = std.meta.intToEnum(Tag, self.readInt(u8)) catch {
+            std.debug.print("self.pos=0x{x}\n", .{self.pos});
+            return Error.InvalidTag;
+        };
+        return Token{
+            .name = if (tag == .end) "" else self.readString(),
+            .data = try self.readData(tag),
+        };
+    }
+
+    /// For reading the entries of a `Tag.list` token
+    pub fn nextNameless(self: *TokenStream, list_tk: Token) Error!?Token {
+        if (self.pos == self.data.len) return null;
+        const tag = list_tk.list.tag;
+        std.debug.assert(tag != .end);
+        return Token{
+            .name = self.readString(),
+            .data = self.readData(tag),
+        };
+    }
+
+    pub fn skip(self: *TokenStream, skip_token: Token) Error!void {
+        switch (skip_token.data) {
+            .end => unreachable,
+
+            // parsing the tags already reads all the bytes associated with them
+            .byte,
+            .short,
+            .int,
+            .long,
+            .float,
+            .double,
+            .byte_array,
+            .string,
+            .int_array,
+            .long_array,
+            => {},
+
+            .list => |data| {
+                var i: usize = 0;
+                while (i < data.len) : (i += 1) {
+                    const token = Token{ .name = "", .data = try self.readData(data.tag) };
+                    try self.skip(token);
+                }
+            },
+            .compound => {
+                var token = try self.next();
+                while (token) |tk| : (token = try self.next()) {
+                    if (std.meta.activeTag(tk.data) == .end) break;
+                    try self.skip(tk);
+                }
+            },
+        }
+    }
+
+    fn readInt(self: *TokenStream, comptime T: type) T {
+        // NBT numbers are always big endian
+        const int: T = @intCast(T, switch (@sizeOf(T)) {
+            1 => @bitCast(T, self.data[self.pos]),
+            2 => (@intCast(T, self.data[self.pos + 0]) << 8) | self.data[self.pos + 1],
+            4 => (@intCast(T, self.data[self.pos + 0]) << 24) |
+                (@intCast(T, self.data[self.pos + 1]) << 16) |
+                (@intCast(T, self.data[self.pos + 2]) << 8) |
+                (@intCast(T, self.data[self.pos + 3]) << 0),
+            8 => (@intCast(T, self.data[self.pos + 0]) << 56) |
+                (@intCast(T, self.data[self.pos + 1]) << 48) |
+                (@intCast(T, self.data[self.pos + 2]) << 40) |
+                (@intCast(T, self.data[self.pos + 3]) << 32) |
+                (@intCast(T, self.data[self.pos + 4]) << 24) |
+                (@intCast(T, self.data[self.pos + 5]) << 16) |
+                (@intCast(T, self.data[self.pos + 6]) << 8) |
+                (@intCast(T, self.data[self.pos + 7]) << 0),
+            else => unreachable,
+        });
+        self.pos += @sizeOf(T);
+        return int;
+    }
+
+    fn readString(self: *TokenStream) []const u8 {
+        const len = self.readInt(u16);
+        const str = self.data[self.pos .. self.pos + len];
+        self.pos += len;
+        return str;
+    }
+
+    fn readArray(self: *TokenStream, comptime T: type) Token.Array(T) {
+        const array_len = @intCast(usize, self.readInt(i32));
+        const array_size = array_len * @sizeOf(T);
+        const data = Token.Array(T){
+            .len = array_len,
+            .array_data = self.data[self.pos .. self.pos + array_size],
+        };
+        self.pos += array_size;
+        return data;
+    }
+
+    // @TypeOf(Token.data) doesn't work???
+    const TokenData = @typeInfo(Token).Struct.fields[1].field_type;
+    fn readData(self: *TokenStream, tag: Tag) !TokenData {
+        switch (tag) {
+            .end => return TokenData{ .end = {} },
+            .byte => return TokenData{ .byte = self.readInt(i8) },
+            .short => return TokenData{ .short = self.readInt(i16) },
+            .int => return TokenData{ .int = self.readInt(i32) },
+            .long => return TokenData{ .long = self.readInt(i64) },
+            .float => return TokenData{ .float = @bitCast(f32, self.readInt(u32)) },
+            .double => return TokenData{ .double = @bitCast(f64, self.readInt(u64)) },
+            .byte_array => return TokenData{ .byte_array = self.readArray(i8) },
+            .string => return TokenData{ .string = self.readString() },
+            .list => return TokenData{ .list = .{
+                .tag = std.meta.intToEnum(Tag, self.readInt(u8)) catch return Error.InvalidTag,
+                .len = @intCast(usize, self.readInt(i32)),
+            } },
+            .compound => return TokenData{ .compound = {} },
+            .int_array => return TokenData{ .int_array = self.readArray(i32) },
+            .long_array => return TokenData{ .long_array = self.readArray(i64) },
+        }
+    }
 };
 
 fn Number(comptime T: type, tag: Tag) type {
