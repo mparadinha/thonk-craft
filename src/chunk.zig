@@ -114,7 +114,7 @@ fn loadSection(stream: *nbt.TokenStream, allocator: Allocator) !ChunkSection {
                     section.block_palette = std.ArrayList(u16).fromOwnedSlice(allocator, palette);
                     section.bits_per_block = section.bitsPerBlockNeeded();
                 } else if (std.mem.eql(u8, inner_tk.name.?, "data")) {
-                    section.packed_block_data = std.ArrayList(u64).init(allocator);
+                    try section.packed_block_data.ensureTotalCapacity(inner_tk.data.long_array.len);
                     const elems = try inner_tk.data.long_array.getElemsAlloc(allocator);
                     defer allocator.free(elems);
                     for (elems) |elem| {
@@ -126,8 +126,7 @@ fn loadSection(stream: *nbt.TokenStream, allocator: Allocator) !ChunkSection {
                 }
             }
         } else if (std.mem.eql(u8, tk.name.?, "biomes")) {
-            // ignore the biome data for now
-            try stream.skip(tk);
+            try loadBiomes(stream, allocator, &section.biome_palette, &section.packed_biome_data);
         } else {
             std.debug.print("unknown entry in section nbt: '{s}'. skipping\n", .{tk.name});
             try stream.skip(tk);
@@ -135,6 +134,117 @@ fn loadSection(stream: *nbt.TokenStream, allocator: Allocator) !ChunkSection {
     }
 
     return section;
+}
+
+/// assumes these lists have been initialized
+fn loadBiomes(
+    stream: *nbt.TokenStream,
+    allocator: Allocator,
+    palette_list: *std.ArrayList(u16),
+    packed_data_list: *std.ArrayList(u64),
+) !void {
+    _ = allocator;
+    _ = palette_list;
+    _ = packed_data_list;
+
+    var token = try stream.next();
+    while (token) |tk| : (token = try stream.next()) {
+        const tag = std.meta.activeTag(tk.data);
+        if (tag == .end) break;
+
+        if (std.mem.eql(u8, tk.name.?, "palette")) {
+            std.debug.assert(tk.data.list.tag == .string);
+            try palette_list.resize(tk.data.list.len);
+            for (palette_list.items) |*entry| {
+                const inner_tk = try stream.nextNameless(tk);
+                const biome_name = inner_tk.?.data.string;
+                entry.* = translateBiomeResourceLocation(biome_name);
+            }
+        } else if (std.mem.eql(u8, tk.name.?, "data")) {
+            std.debug.print("TODO biome packed data\n", .{});
+            try stream.skip(tk);
+        } else unreachable;
+    }
+}
+
+fn translateBiomeResourceLocation(name: []const u8) u16 {
+    const Pair = struct { loc: []const u8, id: u15 };
+    const map = [_]Pair{
+        .{ .loc = "the_void", .id = 0 },
+        .{ .loc = "plains", .id = 1 },
+        .{ .loc = "sunflower_plains", .id = 2 },
+        .{ .loc = "snowy_plains", .id = 3 },
+        .{ .loc = "ice_spikes", .id = 4 },
+        .{ .loc = "desert", .id = 5 },
+        .{ .loc = "swamp", .id = 6 },
+        .{ .loc = "forest", .id = 7 },
+        .{ .loc = "flower_forest", .id = 8 },
+        .{ .loc = "birch_forest", .id = 9 },
+        .{ .loc = "dark_forest", .id = 10 },
+        .{ .loc = "old_growth_birch_forest", .id = 11 },
+        .{ .loc = "old_growth_pine_taiga", .id = 12 },
+        .{ .loc = "old_growth_spruce_taiga", .id = 13 },
+        .{ .loc = "taiga", .id = 14 },
+        .{ .loc = "snowy_taiga", .id = 15 },
+        .{ .loc = "savanna", .id = 16 },
+        .{ .loc = "savanna_plateu", .id = 17 },
+        .{ .loc = "windswept_hills", .id = 18 },
+        .{ .loc = "windswept_gravelly_hills", .id = 19 },
+        .{ .loc = "windswept_forest", .id = 20 },
+        .{ .loc = "windswept_savanna", .id = 21 },
+        .{ .loc = "jungle", .id = 22 },
+        .{ .loc = "sparse_jungle", .id = 23 },
+        .{ .loc = "bamboo_jungle", .id = 24 },
+        .{ .loc = "badlands", .id = 25 },
+        .{ .loc = "eroded_badlands", .id = 26 },
+        .{ .loc = "wooded_badlands", .id = 27 },
+        .{ .loc = "meadow", .id = 28 },
+        .{ .loc = "grove", .id = 29 },
+        .{ .loc = "snowy_slopes", .id = 30 },
+        .{ .loc = "frozen_peaks", .id = 31 },
+        .{ .loc = "jagged_peaks", .id = 32 },
+        .{ .loc = "stony_peaks", .id = 33 },
+        .{ .loc = "river", .id = 34 },
+        .{ .loc = "frozen_river", .id = 35 },
+        .{ .loc = "beach", .id = 36 },
+        .{ .loc = "snowy_beach", .id = 37 },
+        .{ .loc = "stony_shore", .id = 38 },
+        .{ .loc = "warm_ocean", .id = 39 },
+        .{ .loc = "lukewarm_ocean", .id = 40 },
+        .{ .loc = "deep_lukewarm_ocean", .id = 41 },
+        .{ .loc = "ocean", .id = 42 },
+        .{ .loc = "deep_ocean", .id = 43 },
+        .{ .loc = "cold_ocean", .id = 44 },
+        .{ .loc = "deep_cold_ocean", .id = 45 },
+        .{ .loc = "frozen_ocean", .id = 46 },
+        .{ .loc = "deep_frozen_ocean", .id = 47 },
+        .{ .loc = "mushroom_fields", .id = 48 },
+        .{ .loc = "dripstone_caves", .id = 49 },
+        .{ .loc = "lush_caves", .id = 50 },
+        .{ .loc = "nether_wastes", .id = 51 },
+        .{ .loc = "warped_forest", .id = 52 },
+        .{ .loc = "crimson_forest", .id = 53 },
+        .{ .loc = "soul_sand_valley", .id = 54 },
+        .{ .loc = "basalt_deltas", .id = 55 },
+        .{ .loc = "the_end", .id = 56 },
+        .{ .loc = "end_highlands", .id = 57 },
+        .{ .loc = "end_midlands", .id = 58 },
+        .{ .loc = "small_end_islands", .id = 59 },
+        .{ .loc = "end_barrens", .id = 60 },
+    };
+    std.debug.assert(std.mem.eql(u8, name[0..10], "minecraft:"));
+    const loc = name[10..];
+
+    const id = blk: {
+        for (map) |pair| {
+            if (std.mem.eql(u8, loc, pair.loc)) break :blk pair.id;
+        } else {
+            std.debug.print("missing id for resource location '{s}'\n", .{name});
+            break :blk 0;
+        }
+    };
+
+    return id;
 }
 
 fn loadBlockState(stream: *nbt.TokenStream) !u16 {
@@ -146,7 +256,7 @@ fn loadBlockState(stream: *nbt.TokenStream) !u16 {
         if (tag == .end) break;
 
         if (std.mem.eql(u8, tk.name.?, "Name")) {
-            state_id = translateResourceLocation(tk.data.string);
+            state_id = translateBlockResourceLocation(tk.data.string);
         } else if (std.mem.eql(u8, tk.name.?, "Properties")) {
             // ignore these until for now
             try stream.skip(tk);
@@ -156,7 +266,7 @@ fn loadBlockState(stream: *nbt.TokenStream) !u16 {
     return state_id;
 }
 
-fn translateResourceLocation(name: []const u8) u16 {
+fn translateBlockResourceLocation(name: []const u8) u16 {
     const Pair = struct { loc: []const u8, id: u15 };
     const map = [_]Pair{
         .{ .loc = "air", .id = 0 },

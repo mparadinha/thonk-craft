@@ -77,11 +77,11 @@ pub const TokenStream = struct {
     /// For reading the entries of a `Tag.list` token
     pub fn nextNameless(self: *TokenStream, list_tk: Token) Error!?Token {
         if (self.pos == self.data.len) return null;
-        const tag = list_tk.list.tag;
+        const tag = list_tk.data.list.tag;
         std.debug.assert(tag != .end);
         return Token{
-            .name = self.readString(),
-            .data = self.readData(tag),
+            .name = "",
+            .data = try self.readData(tag),
         };
     }
 

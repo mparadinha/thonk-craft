@@ -214,7 +214,7 @@ fn sendLoginPackets(self: *Self) !void {
         .is_flat = true,
     } });
 
-    const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator);
+    const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator, 1);
     defer self.allocator.free(test_chunk_data);
     //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
     var official_chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, 0, 0);
@@ -230,25 +230,28 @@ fn sendLoginPackets(self: *Self) !void {
     for (chunk_positions) |pos| {
         const chunk_data = blk: {
             if (pos[0] == 0 and pos[1] == 0) {
-                break :blk try self.world.encodeChunkSectionData();
+                //break :blk try self.world.encodeChunkSectionData();
+                break :blk test_chunk_data;
             } else if (pos[0] == 1 and pos[1] == 1) {
                 break :blk official_chunk_data;
             } else break :blk test_chunk_data;
         };
-        const data = server_packets.PlayData{ .chunk_data_and_update_light = .{
-            .chunk_x = pos[0],
-            .chunk_z = pos[1],
-            //.heightmaps = try WorldState.genHeighmapBlob(self.allocator),
-            .heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
-            //.heightmaps = try WorldState.genHeightmapSeaLevel(self.allocator),
-            .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
-            .data = chunk_data,
-            .trust_edges = true,
-            .sky_light_mask = 0,
-            .block_light_mask = 0,
-            .empty_sky_light_mask = 0,
-            .empty_block_light_mask = 0,
-        } };
+        const data = server_packets.PlayData{
+            .chunk_data_and_update_light = .{
+                .chunk_x = pos[0],
+                .chunk_z = pos[1],
+                //.heightmaps = try WorldState.genHeighmapBlob(self.allocator),
+                .heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
+                //.heightmaps = try WorldState.genHeightmapSeaLevel(self.allocator),
+                .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
+                .data = chunk_data,
+                .trust_edges = true,
+                .sky_light_mask = 0,
+                .block_light_mask = 0,
+                .empty_sky_light_mask = 0,
+                .empty_block_light_mask = 0,
+            },
+        };
         defer self.allocator.free(data.chunk_data_and_update_light.heightmaps.blob);
         try self.sendPacketData(data);
     }
@@ -269,7 +272,7 @@ fn handlePlayPacket(
     self: *Self,
     packet_data: std.meta.TagPayload(ClientPacket, .play),
 ) !void {
-            const specialMod = @import("WorldState.zig").specialMod;
+    const specialMod = @import("WorldState.zig").specialMod;
     switch (packet_data) {
         // sent as confirmation that the client got our 'player position and look' packet
         // maybe we should check for this and resend that packet if this one never arrives?
@@ -291,9 +294,9 @@ fn handlePlayPacket(
             const chunk_z = @truncate(u4, specialMod(pos.z, 16));
             const status = data.status.value;
             if (status == 0 or status == 1) {
-                self.world.removeBlock(chunk_x, chunk_y, chunk_z); 
+                self.world.removeBlock(chunk_x, chunk_y, chunk_z);
 
-                // TODO: update all other players of the change 
+                // TODO: update all other players of the change
             }
         },
 
@@ -310,7 +313,7 @@ fn handlePlayPacket(
                 const raw_item_id = data.clicked_item.item_id.value;
                 const block_id = WorldState.itemIdToBlockId(raw_item_id);
                 self.player_slots[slot] = block_id;
-                std.debug.print("player_slot[{d}] = {}\n", .{slot, block_id});
+                std.debug.print("player_slot[{d}] = {}\n", .{ slot, block_id });
             }
         },
 
@@ -332,7 +335,7 @@ fn handlePlayPacket(
             const chunk_y = @truncate(u4, specialMod(pos.y, 16));
             const chunk_z = @truncate(u4, specialMod(pos.z, 16));
             const new_block = self.player_slots[self.active_slot];
-            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{new_block, chunk_x, chunk_y, chunk_z});
+            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{ new_block, chunk_x, chunk_y, chunk_z });
             self.world.changeBlock(chunk_x, chunk_y, chunk_z, new_block);
         },
 
@@ -355,7 +358,9 @@ fn keepAliveLoop(self: *Self) void {
         const time_of_send = std.time.milliTimestamp();
         self.sendPacketData(server_packets.PlayData{ .keep_alive = .{
             .keep_alive_id = time_of_send,
-        } }) catch { return; };
+        } }) catch {
+            return;
+        };
 
         for (self.keep_alive_ids) |*id| {
             if (id.*) |id_time| {

@@ -117,7 +117,6 @@ pub fn encodeChunkSectionData(self: *Self) ![]u8 {
     const writer = std.io.fixedBufferStream(buf).writer();
 
     try self.the_chunk.encode(writer);
-    //try self.the_chunk.encode(writer);
 
     const blob = writer.context.getWritten();
     buf = self.allocator.resize(buf, blob.len).?;
@@ -180,7 +179,7 @@ pub fn genHeighmapBlob(allocator: Allocator) !types.NBT {
 }
 
 // huge thanks to http://sdomi.pl/weblog/15-witchcraft-minecraft-server-in-bash/
-pub fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
+pub fn genSingleChunkSectionDataBlob(allocator: Allocator, biome_id: u16) ![]u8 {
     var buf = try allocator.alloc(u8, 0x4000);
     const writer = std.io.fixedBufferStream(buf).writer();
 
@@ -244,7 +243,8 @@ pub fn genSingleChunkSectionDataBlob(allocator: Allocator) ![]u8 {
     { // biomes (paletted container)
         try writer.writeByte(0); // bits per block
         { // palette
-            try types.VarInt.encode(writer, 1); // plains
+            //try types.VarInt.encode(writer, 1); // plains
+            try types.VarInt.encode(writer, biome_id);
         }
         const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
         for (biomes) |entry| try writer.writeIntBig(u64, entry);
