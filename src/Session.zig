@@ -30,6 +30,7 @@ pub const State = enum(u8) {
 connection: Connection,
 allocator: Allocator,
 state: State = .handshaking,
+compress_packets: bool = false,
 world: *WorldState,
 
 keep_alive_thread: ?std.Thread = null,
@@ -89,7 +90,7 @@ fn handleConnection(self: *Self) !void {
             break;
         }
 
-        const packet = ClientPacket.decode(reader, self.allocator, self.state) catch |err| switch (err) {
+        const packet = ClientPacket.decode(reader, self.allocator, self.state, self.compress_packets) catch |err| switch (err) {
             error.UnknownId => continue, // ClientPacket.decode already skips the data
             else => return err,
         };
@@ -175,6 +176,14 @@ fn handleLoginPacket(
             // see "https://wiki.vg/Protocol_FAQ#What.27s_the_normal_login_sequence_for_a_client.3F"
             // more information.
 
+            // TODO: there's no *compression* into zlib streams in the std lib, only decompression
+            //       so I would have to write a zlib compressor first.
+            // enable compression for all following packets (given they pass a size threshold)
+            //const compression_threshold = 256;
+            //try self.sendPacketData(server_packets.LoginData{ .set_compression = .{
+            //    .threshold = compression_threshold,
+            //} });
+
             try self.sendPacketData(server_packets.LoginData{ .login_success = .{
                 .uuid = 0,
                 .username = try types.String.fromLiteral(self.allocator, "OfflinePlayer"),
@@ -217,25 +226,35 @@ fn sendLoginPackets(self: *Self) !void {
     const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator, 1);
     defer self.allocator.free(test_chunk_data);
     //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
-    var official_chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, 0, 0);
+    //var official_chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, 0, 0);
+    var official_chunk = try WorldState.getChunkFromRegionFile("nether_r.0.0.mca", self.allocator, 0, 0);
     const official_chunk_data = try official_chunk.makeIntoPacketFormat(self.allocator);
     defer self.allocator.free(official_chunk_data);
+    //const chunk_positions = [_][2]i32{
+    //    // zig fmt: off
+    //    [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
+    //    [2]i32{  0, -1 }, [2]i32{  0, 0 }, [2]i32{  0, 1 },
+    //    [2]i32{  1, -1 }, [2]i32{  1, 0 }, [2]i32{  1, 1 },
+    //    // zig fmt: on
+    //};
     const chunk_positions = [_][2]i32{
         // zig fmt: off
-        [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
-        [2]i32{  0, -1 }, [2]i32{  0, 0 }, [2]i32{  0, 1 },
-        [2]i32{  1, -1 }, [2]i32{  1, 0 }, [2]i32{  1, 1 },
+        [2]i32{ 0, 0 }, [2]i32{ 0, 1 }, [2]i32{ 0, 2 },
+        [2]i32{ 1, 0 }, [2]i32{ 1, 1 }, [2]i32{ 1, 2 },
+        [2]i32{ 2, 0 }, [2]i32{ 2, 1 }, [2]i32{ 2, 2 },
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
-        const chunk_data = blk: {
-            if (pos[0] == 0 and pos[1] == 0) {
-                //break :blk try self.world.encodeChunkSectionData();
-                break :blk test_chunk_data;
-            } else if (pos[0] == 1 and pos[1] == 1) {
-                break :blk official_chunk_data;
-            } else break :blk test_chunk_data;
-        };
+        const chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, pos[0], pos[1]);
+        const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
+        //const chunk_data = blk: {
+        //    if (pos[0] == 0 and pos[1] == 0) {
+        //        //break :blk try self.world.encodeChunkSectionData();
+        //        break :blk test_chunk_data;
+        //    } else if (pos[0] == 1 and pos[1] == 1) {
+        //        break :blk official_chunk_data;
+        //    } else break :blk test_chunk_data;
+        //};
         const data = server_packets.PlayData{
             .chunk_data_and_update_light = .{
                 .chunk_x = pos[0],
@@ -258,7 +277,7 @@ fn sendLoginPackets(self: *Self) !void {
 
     try self.sendPacketData(server_packets.PlayData{ .player_position_and_look = .{
         .x = 0,
-        .y = -40,
+        .y = 70,
         .z = 0,
         .yaw = 0,
         .pitch = 0,
@@ -425,9 +444,9 @@ fn encode_packet_data(writer: anytype, data: anytype) !void {
     const data_encode_size = data.encodedSize();
     const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
 
-    try types.VarInt.encode(writer, @intCast(i32, packet_size));
-    try types.VarInt.encode(writer, raw_id);
-    try data.encode(writer);
+        try types.VarInt.encode(writer, @intCast(i32, packet_size));
+        try types.VarInt.encode(writer, raw_id);
+        try data.encode(writer);
 }
 
 fn sendPacket(self: *Self, packet: ServerPacket) !void {

@@ -39,7 +39,7 @@ pub const Chunk = struct {
         full,
     };
 
-    pub fn makeIntoPacketFormat(self: *Chunk, allocator: Allocator) ![]u8 {
+    pub fn makeIntoPacketFormat(self: Chunk, allocator: Allocator) ![]u8 {
         var buf = try allocator.alloc(u8, 0xa0000); // 640KB. ought to be enough :)
 
         const writer = std.io.fixedBufferStream(buf).writer();
@@ -84,7 +84,7 @@ pub fn loadFromNBT(nbt_data: []const u8, allocator: Allocator) !Chunk {
             chunk.sections = try allocator.alloc(ChunkSection, tk.data.list.len);
             for (chunk.sections) |*section| section.* = try loadSection(&stream, allocator);
         } else {
-            std.debug.print("unknow entry in chunk nbt: '{s}'. skipping\n", .{tk.name});
+            std.debug.print("unknown entry in chunk nbt: '{s}'. skipping\n", .{tk.name});
             try stream.skip(tk);
         }
     }
@@ -121,7 +121,7 @@ fn loadSection(stream: *nbt.TokenStream, allocator: Allocator) !ChunkSection {
                         section.packed_block_data.append(@bitCast(u64, elem)) catch unreachable;
                     }
                 } else {
-                    std.debug.print("unknow entry in block_states nbt: '{s}'. skipping\n", .{inner_tk.name});
+                    std.debug.print("unknown entry in block_states nbt: '{s}'. skipping\n", .{inner_tk.name});
                     try stream.skip(tk);
                 }
             }
@@ -302,6 +302,38 @@ fn translateBlockResourceLocation(name: []const u8) u16 {
         .{ .loc = "tall_seagrass", .id = 1402 },
         .{ .loc = "tuff", .id = 17714 },
         .{ .loc = "water", .id = 34 },
+        .{ .loc = "coal_ore", .id = 73 },
+        .{ .loc = "redstone_ore", .id = 3952 },
+        .{ .loc = "diamond_ore", .id = 3410 },
+        .{ .loc = "lapis_ore", .id = 263 },
+        .{ .loc = "gold_ore", .id = 69 },
+        .{ .loc = "andesite", .id = 6 },
+        .{ .loc = "sandstone", .id = 278 },
+        .{ .loc = "sand", .id = 66 },
+        .{ .loc = "obsidian", .id = 1490 },
+        .{ .loc = "nether_portal", .id = 4083 },
+        .{ .loc = "bubble_column", .id = 9917 },
+        .{ .loc = "deepslate_coal_ore", .id = 74 },
+        .{ .loc = "large_amethyst_bud", .id = 17678 },
+        .{ .loc = "medium_amethyst_bud", .id = 17690 },
+        .{ .loc = "small_amethyst_bud", .id = 17702 },
+        .{ .loc = "sugar_cane", .id = 4017 },
+        .{ .loc = "lava", .id = 50 },
+        .{ .loc = "nether_wart_block", .id = 9504 },
+        .{ .loc = "crimson_stem", .id = 15229 },
+        .{ .loc = "crimson_roots", .id = 15298 },
+        .{ .loc = "crimson_fungus", .id = 15242 },
+        .{ .loc = "crimson_nylium", .id = 15241 },
+        .{ .loc = "weeping_vines", .id = 15244 },
+        .{ .loc = "weeping_vines_plant", .id = 15270 },
+        .{ .loc = "netherrack", .id = 4069 },
+        .{ .loc = "nether_gold_ore", .id = 75 },
+        .{ .loc = "nether_quartz_ore", .id = 6933 },
+        .{ .loc = "ancient_debris", .id = 16081 },
+        .{ .loc = "blackstone", .id = 16093 },
+        .{ .loc = "magma_block", .id = 9503 },
+        .{ .loc = "shroomlight", .id = 15243 },
+        //.{ .loc = "", .id = },
     };
     std.debug.assert(std.mem.eql(u8, name[0..10], "minecraft:"));
     const loc = name[10..];

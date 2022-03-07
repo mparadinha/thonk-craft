@@ -18,38 +18,55 @@ pub const Packet = union(enum) {
 
     const Self = @This();
 
-    pub const DecodeError = error{UnknownId};
+    pub const DecodeError = error{ UnknownId, IncorrectPacketSize };
 
     /// Call `deinit` to cleanup resources.
-    pub fn decode(reader: anytype, allocator: Allocator, state: State) !Packet {
-        const id_data_len = (try VarInt.decode(reader)).value;
-        const raw_id = (try VarInt.decode(reader)).value;
+    pub fn decode(reader: anytype, allocator: Allocator, state: State, compressed: bool) !Packet {
+        const packet_len = (try VarInt.decode(reader)).value;
+        const id_data_len = if (compressed) (try VarInt.decode(reader)).value else packet_len;
+
+        // read the whole packet into a buffer first
+        const readbuf = try allocator.alloc(u8, @intCast(usize, id_data_len));
+        defer allocator.free(readbuf);
+        if (compressed) {
+            var zlib_stream = try std.compress.zlib.zlibStream(allocator, reader);
+            defer zlib_stream.deinit();
+            const bytes_read = try zlib_stream.read(readbuf);
+            if (bytes_read != readbuf.len) return DecodeError.IncorrectPacketSize;
+        } else {
+            const bytes_read = try reader.read(readbuf);
+            if (bytes_read != readbuf.len) return DecodeError.IncorrectPacketSize;
+        }
+
+        const packet_reader = std.io.fixedBufferStream(readbuf).reader();
+
+        const raw_id = (try VarInt.decode(packet_reader)).value;
         const data_len = @intCast(usize, id_data_len - types.VarInt.encodedSize(raw_id));
 
         switch (state) {
             .handshaking => {
                 const id = std.meta.intToEnum(HandshakingId, raw_id) catch unreachable;
-                return Packet{ .handshaking = try HandshakingData.decode(id, reader, allocator) };
+                return Packet{ .handshaking = try HandshakingData.decode(id, packet_reader, allocator) };
             },
             .status => {
                 const id = std.meta.intToEnum(StatusId, raw_id) catch unreachable;
-                return Packet{ .status = try StatusData.decode(id, reader, allocator) };
+                return Packet{ .status = try StatusData.decode(id, packet_reader, allocator) };
             },
             .login => {
                 const id = std.meta.intToEnum(LoginId, raw_id) catch {
                     std.debug.print("unknown login packet (id=0x{x}). skiping.\n", .{raw_id});
-                    try reader.skipBytes(data_len, .{});
+                    try packet_reader.skipBytes(data_len, .{});
                     return DecodeError.UnknownId;
                 };
-                return Packet{ .login = try LoginData.decode(id, reader, allocator) };
+                return Packet{ .login = try LoginData.decode(id, packet_reader, allocator) };
             },
             .play => {
                 const id = std.meta.intToEnum(PlayId, raw_id) catch {
                     std.debug.print("unknown play packet (id=0x{x}). skiping.\n", .{raw_id});
-                    try reader.skipBytes(data_len, .{});
+                    try packet_reader.skipBytes(data_len, .{});
                     return DecodeError.UnknownId;
                 };
-                return Packet{ .play = try PlayData.decode(id, reader, allocator) };
+                return Packet{ .play = try PlayData.decode(id, packet_reader, allocator) };
             },
             else => unreachable,
         }

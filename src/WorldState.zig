@@ -387,9 +387,9 @@ pub fn getChunkFromRegionFile(
 
     //const reader = std.io.fixedBufferStream(decomp_data).reader();
     //const chunk = try Chunk.fromNBT(reader, allocator);
-    //const dump_file = try std.fs.cwd().createFile("chunk_data.nbt", .{});
-    //defer dump_file.close();
-    //_ = try dump_file.write(decomp_data);
+    const dump_file = try std.fs.cwd().createFile("chunk_data.nbt", .{});
+    defer dump_file.close();
+    _ = try dump_file.write(decomp_data);
     const chunk = try @import("chunk.zig").loadFromNBT(decomp_data, allocator);
     return chunk;
 }
