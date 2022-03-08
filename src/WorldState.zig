@@ -14,7 +14,8 @@ const block_constants = @import("block_constants.zig");
 
 const Self = @This();
 
-the_chunk: ChunkSection,
+//the_chunk: ChunkSection,
+the_chunk: Chunk,
 mutex: std.Thread.Mutex,
 players: std.ArrayList(EntityPos),
 allocator: Allocator,
@@ -72,13 +73,13 @@ pub fn init(allocator: Allocator) Self {
     //    //@enumToInt(BlockId.stone),
     //    1404, // extended piston, facing north
     //) catch unreachable;
-    self.the_chunk = @import("chunk.zig").new16BlockChunkSection(
-        allocator,
-        [16]u16{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
-        1,
-    ) catch unreachable;
+    //self.the_chunk = @import("chunk.zig").new16BlockChunkSection(
+    //    allocator,
+    //    [16]u16{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
+    //    1,
+    //) catch unreachable;
 
-    _ = getChunkFromRegionFile("r.0.0.mca", allocator, 0, 0) catch unreachable;
+    self.the_chunk = getChunkFromRegionFile("r.0.0.mca", allocator, 0, 0) catch unreachable;
 
     return self;
 }
@@ -87,22 +88,23 @@ pub fn deinit(self: *Self) void {
     self.players.deinit();
 }
 
-/// `x`, `y` and `z` are the block coords relative to the chunk section
-pub fn getBlock(self: *Self, x: u4, y: u4, z: u4) u16 {
-    return self.the_chunk.getBlock(x, y, z);
-}
-
-/// `x`, `y` and `z` are the block coords relative to the chunk section
-pub fn removeBlock(self: *Self, x: u4, y: u4, z: u4) void {
-    std.debug.print("removing block @ ({}, {}, {})\n", .{ x, y, z });
-    self.changeBlock(x, y, z, block_constants.idFromState(.{ .air = {} }));
-}
-
-/// `x`, `y` and `z` are the block coords relative to the chunk section
-pub fn changeBlock(self: *Self, x: u4, y: u4, z: u4, new_id: u16) void {
+pub fn changeBlock(self: *Self, x: i32, y: i32, z: i32, new_id: u16) void {
     self.mutex.lock();
     defer self.mutex.unlock();
-    self.the_chunk.changeBlock(x, y, z, new_id) catch unreachable;
+
+    std.debug.print("changing block @ ({}, {}, {}) to {}\n", .{ x, y, z, new_id });
+
+    const chunk_x = @divFloor(x, 16);
+    const chunk_y = @divFloor(y, 16);
+    const chunk_z = @divFloor(z, 16);
+    std.debug.print("changing block @ chunk_section({}, {}, {})\n", .{ chunk_x, chunk_y, chunk_z });
+
+    const local_x = @intCast(u4, specialMod(x, 16));
+    const local_y = @intCast(u4, specialMod(y, 16));
+    const local_z = @intCast(u4, specialMod(z, 16));
+    std.debug.print("chunk_local block pos ({}, {}, {})\n", .{ local_x, local_y, local_z });
+
+    self.the_chunk.changeBlock(local_x, y, local_z, new_id) catch unreachable;
 
     // TODO check for redstone block and pistons
 }

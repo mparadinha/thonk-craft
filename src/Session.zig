@@ -248,7 +248,8 @@ fn sendLoginPackets(self: *Self) !void {
     for (chunk_positions) |pos| {
         //const chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, pos[0], pos[1]);
         //const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
-        const chunk_data = try self.world.encodeChunkSectionData();
+        const chunk_data = try self.world.the_chunk.makeIntoPacketFormat(self.allocator);
+        //const chunk_data = try self.world.encodeChunkSectionData();
         //const chunk_data = blk: {
         //    if (pos[0] == 0 and pos[1] == 0) {
         //        //break :blk try self.world.encodeChunkSectionData();
@@ -293,7 +294,6 @@ fn handlePlayPacket(
     self: *Self,
     packet_data: std.meta.TagPayload(ClientPacket, .play),
 ) !void {
-    const specialMod = @import("WorldState.zig").specialMod;
     switch (packet_data) {
         // sent as confirmation that the client got our 'player position and look' packet
         // maybe we should check for this and resend that packet if this one never arrives?
@@ -310,12 +310,12 @@ fn handlePlayPacket(
         .player_digging => |data| {
             std.debug.print("dig: status={}, loc={}, face={}\n", data);
             const pos = data.location;
-            const chunk_x = @truncate(u4, specialMod(pos.x, 16));
-            const chunk_y = @truncate(u4, specialMod(pos.y, 16));
-            const chunk_z = @truncate(u4, specialMod(pos.z, 16));
             const status = data.status.value;
             if (status == 0 or status == 1) {
-                self.world.removeBlock(chunk_x, chunk_y, chunk_z);
+                self.world.changeBlock(
+                    @intCast(i32, pos.x), @intCast(i32, pos.y), @intCast(i32, pos.z),
+                    block_constants.idFromState(.{ .air = {} }),
+                );
 
                 // TODO: update all other players of the change
             }
@@ -341,8 +341,7 @@ fn handlePlayPacket(
         .player_block_placement => |data| {
             std.debug.print("block place: hand={}, loc={}, face={}, cursor_pos=({},{},{}), inside_block={}\n", data);
 
-            const click_pos = data.location;
-            var pos = click_pos;
+            var pos = data.location;
             switch (data.face.value) {
                 0 => pos.y -= 1, // clicked on -Y face
                 1 => pos.y += 1, // clicked on +Y face
@@ -352,12 +351,9 @@ fn handlePlayPacket(
                 5 => pos.x += 1, // clicked on +X face
                 else => unreachable,
             }
-            const chunk_x = @truncate(u4, specialMod(pos.x, 16));
-            const chunk_y = @truncate(u4, specialMod(pos.y, 16));
-            const chunk_z = @truncate(u4, specialMod(pos.z, 16));
             const new_block = self.player_slots[self.active_slot];
-            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{ new_block, chunk_x, chunk_y, chunk_z });
-            self.world.changeBlock(chunk_x, chunk_y, chunk_z, new_block);
+            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{ new_block, pos.x, pos.y, pos.z });
+            self.world.changeBlock(@intCast(i32, pos.x), @intCast(i32, pos.y), @intCast(i32, pos.z), new_block);
         },
 
         // ignore everything else right now, cause our server doesn't do shit yet
