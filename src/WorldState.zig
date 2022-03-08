@@ -20,45 +20,16 @@ mutex: std.Thread.Mutex,
 players: std.ArrayList(EntityPos),
 allocator: Allocator,
 
-/// actually this is the block *state* id. different from block id
-pub const BlockId = enum(u15) {
-    air = 0,
-    stone = 1,
-    granite = 2,
-    polished_granite = 3,
-    diorite = 4,
-    polished_diorite = 5,
-    andesite = 6,
-    polished_andesite = 7,
-    snowy_grass_block = 8,
-    grass_block = 9,
-    dirt = 10,
-    coarse_dirt = 11,
-    snowy_podzol = 12,
-    podzol = 13,
-    cobblestone = 14,
-    oak_planks = 15,
-    spruce_planks = 16,
-    birch_planks = 17,
-    jungle_planks = 18,
-    acacia_planks = 19,
-    dark_oak_planks = 20,
-    bedrock = 33,
-    glass = 106,
-    short_piston_head_north = 1416,
-    piston_head_north = 1418,
-};
+const EntityPos = struct { x: f32, feet_y: f32, z: f32 };
 
 pub fn itemIdToBlockId(item_id: i32) u16 {
     const block_tag = block_constants.item_block_ids[@intCast(usize, item_id)];
     if (block_tag) |tag| {
         const tag_int = @enumToInt(tag);
-        const range = block_constants.block_state_ranges[tag_int];
-        return @intCast(u16, range[0]);
+        const state_info = block_constants.block_states_info[tag_int];
+        return @intCast(u16, state_info.default);
     } else unreachable;
 }
-
-const EntityPos = struct { x: f32, feet_y: f32, z: f32 };
 
 /// Call `deinit` to cleanup resources.
 pub fn init(allocator: Allocator) Self {
@@ -78,7 +49,6 @@ pub fn init(allocator: Allocator) Self {
     //    [16]u16{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
     //    1,
     //) catch unreachable;
-
     self.the_chunk = getChunkFromRegionFile("r.0.0.mca", allocator, 0, 0) catch unreachable;
 
     return self;

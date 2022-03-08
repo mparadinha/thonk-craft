@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 
 const nbt = @import("nbt.zig");
 const types = @import("types.zig");
+const block_constants = @import("block_constants.zig");
 
 pub const Chunk = struct {
     data_version: i32,
@@ -175,87 +176,84 @@ fn loadBiomes(
 }
 
 fn translateBiomeResourceLocation(name: []const u8) u16 {
-    const Pair = struct { loc: []const u8, id: u15 };
-    const map = [_]Pair{
-        .{ .loc = "the_void", .id = 0 },
-        .{ .loc = "plains", .id = 1 },
-        .{ .loc = "sunflower_plains", .id = 2 },
-        .{ .loc = "snowy_plains", .id = 3 },
-        .{ .loc = "ice_spikes", .id = 4 },
-        .{ .loc = "desert", .id = 5 },
-        .{ .loc = "swamp", .id = 6 },
-        .{ .loc = "forest", .id = 7 },
-        .{ .loc = "flower_forest", .id = 8 },
-        .{ .loc = "birch_forest", .id = 9 },
-        .{ .loc = "dark_forest", .id = 10 },
-        .{ .loc = "old_growth_birch_forest", .id = 11 },
-        .{ .loc = "old_growth_pine_taiga", .id = 12 },
-        .{ .loc = "old_growth_spruce_taiga", .id = 13 },
-        .{ .loc = "taiga", .id = 14 },
-        .{ .loc = "snowy_taiga", .id = 15 },
-        .{ .loc = "savanna", .id = 16 },
-        .{ .loc = "savanna_plateu", .id = 17 },
-        .{ .loc = "windswept_hills", .id = 18 },
-        .{ .loc = "windswept_gravelly_hills", .id = 19 },
-        .{ .loc = "windswept_forest", .id = 20 },
-        .{ .loc = "windswept_savanna", .id = 21 },
-        .{ .loc = "jungle", .id = 22 },
-        .{ .loc = "sparse_jungle", .id = 23 },
-        .{ .loc = "bamboo_jungle", .id = 24 },
-        .{ .loc = "badlands", .id = 25 },
-        .{ .loc = "eroded_badlands", .id = 26 },
-        .{ .loc = "wooded_badlands", .id = 27 },
-        .{ .loc = "meadow", .id = 28 },
-        .{ .loc = "grove", .id = 29 },
-        .{ .loc = "snowy_slopes", .id = 30 },
-        .{ .loc = "frozen_peaks", .id = 31 },
-        .{ .loc = "jagged_peaks", .id = 32 },
-        .{ .loc = "stony_peaks", .id = 33 },
-        .{ .loc = "river", .id = 34 },
-        .{ .loc = "frozen_river", .id = 35 },
-        .{ .loc = "beach", .id = 36 },
-        .{ .loc = "snowy_beach", .id = 37 },
-        .{ .loc = "stony_shore", .id = 38 },
-        .{ .loc = "warm_ocean", .id = 39 },
-        .{ .loc = "lukewarm_ocean", .id = 40 },
-        .{ .loc = "deep_lukewarm_ocean", .id = 41 },
-        .{ .loc = "ocean", .id = 42 },
-        .{ .loc = "deep_ocean", .id = 43 },
-        .{ .loc = "cold_ocean", .id = 44 },
-        .{ .loc = "deep_cold_ocean", .id = 45 },
-        .{ .loc = "frozen_ocean", .id = 46 },
-        .{ .loc = "deep_frozen_ocean", .id = 47 },
-        .{ .loc = "mushroom_fields", .id = 48 },
-        .{ .loc = "dripstone_caves", .id = 49 },
-        .{ .loc = "lush_caves", .id = 50 },
-        .{ .loc = "nether_wastes", .id = 51 },
-        .{ .loc = "warped_forest", .id = 52 },
-        .{ .loc = "crimson_forest", .id = 53 },
-        .{ .loc = "soul_sand_valley", .id = 54 },
-        .{ .loc = "basalt_deltas", .id = 55 },
-        .{ .loc = "the_end", .id = 56 },
-        .{ .loc = "end_highlands", .id = 57 },
-        .{ .loc = "end_midlands", .id = 58 },
-        .{ .loc = "small_end_islands", .id = 59 },
-        .{ .loc = "end_barrens", .id = 60 },
+    const Biome = enum(u8) {
+        the_void,
+        plains,
+        sunflower_plains,
+        snowy_plains,
+        ice_spikes,
+        desert,
+        swamp,
+        forest,
+        flower_forest,
+        birch_forest,
+        dark_forest,
+        old_growth_birch_forest,
+        old_growth_pine_taiga,
+        old_growth_spruce_taiga,
+        taiga,
+        snowy_taiga,
+        savanna,
+        savanna_plateu,
+        windswept_hills,
+        windswept_gravelly_hills,
+        windswept_forest,
+        windswept_savanna,
+        jungle,
+        sparse_jungle,
+        bamboo_jungle,
+        badlands,
+        eroded_badlands,
+        wooded_badlands,
+        meadow,
+        grove,
+        snowy_slopes,
+        frozen_peaks,
+        jagged_peaks,
+        stony_peaks,
+        river,
+        frozen_river,
+        beach,
+        snowy_beach,
+        stony_shore,
+        warm_ocean,
+        lukewarm_ocean,
+        deep_lukewarm_ocean,
+        ocean,
+        deep_ocean,
+        cold_ocean,
+        deep_cold_ocean,
+        frozen_ocean,
+        deep_frozen_ocean,
+        mushroom_fields,
+        dripstone_caves,
+        lush_caves,
+        nether_wastes,
+        warped_forest,
+        crimson_forest,
+        soul_sand_valley,
+        basalt_deltas,
+        the_end,
+        end_highlands,
+        end_midlands,
+        small_end_islands,
+        end_barrens,
     };
     std.debug.assert(std.mem.eql(u8, name[0..10], "minecraft:"));
     const loc = name[10..];
-
-    const id = blk: {
-        for (map) |pair| {
-            if (std.mem.eql(u8, loc, pair.loc)) break :blk pair.id;
-        } else {
-            std.debug.print("missing id for resource location '{s}'\n", .{name});
-            break :blk 0;
-        }
-    };
-
-    return id;
+    const biome = std.meta.stringToEnum(Biome, loc);
+    if (biome) |id| {
+        return @enumToInt(id);
+    } else {
+        std.debug.print("missing Biome for '{s}'\n", .{name});
+        return 0;
+    }
 }
 
 fn loadBlockState(stream: *nbt.TokenStream) !u16 {
-    var state_id: u16 = undefined;
+    var name: ?[]const u8 = null;
+    var properties_buf: [10]block_constants.BlockProperty = undefined;
+    var properties_n: usize = 0;
 
     var token = try stream.next();
     while (token) |tk| : (token = try stream.next()) {
@@ -263,98 +261,36 @@ fn loadBlockState(stream: *nbt.TokenStream) !u16 {
         if (tag == .end) break;
 
         if (std.mem.eql(u8, tk.name.?, "Name")) {
-            state_id = translateBlockResourceLocation(tk.data.string);
+            name = tk.data.string;
         } else if (std.mem.eql(u8, tk.name.?, "Properties")) {
-            // ignore these until for now
-            try stream.skip(tk);
+            var inner_token = try stream.next();
+            while (inner_token) |inner_tk| : (inner_token = try stream.next()) {
+                const inner_tag = std.meta.activeTag(inner_tk.data);
+                if (inner_tag == .end) break;
+                expectToken(inner_tk, .string);
+                var prop_name = inner_tk.name.?;
+                var prop_value = inner_tk.data.string;
+                properties_buf[properties_n] = .{ .name = prop_name, .value = prop_value };
+                properties_n += 1;
+            }
         } else unreachable;
     }
 
-    return state_id;
+    return translateBlockResourceLocation(name.?, properties_buf[0..properties_n]);
 }
 
-fn translateBlockResourceLocation(name: []const u8) u16 {
-    const Pair = struct { loc: []const u8, id: u15 };
-    const map = [_]Pair{
-        .{ .loc = "air", .id = 0 },
-        .{ .loc = "amethyst_block", .id = 17664 },
-        .{ .loc = "amethyst_cluster", .id = 17666 },
-        .{ .loc = "bedrock", .id = 33 },
-        .{ .loc = "budding_amethyst", .id = 17665 },
-        .{ .loc = "calcite", .id = 17715 },
-        .{ .loc = "cave_air", .id = 9916 },
-        .{ .loc = "cobblestone", .id = 14 },
-        .{ .loc = "cobweb", .id = 1397 },
-        .{ .loc = "copper_ore", .id = 17818 },
-        .{ .loc = "deepslate", .id = 18683 },
-        .{ .loc = "deepslate_copper_ore", .id = 17819 },
-        .{ .loc = "deepslate_diamond_ore", .id = 3411 },
-        .{ .loc = "deepslate_gold_ore", .id = 70 },
-        .{ .loc = "deepslate_iron_ore", .id = 72 },
-        .{ .loc = "deepslate_lapis_ore", .id = 264 },
-        .{ .loc = "deepslate_redstone_ore", .id = 3954 },
-        .{ .loc = "diorite", .id = 4 },
-        .{ .loc = "dirt", .id = 10 },
-        .{ .loc = "glow_lichen", .id = 4893 },
-        .{ .loc = "granite", .id = 2 },
-        .{ .loc = "gravel", .id = 68 },
-        .{ .loc = "iron_ore", .id = 71 },
-        .{ .loc = "mossy_cobblestone", .id = 1489 },
-        .{ .loc = "oak_fence", .id = 4035 },
-        .{ .loc = "oak_planks", .id = 15 },
-        .{ .loc = "rail", .id = 3702 },
-        .{ .loc = "seagrass", .id = 1401 },
-        .{ .loc = "smooth_basalt", .id = 20336 },
-        .{ .loc = "stone", .id = 1 },
-        .{ .loc = "tall_seagrass", .id = 1402 },
-        .{ .loc = "tuff", .id = 17714 },
-        .{ .loc = "water", .id = 34 },
-        .{ .loc = "coal_ore", .id = 73 },
-        .{ .loc = "redstone_ore", .id = 3952 },
-        .{ .loc = "diamond_ore", .id = 3410 },
-        .{ .loc = "lapis_ore", .id = 263 },
-        .{ .loc = "gold_ore", .id = 69 },
-        .{ .loc = "andesite", .id = 6 },
-        .{ .loc = "sandstone", .id = 278 },
-        .{ .loc = "sand", .id = 66 },
-        .{ .loc = "obsidian", .id = 1490 },
-        .{ .loc = "nether_portal", .id = 4083 },
-        .{ .loc = "bubble_column", .id = 9917 },
-        .{ .loc = "deepslate_coal_ore", .id = 74 },
-        .{ .loc = "large_amethyst_bud", .id = 17678 },
-        .{ .loc = "medium_amethyst_bud", .id = 17690 },
-        .{ .loc = "small_amethyst_bud", .id = 17702 },
-        .{ .loc = "sugar_cane", .id = 4017 },
-        .{ .loc = "lava", .id = 50 },
-        .{ .loc = "nether_wart_block", .id = 9504 },
-        .{ .loc = "crimson_stem", .id = 15229 },
-        .{ .loc = "crimson_roots", .id = 15298 },
-        .{ .loc = "crimson_fungus", .id = 15242 },
-        .{ .loc = "crimson_nylium", .id = 15241 },
-        .{ .loc = "weeping_vines", .id = 15244 },
-        .{ .loc = "weeping_vines_plant", .id = 15270 },
-        .{ .loc = "netherrack", .id = 4069 },
-        .{ .loc = "nether_gold_ore", .id = 75 },
-        .{ .loc = "nether_quartz_ore", .id = 6933 },
-        .{ .loc = "ancient_debris", .id = 16081 },
-        .{ .loc = "blackstone", .id = 16093 },
-        .{ .loc = "magma_block", .id = 9503 },
-        .{ .loc = "shroomlight", .id = 15243 },
-        //.{ .loc = "", .id = },
-    };
+fn translateBlockResourceLocation(name: []const u8, properties: []block_constants.BlockProperty) u16 {
     std.debug.assert(std.mem.eql(u8, name[0..10], "minecraft:"));
     const loc = name[10..];
-
-    const id = blk: {
-        for (map) |pair| {
-            if (std.mem.eql(u8, loc, pair.loc)) break :blk pair.id;
-        } else {
-            std.debug.print("missing id for resource location '{s}'\n", .{name});
-            break :blk 0;
-        }
-    };
-
-    return id;
+    @setEvalBranchQuota(2_000);
+    const block_tag = std.meta.stringToEnum(block_constants.BlockTag, loc);
+    if (block_tag) |tag| {
+        const state = block_constants.stateFromPropertyList(tag, properties);
+        return block_constants.idFromState(state);
+    } else {
+        std.debug.print("missing BlockTag for '{s}'\n", .{name});
+        return block_constants.idFromState(.{ .air = {} });
+    }
 }
 
 pub fn expectToken(token: nbt.Token, tag: nbt.Tag) void {

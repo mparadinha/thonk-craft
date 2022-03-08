@@ -97,12 +97,16 @@ pub fn main() !void {
         \\//!   state numeric id
         \\//! * the `block_states` array lists every single block state for every single
         \\//!   block type, sorted by its numeric id. it has over 20,000 entries.
-        \\//! * the `block_state_range` maps the `BlockState` tag to a usize "start/end"
+        \\//! * the `block_states_info` maps the `BlockState` tag to a usize "start/end"
         \\//!   pair, which gives a range in the `block_states` array ("end" is exclusive)
+        \\//!   and a `default` which gives the default block state (via `block_states`)
         \\//! * the `item_block_ids` array maps an item id (different from block id) to its
         \\//!   corresponding `BlockTag`, or `null` if that item has no corresponding block (like
         \\//!   a saddle or music discs, for e.g). example: the tuff item has an item id of 12,
         \\//!   so item_blocks_ids[12] is `BlockTag.tuff`
+        \\//! * the `stateFromPropertyList` function, which builds a `BlockState` from a list
+        \\//!   of name/value strings, where `name` is the property name (such as "snowy") and
+        \\//!   `value` the corresponding value to set for that property (such as "true")
         \\//!
         \\//! (fun fact: `minecraft:redstone_wire` has 1296 unique block states)
         \\
@@ -113,9 +117,9 @@ pub fn main() !void {
     _ = try writer.write(
         \\pub fn idFromState(block_state: BlockState) u16 {
         \\    @setEvalBranchQuota(2_000);
-        \\    const range = block_state_ranges[@enumToInt(block_state)];
-        \\    for (block_states[range[0]..range[1]]) |cmp_state, i| {
-        \\        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + range[0]);
+        \\    const info = block_states_info[@enumToInt(block_state)];
+        \\    for (block_states[info.start..info.end]) |cmp_state, i| {
+        \\        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + info.start);
         \\    } else unreachable;
         \\}
         \\
@@ -192,14 +196,18 @@ pub fn main() !void {
     }
     _ = try writer.write("};\n"); // close `block_states`
     _ = try writer.write("\n");
-    _ = try writer.write("pub const block_state_ranges = [_][2]usize{\n");
+    _ = try writer.write("pub const BlockStateInfo = struct { start: usize, end: usize, default: usize };\n");
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const block_states_info = [_]BlockStateInfo{\n");
     var last_range_end: u16 = 0;
     for (block_infos) |info| {
         const start = info.states[0].id;
         const end = start + info.states.len;
         std.debug.assert(start == last_range_end);
         last_range_end = @intCast(u16, end);
-        try writer.print("    [2]usize{{ {d}, {d} }},\n", .{ start, end });
+        try writer.print("    .{{ .start = {d}, .end = {d}, .default = {d} }},\n", .{
+            start, end, info.states[info.default_state].id,
+        });
     }
     _ = try writer.write("};\n"); // close `block_state_ranges`
     _ = try writer.write("\n");
@@ -214,6 +222,55 @@ pub fn main() !void {
     _ = try writer.write("};\n"); // close `item_block_ids`
     _ = try writer.write("\n");
     _ = try writer.write(
+        \\pub const BlockProperty = struct { name: []const u8, value: []const u8 };
+        \\
+        \\pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty) BlockState {
+        \\    const tag_info = block_states_info[@enumToInt(tag)];
+        \\    var state = block_states[tag_info.default];
+        \\    switch (state) {
+        \\
+    );
+    for (block_infos) |info| {
+        if (info.states.len == 1) continue;
+        try printIndent(writer, 2, ".{s} => |*data| {{\n", .{afterColon(info.name)});
+        if (info.possible_properties.len == 1) {
+            const property = info.possible_properties[0];
+            try printIndent(writer, 3, "std.debug.assert(std.mem.eql(u8, property_list[0].name, \"{s}\"));\n", .{property.name});
+            try printIndent(writer, 3, "data.{s} = ", .{property.name});
+            switch (property.typeToUse()) {
+                .Bool => _ = try writer.write("std.mem.eql(u8, property_list[0].value, \"true\");\n"),
+                .Int => _ = try writer.write("std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;\n"),
+                .Enum => try writer.print("std.meta.stringToEnum(@TypeOf(data.{s}), property_list[0].value) orelse unreachable;\n", .{property.name}),
+                else => unreachable,
+            }
+        } else {
+            try writeIndent(writer, 3, "for (property_list) |property| {\n");
+            for (info.possible_properties) |property, i| {
+                try writeIndent(writer, 4, "");
+                if (i > 0) _ = try writer.write("} else ");
+                try writer.print("if (std.mem.eql(u8, property.name, \"{s}\")) {{\n", .{property.name});
+                try printIndent(writer, 5, "data.{s} = ", .{property.name});
+                switch (property.typeToUse()) {
+                    .Bool => _ = try writer.write("std.mem.eql(u8, property.value, \"true\");\n"),
+                    .Int => _ = try writer.write("std.fmt.parseInt(u8, property.value, 0) catch unreachable;\n"),
+                    .Enum => try writer.print("std.meta.stringToEnum(@TypeOf(data.{s}), property.value) orelse unreachable;\n", .{property.name}),
+                    else => unreachable,
+                }
+            }
+            try writeIndent(writer, 4, "} else unreachable;\n");
+            try writeIndent(writer, 3, "}\n");
+        }
+        try writeIndent(writer, 2, "},\n");
+    }
+    _ = try writer.write(
+        \\        else => {},
+        \\    }
+        \\    return state;
+        \\}
+        \\
+    ); // close 'stateFromPropertyList
+    _ = try writer.write("\n");
+    _ = try writer.write(
         \\test "idFromState" {
         \\    try std.testing.expect(idFromState(.{ .air = {} }) == 0);
         \\    try std.testing.expect(idFromState(.{ .redstone_wire = .{
@@ -226,7 +283,38 @@ pub fn main() !void {
         \\    try std.testing.expect(idFromState(.{ .redstone_wire = .{} }) == 3274);
         \\}
         \\
+        \\test "stateFromPropertyList" {
+        \\    @setEvalBranchQuota(2_000);
+        \\
+        \\    const air = BlockState{ .air = .{} };
+        \\    const air_list = [_]BlockProperty{};
+        \\    try std.testing.expectEqual(air, stateFromPropertyList(.air, &air_list));
+        \\
+        \\    const snowy_grass = BlockState{ .grass_block = .{ .snowy = true } };
+        \\    const snowy_grass_list = [_]BlockProperty{ .{ .name = "snowy", .value = "true" }};
+        \\    try std.testing.expectEqual(snowy_grass, stateFromPropertyList(.grass_block, &snowy_grass_list));
+        \\
+        \\    const bamboo = BlockState{ .bamboo = .{ .age = 4, .leaves = .small } };
+        \\    const bamboo_list = [_]BlockProperty{
+        \\        .{ .name = "age", .value = "4" },
+        \\        .{ .name = "leaves", .value = "small" },
+        \\    };
+        \\    try std.testing.expectEqual(bamboo, stateFromPropertyList(.bamboo, &bamboo_list));
+        \\}
+        \\
     );
+}
+
+/// `indent` measure multiples of 4 spaces. i.e. indent=2 will write 8 spaces
+fn writeIndent(writer: anytype, comptime indent: u8, str: []const u8) !void {
+    const spaces = [_]u8{' '} ** (4 * indent);
+    _ = try writer.write(&spaces);
+    _ = try writer.write(str);
+}
+fn printIndent(writer: anytype, comptime indent: u8, comptime fmt: []const u8, args: anytype) !void {
+    const spaces = [_]u8{' '} ** (4 * indent);
+    _ = try writer.write(&spaces);
+    try writer.print(fmt, args);
 }
 
 /// wraps the identifier in @"" if needed

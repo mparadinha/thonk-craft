@@ -11,12 +11,16 @@
 //!   state numeric id
 //! * the `block_states` array lists every single block state for every single
 //!   block type, sorted by its numeric id. it has over 20,000 entries.
-//! * the `block_state_range` maps the `BlockState` tag to a usize "start/end"
+//! * the `block_states_info` maps the `BlockState` tag to a usize "start/end"
 //!   pair, which gives a range in the `block_states` array ("end" is exclusive)
+//!   and a `default` which gives the default block state (via `block_states`)
 //! * the `item_block_ids` array maps an item id (different from block id) to its
 //!   corresponding `BlockTag`, or `null` if that item has no corresponding block (like
 //!   a saddle or music discs, for e.g). example: the tuff item has an item id of 12,
 //!   so item_blocks_ids[12] is `BlockTag.tuff`
+//! * the `stateFromPropertyList` function, which builds a `BlockState` from a list
+//!   of name/value strings, where `name` is the property name (such as "snowy") and
+//!   `value` the corresponding value to set for that property (such as "true")
 //!
 //! (fun fact: `minecraft:redstone_wire` has 1296 unique block states)
 
@@ -24,9 +28,9 @@ const std = @import("std");
 
 pub fn idFromState(block_state: BlockState) u16 {
     @setEvalBranchQuota(2_000);
-    const range = block_state_ranges[@enumToInt(block_state)];
-    for (block_states[range[0]..range[1]]) |cmp_state, i| {
-        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + range[0]);
+    const info = block_states_info[@enumToInt(block_state)];
+    for (block_states[info.start..info.end]) |cmp_state, i| {
+        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + info.start);
     } else unreachable;
 }
 
@@ -22905,905 +22909,907 @@ pub const block_states = [_]BlockState{
     .{ .potted_flowering_azalea_bush = {} },
 };
 
-pub const block_state_ranges = [_][2]usize{
-    [2]usize{ 0, 1 },
-    [2]usize{ 1, 2 },
-    [2]usize{ 2, 3 },
-    [2]usize{ 3, 4 },
-    [2]usize{ 4, 5 },
-    [2]usize{ 5, 6 },
-    [2]usize{ 6, 7 },
-    [2]usize{ 7, 8 },
-    [2]usize{ 8, 10 },
-    [2]usize{ 10, 11 },
-    [2]usize{ 11, 12 },
-    [2]usize{ 12, 14 },
-    [2]usize{ 14, 15 },
-    [2]usize{ 15, 16 },
-    [2]usize{ 16, 17 },
-    [2]usize{ 17, 18 },
-    [2]usize{ 18, 19 },
-    [2]usize{ 19, 20 },
-    [2]usize{ 20, 21 },
-    [2]usize{ 21, 23 },
-    [2]usize{ 23, 25 },
-    [2]usize{ 25, 27 },
-    [2]usize{ 27, 29 },
-    [2]usize{ 29, 31 },
-    [2]usize{ 31, 33 },
-    [2]usize{ 33, 34 },
-    [2]usize{ 34, 50 },
-    [2]usize{ 50, 66 },
-    [2]usize{ 66, 67 },
-    [2]usize{ 67, 68 },
-    [2]usize{ 68, 69 },
-    [2]usize{ 69, 70 },
-    [2]usize{ 70, 71 },
-    [2]usize{ 71, 72 },
-    [2]usize{ 72, 73 },
-    [2]usize{ 73, 74 },
-    [2]usize{ 74, 75 },
-    [2]usize{ 75, 76 },
-    [2]usize{ 76, 79 },
-    [2]usize{ 79, 82 },
-    [2]usize{ 82, 85 },
-    [2]usize{ 85, 88 },
-    [2]usize{ 88, 91 },
-    [2]usize{ 91, 94 },
-    [2]usize{ 94, 97 },
-    [2]usize{ 97, 100 },
-    [2]usize{ 100, 103 },
-    [2]usize{ 103, 106 },
-    [2]usize{ 106, 109 },
-    [2]usize{ 109, 112 },
-    [2]usize{ 112, 115 },
-    [2]usize{ 115, 118 },
-    [2]usize{ 118, 121 },
-    [2]usize{ 121, 124 },
-    [2]usize{ 124, 127 },
-    [2]usize{ 127, 130 },
-    [2]usize{ 130, 133 },
-    [2]usize{ 133, 136 },
-    [2]usize{ 136, 139 },
-    [2]usize{ 139, 142 },
-    [2]usize{ 142, 145 },
-    [2]usize{ 145, 148 },
-    [2]usize{ 148, 162 },
-    [2]usize{ 162, 176 },
-    [2]usize{ 176, 190 },
-    [2]usize{ 190, 204 },
-    [2]usize{ 204, 218 },
-    [2]usize{ 218, 232 },
-    [2]usize{ 232, 246 },
-    [2]usize{ 246, 260 },
-    [2]usize{ 260, 261 },
-    [2]usize{ 261, 262 },
-    [2]usize{ 262, 263 },
-    [2]usize{ 263, 264 },
-    [2]usize{ 264, 265 },
-    [2]usize{ 265, 266 },
-    [2]usize{ 266, 278 },
-    [2]usize{ 278, 279 },
-    [2]usize{ 279, 280 },
-    [2]usize{ 280, 281 },
-    [2]usize{ 281, 1081 },
-    [2]usize{ 1081, 1097 },
-    [2]usize{ 1097, 1113 },
-    [2]usize{ 1113, 1129 },
-    [2]usize{ 1129, 1145 },
-    [2]usize{ 1145, 1161 },
-    [2]usize{ 1161, 1177 },
-    [2]usize{ 1177, 1193 },
-    [2]usize{ 1193, 1209 },
-    [2]usize{ 1209, 1225 },
-    [2]usize{ 1225, 1241 },
-    [2]usize{ 1241, 1257 },
-    [2]usize{ 1257, 1273 },
-    [2]usize{ 1273, 1289 },
-    [2]usize{ 1289, 1305 },
-    [2]usize{ 1305, 1321 },
-    [2]usize{ 1321, 1337 },
-    [2]usize{ 1337, 1361 },
-    [2]usize{ 1361, 1385 },
-    [2]usize{ 1385, 1397 },
-    [2]usize{ 1397, 1398 },
-    [2]usize{ 1398, 1399 },
-    [2]usize{ 1399, 1400 },
-    [2]usize{ 1400, 1401 },
-    [2]usize{ 1401, 1402 },
-    [2]usize{ 1402, 1404 },
-    [2]usize{ 1404, 1416 },
-    [2]usize{ 1416, 1440 },
-    [2]usize{ 1440, 1441 },
-    [2]usize{ 1441, 1442 },
-    [2]usize{ 1442, 1443 },
-    [2]usize{ 1443, 1444 },
-    [2]usize{ 1444, 1445 },
-    [2]usize{ 1445, 1446 },
-    [2]usize{ 1446, 1447 },
-    [2]usize{ 1447, 1448 },
-    [2]usize{ 1448, 1449 },
-    [2]usize{ 1449, 1450 },
-    [2]usize{ 1450, 1451 },
-    [2]usize{ 1451, 1452 },
-    [2]usize{ 1452, 1453 },
-    [2]usize{ 1453, 1454 },
-    [2]usize{ 1454, 1455 },
-    [2]usize{ 1455, 1456 },
-    [2]usize{ 1456, 1468 },
-    [2]usize{ 1468, 1469 },
-    [2]usize{ 1469, 1470 },
-    [2]usize{ 1470, 1471 },
-    [2]usize{ 1471, 1472 },
-    [2]usize{ 1472, 1473 },
-    [2]usize{ 1473, 1474 },
-    [2]usize{ 1474, 1475 },
-    [2]usize{ 1475, 1476 },
-    [2]usize{ 1476, 1477 },
-    [2]usize{ 1477, 1478 },
-    [2]usize{ 1478, 1479 },
-    [2]usize{ 1479, 1480 },
-    [2]usize{ 1480, 1481 },
-    [2]usize{ 1481, 1482 },
-    [2]usize{ 1482, 1483 },
-    [2]usize{ 1483, 1484 },
-    [2]usize{ 1484, 1485 },
-    [2]usize{ 1485, 1486 },
-    [2]usize{ 1486, 1488 },
-    [2]usize{ 1488, 1489 },
-    [2]usize{ 1489, 1490 },
-    [2]usize{ 1490, 1491 },
-    [2]usize{ 1491, 1492 },
-    [2]usize{ 1492, 1496 },
-    [2]usize{ 1496, 2008 },
-    [2]usize{ 2008, 2009 },
-    [2]usize{ 2009, 2010 },
-    [2]usize{ 2010, 2090 },
-    [2]usize{ 2090, 2114 },
-    [2]usize{ 2114, 3410 },
-    [2]usize{ 3410, 3411 },
-    [2]usize{ 3411, 3412 },
-    [2]usize{ 3412, 3413 },
-    [2]usize{ 3413, 3414 },
-    [2]usize{ 3414, 3422 },
-    [2]usize{ 3422, 3430 },
-    [2]usize{ 3430, 3438 },
-    [2]usize{ 3438, 3470 },
-    [2]usize{ 3470, 3502 },
-    [2]usize{ 3502, 3534 },
-    [2]usize{ 3534, 3566 },
-    [2]usize{ 3566, 3598 },
-    [2]usize{ 3598, 3630 },
-    [2]usize{ 3630, 3694 },
-    [2]usize{ 3694, 3702 },
-    [2]usize{ 3702, 3722 },
-    [2]usize{ 3722, 3802 },
-    [2]usize{ 3802, 3810 },
-    [2]usize{ 3810, 3818 },
-    [2]usize{ 3818, 3826 },
-    [2]usize{ 3826, 3834 },
-    [2]usize{ 3834, 3842 },
-    [2]usize{ 3842, 3850 },
-    [2]usize{ 3850, 3874 },
-    [2]usize{ 3874, 3876 },
-    [2]usize{ 3876, 3940 },
-    [2]usize{ 3940, 3942 },
-    [2]usize{ 3942, 3944 },
-    [2]usize{ 3944, 3946 },
-    [2]usize{ 3946, 3948 },
-    [2]usize{ 3948, 3950 },
-    [2]usize{ 3950, 3952 },
-    [2]usize{ 3952, 3954 },
-    [2]usize{ 3954, 3956 },
-    [2]usize{ 3956, 3958 },
-    [2]usize{ 3958, 3966 },
-    [2]usize{ 3966, 3990 },
-    [2]usize{ 3990, 3998 },
-    [2]usize{ 3998, 3999 },
-    [2]usize{ 3999, 4000 },
-    [2]usize{ 4000, 4016 },
-    [2]usize{ 4016, 4017 },
-    [2]usize{ 4017, 4033 },
-    [2]usize{ 4033, 4035 },
-    [2]usize{ 4035, 4067 },
-    [2]usize{ 4067, 4068 },
-    [2]usize{ 4068, 4069 },
-    [2]usize{ 4069, 4070 },
-    [2]usize{ 4070, 4071 },
-    [2]usize{ 4071, 4074 },
-    [2]usize{ 4074, 4077 },
-    [2]usize{ 4077, 4078 },
-    [2]usize{ 4078, 4082 },
-    [2]usize{ 4082, 4083 },
-    [2]usize{ 4083, 4085 },
-    [2]usize{ 4085, 4089 },
-    [2]usize{ 4089, 4093 },
-    [2]usize{ 4093, 4100 },
-    [2]usize{ 4100, 4164 },
-    [2]usize{ 4164, 4165 },
-    [2]usize{ 4165, 4166 },
-    [2]usize{ 4166, 4167 },
-    [2]usize{ 4167, 4168 },
-    [2]usize{ 4168, 4169 },
-    [2]usize{ 4169, 4170 },
-    [2]usize{ 4170, 4171 },
-    [2]usize{ 4171, 4172 },
-    [2]usize{ 4172, 4173 },
-    [2]usize{ 4173, 4174 },
-    [2]usize{ 4174, 4175 },
-    [2]usize{ 4175, 4176 },
-    [2]usize{ 4176, 4177 },
-    [2]usize{ 4177, 4178 },
-    [2]usize{ 4178, 4179 },
-    [2]usize{ 4179, 4180 },
-    [2]usize{ 4180, 4244 },
-    [2]usize{ 4244, 4308 },
-    [2]usize{ 4308, 4372 },
-    [2]usize{ 4372, 4436 },
-    [2]usize{ 4436, 4500 },
-    [2]usize{ 4500, 4564 },
-    [2]usize{ 4564, 4565 },
-    [2]usize{ 4565, 4566 },
-    [2]usize{ 4566, 4567 },
-    [2]usize{ 4567, 4568 },
-    [2]usize{ 4568, 4569 },
-    [2]usize{ 4569, 4570 },
-    [2]usize{ 4570, 4571 },
-    [2]usize{ 4571, 4572 },
-    [2]usize{ 4572, 4573 },
-    [2]usize{ 4573, 4574 },
-    [2]usize{ 4574, 4638 },
-    [2]usize{ 4638, 4702 },
-    [2]usize{ 4702, 4766 },
-    [2]usize{ 4766, 4798 },
-    [2]usize{ 4798, 4804 },
-    [2]usize{ 4804, 4836 },
-    [2]usize{ 4836, 4837 },
-    [2]usize{ 4837, 4841 },
-    [2]usize{ 4841, 4845 },
-    [2]usize{ 4845, 4853 },
-    [2]usize{ 4853, 4861 },
-    [2]usize{ 4861, 4893 },
-    [2]usize{ 4893, 5021 },
-    [2]usize{ 5021, 5053 },
-    [2]usize{ 5053, 5133 },
-    [2]usize{ 5133, 5213 },
-    [2]usize{ 5213, 5215 },
-    [2]usize{ 5215, 5216 },
-    [2]usize{ 5216, 5217 },
-    [2]usize{ 5217, 5249 },
-    [2]usize{ 5249, 5329 },
-    [2]usize{ 5329, 5333 },
-    [2]usize{ 5333, 5334 },
-    [2]usize{ 5334, 5342 },
-    [2]usize{ 5342, 5343 },
-    [2]usize{ 5343, 5346 },
-    [2]usize{ 5346, 5347 },
-    [2]usize{ 5347, 5350 },
-    [2]usize{ 5350, 5351 },
-    [2]usize{ 5351, 5359 },
-    [2]usize{ 5359, 5360 },
-    [2]usize{ 5360, 5361 },
-    [2]usize{ 5361, 5363 },
-    [2]usize{ 5363, 5375 },
-    [2]usize{ 5375, 5455 },
-    [2]usize{ 5455, 5456 },
-    [2]usize{ 5456, 5457 },
-    [2]usize{ 5457, 5465 },
-    [2]usize{ 5465, 5481 },
-    [2]usize{ 5481, 5609 },
-    [2]usize{ 5609, 5610 },
-    [2]usize{ 5610, 5690 },
-    [2]usize{ 5690, 5770 },
-    [2]usize{ 5770, 5850 },
-    [2]usize{ 5850, 5862 },
-    [2]usize{ 5862, 5863 },
-    [2]usize{ 5863, 6187 },
-    [2]usize{ 6187, 6511 },
-    [2]usize{ 6511, 6512 },
-    [2]usize{ 6512, 6513 },
-    [2]usize{ 6513, 6514 },
-    [2]usize{ 6514, 6515 },
-    [2]usize{ 6515, 6516 },
-    [2]usize{ 6516, 6517 },
-    [2]usize{ 6517, 6518 },
-    [2]usize{ 6518, 6519 },
-    [2]usize{ 6519, 6520 },
-    [2]usize{ 6520, 6521 },
-    [2]usize{ 6521, 6522 },
-    [2]usize{ 6522, 6523 },
-    [2]usize{ 6523, 6524 },
-    [2]usize{ 6524, 6525 },
-    [2]usize{ 6525, 6526 },
-    [2]usize{ 6526, 6527 },
-    [2]usize{ 6527, 6528 },
-    [2]usize{ 6528, 6529 },
-    [2]usize{ 6529, 6530 },
-    [2]usize{ 6530, 6531 },
-    [2]usize{ 6531, 6532 },
-    [2]usize{ 6532, 6533 },
-    [2]usize{ 6533, 6534 },
-    [2]usize{ 6534, 6535 },
-    [2]usize{ 6535, 6536 },
-    [2]usize{ 6536, 6544 },
-    [2]usize{ 6544, 6552 },
-    [2]usize{ 6552, 6576 },
-    [2]usize{ 6576, 6600 },
-    [2]usize{ 6600, 6624 },
-    [2]usize{ 6624, 6648 },
-    [2]usize{ 6648, 6672 },
-    [2]usize{ 6672, 6696 },
-    [2]usize{ 6696, 6712 },
-    [2]usize{ 6712, 6716 },
-    [2]usize{ 6716, 6732 },
-    [2]usize{ 6732, 6736 },
-    [2]usize{ 6736, 6752 },
-    [2]usize{ 6752, 6756 },
-    [2]usize{ 6756, 6772 },
-    [2]usize{ 6772, 6776 },
-    [2]usize{ 6776, 6792 },
-    [2]usize{ 6792, 6796 },
-    [2]usize{ 6796, 6812 },
-    [2]usize{ 6812, 6816 },
-    [2]usize{ 6816, 6820 },
-    [2]usize{ 6820, 6824 },
-    [2]usize{ 6824, 6828 },
-    [2]usize{ 6828, 6852 },
-    [2]usize{ 6852, 6868 },
-    [2]usize{ 6868, 6884 },
-    [2]usize{ 6884, 6900 },
-    [2]usize{ 6900, 6932 },
-    [2]usize{ 6932, 6933 },
-    [2]usize{ 6933, 6934 },
-    [2]usize{ 6934, 6944 },
-    [2]usize{ 6944, 6945 },
-    [2]usize{ 6945, 6946 },
-    [2]usize{ 6946, 6949 },
-    [2]usize{ 6949, 7029 },
-    [2]usize{ 7029, 7053 },
-    [2]usize{ 7053, 7065 },
-    [2]usize{ 7065, 7066 },
-    [2]usize{ 7066, 7067 },
-    [2]usize{ 7067, 7068 },
-    [2]usize{ 7068, 7069 },
-    [2]usize{ 7069, 7070 },
-    [2]usize{ 7070, 7071 },
-    [2]usize{ 7071, 7072 },
-    [2]usize{ 7072, 7073 },
-    [2]usize{ 7073, 7074 },
-    [2]usize{ 7074, 7075 },
-    [2]usize{ 7075, 7076 },
-    [2]usize{ 7076, 7077 },
-    [2]usize{ 7077, 7078 },
-    [2]usize{ 7078, 7079 },
-    [2]usize{ 7079, 7080 },
-    [2]usize{ 7080, 7081 },
-    [2]usize{ 7081, 7113 },
-    [2]usize{ 7113, 7145 },
-    [2]usize{ 7145, 7177 },
-    [2]usize{ 7177, 7209 },
-    [2]usize{ 7209, 7241 },
-    [2]usize{ 7241, 7273 },
-    [2]usize{ 7273, 7305 },
-    [2]usize{ 7305, 7337 },
-    [2]usize{ 7337, 7369 },
-    [2]usize{ 7369, 7401 },
-    [2]usize{ 7401, 7433 },
-    [2]usize{ 7433, 7465 },
-    [2]usize{ 7465, 7497 },
-    [2]usize{ 7497, 7529 },
-    [2]usize{ 7529, 7561 },
-    [2]usize{ 7561, 7593 },
-    [2]usize{ 7593, 7673 },
-    [2]usize{ 7673, 7753 },
-    [2]usize{ 7753, 7754 },
-    [2]usize{ 7754, 7755 },
-    [2]usize{ 7755, 7787 },
-    [2]usize{ 7787, 7851 },
-    [2]usize{ 7851, 7852 },
-    [2]usize{ 7852, 7853 },
-    [2]usize{ 7853, 7854 },
-    [2]usize{ 7854, 7934 },
-    [2]usize{ 7934, 8014 },
-    [2]usize{ 8014, 8094 },
-    [2]usize{ 8094, 8100 },
-    [2]usize{ 8100, 8106 },
-    [2]usize{ 8106, 8112 },
-    [2]usize{ 8112, 8113 },
-    [2]usize{ 8113, 8116 },
-    [2]usize{ 8116, 8117 },
-    [2]usize{ 8117, 8118 },
-    [2]usize{ 8118, 8119 },
-    [2]usize{ 8119, 8120 },
-    [2]usize{ 8120, 8121 },
-    [2]usize{ 8121, 8122 },
-    [2]usize{ 8122, 8123 },
-    [2]usize{ 8123, 8124 },
-    [2]usize{ 8124, 8125 },
-    [2]usize{ 8125, 8126 },
-    [2]usize{ 8126, 8127 },
-    [2]usize{ 8127, 8128 },
-    [2]usize{ 8128, 8129 },
-    [2]usize{ 8129, 8130 },
-    [2]usize{ 8130, 8131 },
-    [2]usize{ 8131, 8132 },
-    [2]usize{ 8132, 8133 },
-    [2]usize{ 8133, 8134 },
-    [2]usize{ 8134, 8135 },
-    [2]usize{ 8135, 8137 },
-    [2]usize{ 8137, 8139 },
-    [2]usize{ 8139, 8141 },
-    [2]usize{ 8141, 8143 },
-    [2]usize{ 8143, 8145 },
-    [2]usize{ 8145, 8147 },
-    [2]usize{ 8147, 8163 },
-    [2]usize{ 8163, 8179 },
-    [2]usize{ 8179, 8195 },
-    [2]usize{ 8195, 8211 },
-    [2]usize{ 8211, 8227 },
-    [2]usize{ 8227, 8243 },
-    [2]usize{ 8243, 8259 },
-    [2]usize{ 8259, 8275 },
-    [2]usize{ 8275, 8291 },
-    [2]usize{ 8291, 8307 },
-    [2]usize{ 8307, 8323 },
-    [2]usize{ 8323, 8339 },
-    [2]usize{ 8339, 8355 },
-    [2]usize{ 8355, 8371 },
-    [2]usize{ 8371, 8387 },
-    [2]usize{ 8387, 8403 },
-    [2]usize{ 8403, 8407 },
-    [2]usize{ 8407, 8411 },
-    [2]usize{ 8411, 8415 },
-    [2]usize{ 8415, 8419 },
-    [2]usize{ 8419, 8423 },
-    [2]usize{ 8423, 8427 },
-    [2]usize{ 8427, 8431 },
-    [2]usize{ 8431, 8435 },
-    [2]usize{ 8435, 8439 },
-    [2]usize{ 8439, 8443 },
-    [2]usize{ 8443, 8447 },
-    [2]usize{ 8447, 8451 },
-    [2]usize{ 8451, 8455 },
-    [2]usize{ 8455, 8459 },
-    [2]usize{ 8459, 8463 },
-    [2]usize{ 8463, 8467 },
-    [2]usize{ 8467, 8468 },
-    [2]usize{ 8468, 8469 },
-    [2]usize{ 8469, 8470 },
-    [2]usize{ 8470, 8550 },
-    [2]usize{ 8550, 8556 },
-    [2]usize{ 8556, 8562 },
-    [2]usize{ 8562, 8568 },
-    [2]usize{ 8568, 8574 },
-    [2]usize{ 8574, 8580 },
-    [2]usize{ 8580, 8586 },
-    [2]usize{ 8586, 8592 },
-    [2]usize{ 8592, 8598 },
-    [2]usize{ 8598, 8604 },
-    [2]usize{ 8604, 8610 },
-    [2]usize{ 8610, 8616 },
-    [2]usize{ 8616, 8622 },
-    [2]usize{ 8622, 8628 },
-    [2]usize{ 8628, 8634 },
-    [2]usize{ 8634, 8640 },
-    [2]usize{ 8640, 8646 },
-    [2]usize{ 8646, 8652 },
-    [2]usize{ 8652, 8658 },
-    [2]usize{ 8658, 8664 },
-    [2]usize{ 8664, 8665 },
-    [2]usize{ 8665, 8666 },
-    [2]usize{ 8666, 8667 },
-    [2]usize{ 8667, 8668 },
-    [2]usize{ 8668, 8700 },
-    [2]usize{ 8700, 8732 },
-    [2]usize{ 8732, 8764 },
-    [2]usize{ 8764, 8796 },
-    [2]usize{ 8796, 8828 },
-    [2]usize{ 8828, 8860 },
-    [2]usize{ 8860, 8892 },
-    [2]usize{ 8892, 8924 },
-    [2]usize{ 8924, 8956 },
-    [2]usize{ 8956, 8988 },
-    [2]usize{ 8988, 9052 },
-    [2]usize{ 9052, 9116 },
-    [2]usize{ 9116, 9180 },
-    [2]usize{ 9180, 9244 },
-    [2]usize{ 9244, 9308 },
-    [2]usize{ 9308, 9314 },
-    [2]usize{ 9314, 9378 },
-    [2]usize{ 9378, 9384 },
-    [2]usize{ 9384, 9385 },
-    [2]usize{ 9385, 9388 },
-    [2]usize{ 9388, 9468 },
-    [2]usize{ 9468, 9469 },
-    [2]usize{ 9469, 9473 },
-    [2]usize{ 9473, 9474 },
-    [2]usize{ 9474, 9475 },
-    [2]usize{ 9475, 9487 },
-    [2]usize{ 9487, 9499 },
-    [2]usize{ 9499, 9503 },
-    [2]usize{ 9503, 9504 },
-    [2]usize{ 9504, 9505 },
-    [2]usize{ 9505, 9506 },
-    [2]usize{ 9506, 9509 },
-    [2]usize{ 9509, 9510 },
-    [2]usize{ 9510, 9522 },
-    [2]usize{ 9522, 9528 },
-    [2]usize{ 9528, 9534 },
-    [2]usize{ 9534, 9540 },
-    [2]usize{ 9540, 9546 },
-    [2]usize{ 9546, 9552 },
-    [2]usize{ 9552, 9558 },
-    [2]usize{ 9558, 9564 },
-    [2]usize{ 9564, 9570 },
-    [2]usize{ 9570, 9576 },
-    [2]usize{ 9576, 9582 },
-    [2]usize{ 9582, 9588 },
-    [2]usize{ 9588, 9594 },
-    [2]usize{ 9594, 9600 },
-    [2]usize{ 9600, 9606 },
-    [2]usize{ 9606, 9612 },
-    [2]usize{ 9612, 9618 },
-    [2]usize{ 9618, 9624 },
-    [2]usize{ 9624, 9628 },
-    [2]usize{ 9628, 9632 },
-    [2]usize{ 9632, 9636 },
-    [2]usize{ 9636, 9640 },
-    [2]usize{ 9640, 9644 },
-    [2]usize{ 9644, 9648 },
-    [2]usize{ 9648, 9652 },
-    [2]usize{ 9652, 9656 },
-    [2]usize{ 9656, 9660 },
-    [2]usize{ 9660, 9664 },
-    [2]usize{ 9664, 9668 },
-    [2]usize{ 9668, 9672 },
-    [2]usize{ 9672, 9676 },
-    [2]usize{ 9676, 9680 },
-    [2]usize{ 9680, 9684 },
-    [2]usize{ 9684, 9688 },
-    [2]usize{ 9688, 9689 },
-    [2]usize{ 9689, 9690 },
-    [2]usize{ 9690, 9691 },
-    [2]usize{ 9691, 9692 },
-    [2]usize{ 9692, 9693 },
-    [2]usize{ 9693, 9694 },
-    [2]usize{ 9694, 9695 },
-    [2]usize{ 9695, 9696 },
-    [2]usize{ 9696, 9697 },
-    [2]usize{ 9697, 9698 },
-    [2]usize{ 9698, 9699 },
-    [2]usize{ 9699, 9700 },
-    [2]usize{ 9700, 9701 },
-    [2]usize{ 9701, 9702 },
-    [2]usize{ 9702, 9703 },
-    [2]usize{ 9703, 9704 },
-    [2]usize{ 9704, 9705 },
-    [2]usize{ 9705, 9706 },
-    [2]usize{ 9706, 9707 },
-    [2]usize{ 9707, 9708 },
-    [2]usize{ 9708, 9709 },
-    [2]usize{ 9709, 9710 },
-    [2]usize{ 9710, 9711 },
-    [2]usize{ 9711, 9712 },
-    [2]usize{ 9712, 9713 },
-    [2]usize{ 9713, 9714 },
-    [2]usize{ 9714, 9715 },
-    [2]usize{ 9715, 9716 },
-    [2]usize{ 9716, 9717 },
-    [2]usize{ 9717, 9718 },
-    [2]usize{ 9718, 9719 },
-    [2]usize{ 9719, 9720 },
-    [2]usize{ 9720, 9746 },
-    [2]usize{ 9746, 9747 },
-    [2]usize{ 9747, 9748 },
-    [2]usize{ 9748, 9760 },
-    [2]usize{ 9760, 9761 },
-    [2]usize{ 9761, 9762 },
-    [2]usize{ 9762, 9763 },
-    [2]usize{ 9763, 9764 },
-    [2]usize{ 9764, 9765 },
-    [2]usize{ 9765, 9766 },
-    [2]usize{ 9766, 9767 },
-    [2]usize{ 9767, 9768 },
-    [2]usize{ 9768, 9769 },
-    [2]usize{ 9769, 9770 },
-    [2]usize{ 9770, 9772 },
-    [2]usize{ 9772, 9774 },
-    [2]usize{ 9774, 9776 },
-    [2]usize{ 9776, 9778 },
-    [2]usize{ 9778, 9780 },
-    [2]usize{ 9780, 9782 },
-    [2]usize{ 9782, 9784 },
-    [2]usize{ 9784, 9786 },
-    [2]usize{ 9786, 9788 },
-    [2]usize{ 9788, 9790 },
-    [2]usize{ 9790, 9792 },
-    [2]usize{ 9792, 9794 },
-    [2]usize{ 9794, 9796 },
-    [2]usize{ 9796, 9798 },
-    [2]usize{ 9798, 9800 },
-    [2]usize{ 9800, 9802 },
-    [2]usize{ 9802, 9804 },
-    [2]usize{ 9804, 9806 },
-    [2]usize{ 9806, 9808 },
-    [2]usize{ 9808, 9810 },
-    [2]usize{ 9810, 9818 },
-    [2]usize{ 9818, 9826 },
-    [2]usize{ 9826, 9834 },
-    [2]usize{ 9834, 9842 },
-    [2]usize{ 9842, 9850 },
-    [2]usize{ 9850, 9858 },
-    [2]usize{ 9858, 9866 },
-    [2]usize{ 9866, 9874 },
-    [2]usize{ 9874, 9882 },
-    [2]usize{ 9882, 9890 },
-    [2]usize{ 9890, 9898 },
-    [2]usize{ 9898, 9899 },
-    [2]usize{ 9899, 9901 },
-    [2]usize{ 9901, 9902 },
-    [2]usize{ 9902, 9914 },
-    [2]usize{ 9914, 9915 },
-    [2]usize{ 9915, 9916 },
-    [2]usize{ 9916, 9917 },
-    [2]usize{ 9917, 9919 },
-    [2]usize{ 9919, 9999 },
-    [2]usize{ 9999, 10079 },
-    [2]usize{ 10079, 10159 },
-    [2]usize{ 10159, 10239 },
-    [2]usize{ 10239, 10319 },
-    [2]usize{ 10319, 10399 },
-    [2]usize{ 10399, 10479 },
-    [2]usize{ 10479, 10559 },
-    [2]usize{ 10559, 10639 },
-    [2]usize{ 10639, 10719 },
-    [2]usize{ 10719, 10799 },
-    [2]usize{ 10799, 10879 },
-    [2]usize{ 10879, 10959 },
-    [2]usize{ 10959, 11039 },
-    [2]usize{ 11039, 11045 },
-    [2]usize{ 11045, 11051 },
-    [2]usize{ 11051, 11057 },
-    [2]usize{ 11057, 11063 },
-    [2]usize{ 11063, 11069 },
-    [2]usize{ 11069, 11075 },
-    [2]usize{ 11075, 11081 },
-    [2]usize{ 11081, 11087 },
-    [2]usize{ 11087, 11093 },
-    [2]usize{ 11093, 11099 },
-    [2]usize{ 11099, 11105 },
-    [2]usize{ 11105, 11111 },
-    [2]usize{ 11111, 11117 },
-    [2]usize{ 11117, 11441 },
-    [2]usize{ 11441, 11765 },
-    [2]usize{ 11765, 12089 },
-    [2]usize{ 12089, 12413 },
-    [2]usize{ 12413, 12737 },
-    [2]usize{ 12737, 13061 },
-    [2]usize{ 13061, 13385 },
-    [2]usize{ 13385, 13709 },
-    [2]usize{ 13709, 14033 },
-    [2]usize{ 14033, 14357 },
-    [2]usize{ 14357, 14681 },
-    [2]usize{ 14681, 15005 },
-    [2]usize{ 15005, 15037 },
-    [2]usize{ 15037, 15041 },
-    [2]usize{ 15041, 15053 },
-    [2]usize{ 15053, 15061 },
-    [2]usize{ 15061, 15069 },
-    [2]usize{ 15069, 15070 },
-    [2]usize{ 15070, 15071 },
-    [2]usize{ 15071, 15083 },
-    [2]usize{ 15083, 15099 },
-    [2]usize{ 15099, 15100 },
-    [2]usize{ 15100, 15104 },
-    [2]usize{ 15104, 15136 },
-    [2]usize{ 15136, 15140 },
-    [2]usize{ 15140, 15144 },
-    [2]usize{ 15144, 15176 },
-    [2]usize{ 15176, 15208 },
-    [2]usize{ 15208, 15212 },
-    [2]usize{ 15212, 15215 },
-    [2]usize{ 15215, 15218 },
-    [2]usize{ 15218, 15221 },
-    [2]usize{ 15221, 15224 },
-    [2]usize{ 15224, 15225 },
-    [2]usize{ 15225, 15226 },
-    [2]usize{ 15226, 15227 },
-    [2]usize{ 15227, 15228 },
-    [2]usize{ 15228, 15229 },
-    [2]usize{ 15229, 15232 },
-    [2]usize{ 15232, 15235 },
-    [2]usize{ 15235, 15238 },
-    [2]usize{ 15238, 15241 },
-    [2]usize{ 15241, 15242 },
-    [2]usize{ 15242, 15243 },
-    [2]usize{ 15243, 15244 },
-    [2]usize{ 15244, 15270 },
-    [2]usize{ 15270, 15271 },
-    [2]usize{ 15271, 15297 },
-    [2]usize{ 15297, 15298 },
-    [2]usize{ 15298, 15299 },
-    [2]usize{ 15299, 15300 },
-    [2]usize{ 15300, 15301 },
-    [2]usize{ 15301, 15307 },
-    [2]usize{ 15307, 15313 },
-    [2]usize{ 15313, 15315 },
-    [2]usize{ 15315, 15317 },
-    [2]usize{ 15317, 15349 },
-    [2]usize{ 15349, 15381 },
-    [2]usize{ 15381, 15445 },
-    [2]usize{ 15445, 15509 },
-    [2]usize{ 15509, 15541 },
-    [2]usize{ 15541, 15573 },
-    [2]usize{ 15573, 15653 },
-    [2]usize{ 15653, 15733 },
-    [2]usize{ 15733, 15757 },
-    [2]usize{ 15757, 15781 },
-    [2]usize{ 15781, 15845 },
-    [2]usize{ 15845, 15909 },
-    [2]usize{ 15909, 15941 },
-    [2]usize{ 15941, 15973 },
-    [2]usize{ 15973, 15981 },
-    [2]usize{ 15981, 15989 },
-    [2]usize{ 15989, 15993 },
-    [2]usize{ 15993, 16005 },
-    [2]usize{ 16005, 16014 },
-    [2]usize{ 16014, 16030 },
-    [2]usize{ 16030, 16054 },
-    [2]usize{ 16054, 16078 },
-    [2]usize{ 16078, 16079 },
-    [2]usize{ 16079, 16080 },
-    [2]usize{ 16080, 16081 },
-    [2]usize{ 16081, 16082 },
-    [2]usize{ 16082, 16083 },
-    [2]usize{ 16083, 16088 },
-    [2]usize{ 16088, 16089 },
-    [2]usize{ 16089, 16090 },
-    [2]usize{ 16090, 16091 },
-    [2]usize{ 16091, 16092 },
-    [2]usize{ 16092, 16093 },
-    [2]usize{ 16093, 16094 },
-    [2]usize{ 16094, 16174 },
-    [2]usize{ 16174, 16498 },
-    [2]usize{ 16498, 16504 },
-    [2]usize{ 16504, 16505 },
-    [2]usize{ 16505, 16506 },
-    [2]usize{ 16506, 16507 },
-    [2]usize{ 16507, 16508 },
-    [2]usize{ 16508, 16514 },
-    [2]usize{ 16514, 16594 },
-    [2]usize{ 16594, 16918 },
-    [2]usize{ 16918, 16919 },
-    [2]usize{ 16919, 16999 },
-    [2]usize{ 16999, 17005 },
-    [2]usize{ 17005, 17007 },
-    [2]usize{ 17007, 17031 },
-    [2]usize{ 17031, 17355 },
-    [2]usize{ 17355, 17356 },
-    [2]usize{ 17356, 17357 },
-    [2]usize{ 17357, 17358 },
-    [2]usize{ 17358, 17374 },
-    [2]usize{ 17374, 17390 },
-    [2]usize{ 17390, 17406 },
-    [2]usize{ 17406, 17422 },
-    [2]usize{ 17422, 17438 },
-    [2]usize{ 17438, 17454 },
-    [2]usize{ 17454, 17470 },
-    [2]usize{ 17470, 17486 },
-    [2]usize{ 17486, 17502 },
-    [2]usize{ 17502, 17518 },
-    [2]usize{ 17518, 17534 },
-    [2]usize{ 17534, 17550 },
-    [2]usize{ 17550, 17566 },
-    [2]usize{ 17566, 17582 },
-    [2]usize{ 17582, 17598 },
-    [2]usize{ 17598, 17614 },
-    [2]usize{ 17614, 17630 },
-    [2]usize{ 17630, 17632 },
-    [2]usize{ 17632, 17634 },
-    [2]usize{ 17634, 17636 },
-    [2]usize{ 17636, 17638 },
-    [2]usize{ 17638, 17640 },
-    [2]usize{ 17640, 17642 },
-    [2]usize{ 17642, 17644 },
-    [2]usize{ 17644, 17646 },
-    [2]usize{ 17646, 17648 },
-    [2]usize{ 17648, 17650 },
-    [2]usize{ 17650, 17652 },
-    [2]usize{ 17652, 17654 },
-    [2]usize{ 17654, 17656 },
-    [2]usize{ 17656, 17658 },
-    [2]usize{ 17658, 17660 },
-    [2]usize{ 17660, 17662 },
-    [2]usize{ 17662, 17664 },
-    [2]usize{ 17664, 17665 },
-    [2]usize{ 17665, 17666 },
-    [2]usize{ 17666, 17678 },
-    [2]usize{ 17678, 17690 },
-    [2]usize{ 17690, 17702 },
-    [2]usize{ 17702, 17714 },
-    [2]usize{ 17714, 17715 },
-    [2]usize{ 17715, 17716 },
-    [2]usize{ 17716, 17717 },
-    [2]usize{ 17717, 17718 },
-    [2]usize{ 17718, 17814 },
-    [2]usize{ 17814, 17815 },
-    [2]usize{ 17815, 17816 },
-    [2]usize{ 17816, 17817 },
-    [2]usize{ 17817, 17818 },
-    [2]usize{ 17818, 17819 },
-    [2]usize{ 17819, 17820 },
-    [2]usize{ 17820, 17821 },
-    [2]usize{ 17821, 17822 },
-    [2]usize{ 17822, 17823 },
-    [2]usize{ 17823, 17824 },
-    [2]usize{ 17824, 17904 },
-    [2]usize{ 17904, 17984 },
-    [2]usize{ 17984, 18064 },
-    [2]usize{ 18064, 18144 },
-    [2]usize{ 18144, 18150 },
-    [2]usize{ 18150, 18156 },
-    [2]usize{ 18156, 18162 },
-    [2]usize{ 18162, 18168 },
-    [2]usize{ 18168, 18169 },
-    [2]usize{ 18169, 18170 },
-    [2]usize{ 18170, 18171 },
-    [2]usize{ 18171, 18172 },
-    [2]usize{ 18172, 18173 },
-    [2]usize{ 18173, 18174 },
-    [2]usize{ 18174, 18175 },
-    [2]usize{ 18175, 18176 },
-    [2]usize{ 18176, 18256 },
-    [2]usize{ 18256, 18336 },
-    [2]usize{ 18336, 18416 },
-    [2]usize{ 18416, 18496 },
-    [2]usize{ 18496, 18502 },
-    [2]usize{ 18502, 18508 },
-    [2]usize{ 18508, 18514 },
-    [2]usize{ 18514, 18520 },
-    [2]usize{ 18520, 18544 },
-    [2]usize{ 18544, 18564 },
-    [2]usize{ 18564, 18565 },
-    [2]usize{ 18565, 18617 },
-    [2]usize{ 18617, 18619 },
-    [2]usize{ 18619, 18620 },
-    [2]usize{ 18620, 18621 },
-    [2]usize{ 18621, 18622 },
-    [2]usize{ 18622, 18623 },
-    [2]usize{ 18623, 18624 },
-    [2]usize{ 18624, 18656 },
-    [2]usize{ 18656, 18664 },
-    [2]usize{ 18664, 18680 },
-    [2]usize{ 18680, 18682 },
-    [2]usize{ 18682, 18683 },
-    [2]usize{ 18683, 18686 },
-    [2]usize{ 18686, 18687 },
-    [2]usize{ 18687, 18767 },
-    [2]usize{ 18767, 18773 },
-    [2]usize{ 18773, 19097 },
-    [2]usize{ 19097, 19098 },
-    [2]usize{ 19098, 19178 },
-    [2]usize{ 19178, 19184 },
-    [2]usize{ 19184, 19508 },
-    [2]usize{ 19508, 19509 },
-    [2]usize{ 19509, 19589 },
-    [2]usize{ 19589, 19595 },
-    [2]usize{ 19595, 19919 },
-    [2]usize{ 19919, 19920 },
-    [2]usize{ 19920, 20000 },
-    [2]usize{ 20000, 20006 },
-    [2]usize{ 20006, 20330 },
-    [2]usize{ 20330, 20331 },
-    [2]usize{ 20331, 20332 },
-    [2]usize{ 20332, 20333 },
-    [2]usize{ 20333, 20336 },
-    [2]usize{ 20336, 20337 },
-    [2]usize{ 20337, 20338 },
-    [2]usize{ 20338, 20339 },
-    [2]usize{ 20339, 20340 },
-    [2]usize{ 20340, 20341 },
-    [2]usize{ 20341, 20342 },
+pub const BlockStateInfo = struct { start: usize, end: usize, default: usize };
+
+pub const block_states_info = [_]BlockStateInfo{
+    .{ .start = 0, .end = 1, .default = 0 },
+    .{ .start = 1, .end = 2, .default = 1 },
+    .{ .start = 2, .end = 3, .default = 2 },
+    .{ .start = 3, .end = 4, .default = 3 },
+    .{ .start = 4, .end = 5, .default = 4 },
+    .{ .start = 5, .end = 6, .default = 5 },
+    .{ .start = 6, .end = 7, .default = 6 },
+    .{ .start = 7, .end = 8, .default = 7 },
+    .{ .start = 8, .end = 10, .default = 9 },
+    .{ .start = 10, .end = 11, .default = 10 },
+    .{ .start = 11, .end = 12, .default = 11 },
+    .{ .start = 12, .end = 14, .default = 13 },
+    .{ .start = 14, .end = 15, .default = 14 },
+    .{ .start = 15, .end = 16, .default = 15 },
+    .{ .start = 16, .end = 17, .default = 16 },
+    .{ .start = 17, .end = 18, .default = 17 },
+    .{ .start = 18, .end = 19, .default = 18 },
+    .{ .start = 19, .end = 20, .default = 19 },
+    .{ .start = 20, .end = 21, .default = 20 },
+    .{ .start = 21, .end = 23, .default = 21 },
+    .{ .start = 23, .end = 25, .default = 23 },
+    .{ .start = 25, .end = 27, .default = 25 },
+    .{ .start = 27, .end = 29, .default = 27 },
+    .{ .start = 29, .end = 31, .default = 29 },
+    .{ .start = 31, .end = 33, .default = 31 },
+    .{ .start = 33, .end = 34, .default = 33 },
+    .{ .start = 34, .end = 50, .default = 34 },
+    .{ .start = 50, .end = 66, .default = 50 },
+    .{ .start = 66, .end = 67, .default = 66 },
+    .{ .start = 67, .end = 68, .default = 67 },
+    .{ .start = 68, .end = 69, .default = 68 },
+    .{ .start = 69, .end = 70, .default = 69 },
+    .{ .start = 70, .end = 71, .default = 70 },
+    .{ .start = 71, .end = 72, .default = 71 },
+    .{ .start = 72, .end = 73, .default = 72 },
+    .{ .start = 73, .end = 74, .default = 73 },
+    .{ .start = 74, .end = 75, .default = 74 },
+    .{ .start = 75, .end = 76, .default = 75 },
+    .{ .start = 76, .end = 79, .default = 77 },
+    .{ .start = 79, .end = 82, .default = 80 },
+    .{ .start = 82, .end = 85, .default = 83 },
+    .{ .start = 85, .end = 88, .default = 86 },
+    .{ .start = 88, .end = 91, .default = 89 },
+    .{ .start = 91, .end = 94, .default = 92 },
+    .{ .start = 94, .end = 97, .default = 95 },
+    .{ .start = 97, .end = 100, .default = 98 },
+    .{ .start = 100, .end = 103, .default = 101 },
+    .{ .start = 103, .end = 106, .default = 104 },
+    .{ .start = 106, .end = 109, .default = 107 },
+    .{ .start = 109, .end = 112, .default = 110 },
+    .{ .start = 112, .end = 115, .default = 113 },
+    .{ .start = 115, .end = 118, .default = 116 },
+    .{ .start = 118, .end = 121, .default = 119 },
+    .{ .start = 121, .end = 124, .default = 122 },
+    .{ .start = 124, .end = 127, .default = 125 },
+    .{ .start = 127, .end = 130, .default = 128 },
+    .{ .start = 130, .end = 133, .default = 131 },
+    .{ .start = 133, .end = 136, .default = 134 },
+    .{ .start = 136, .end = 139, .default = 137 },
+    .{ .start = 139, .end = 142, .default = 140 },
+    .{ .start = 142, .end = 145, .default = 143 },
+    .{ .start = 145, .end = 148, .default = 146 },
+    .{ .start = 148, .end = 162, .default = 161 },
+    .{ .start = 162, .end = 176, .default = 175 },
+    .{ .start = 176, .end = 190, .default = 189 },
+    .{ .start = 190, .end = 204, .default = 203 },
+    .{ .start = 204, .end = 218, .default = 217 },
+    .{ .start = 218, .end = 232, .default = 231 },
+    .{ .start = 232, .end = 246, .default = 245 },
+    .{ .start = 246, .end = 260, .default = 259 },
+    .{ .start = 260, .end = 261, .default = 260 },
+    .{ .start = 261, .end = 262, .default = 261 },
+    .{ .start = 262, .end = 263, .default = 262 },
+    .{ .start = 263, .end = 264, .default = 263 },
+    .{ .start = 264, .end = 265, .default = 264 },
+    .{ .start = 265, .end = 266, .default = 265 },
+    .{ .start = 266, .end = 278, .default = 267 },
+    .{ .start = 278, .end = 279, .default = 278 },
+    .{ .start = 279, .end = 280, .default = 279 },
+    .{ .start = 280, .end = 281, .default = 280 },
+    .{ .start = 281, .end = 1081, .default = 282 },
+    .{ .start = 1081, .end = 1097, .default = 1084 },
+    .{ .start = 1097, .end = 1113, .default = 1100 },
+    .{ .start = 1113, .end = 1129, .default = 1116 },
+    .{ .start = 1129, .end = 1145, .default = 1132 },
+    .{ .start = 1145, .end = 1161, .default = 1148 },
+    .{ .start = 1161, .end = 1177, .default = 1164 },
+    .{ .start = 1177, .end = 1193, .default = 1180 },
+    .{ .start = 1193, .end = 1209, .default = 1196 },
+    .{ .start = 1209, .end = 1225, .default = 1212 },
+    .{ .start = 1225, .end = 1241, .default = 1228 },
+    .{ .start = 1241, .end = 1257, .default = 1244 },
+    .{ .start = 1257, .end = 1273, .default = 1260 },
+    .{ .start = 1273, .end = 1289, .default = 1276 },
+    .{ .start = 1289, .end = 1305, .default = 1292 },
+    .{ .start = 1305, .end = 1321, .default = 1308 },
+    .{ .start = 1321, .end = 1337, .default = 1324 },
+    .{ .start = 1337, .end = 1361, .default = 1350 },
+    .{ .start = 1361, .end = 1385, .default = 1374 },
+    .{ .start = 1385, .end = 1397, .default = 1391 },
+    .{ .start = 1397, .end = 1398, .default = 1397 },
+    .{ .start = 1398, .end = 1399, .default = 1398 },
+    .{ .start = 1399, .end = 1400, .default = 1399 },
+    .{ .start = 1400, .end = 1401, .default = 1400 },
+    .{ .start = 1401, .end = 1402, .default = 1401 },
+    .{ .start = 1402, .end = 1404, .default = 1403 },
+    .{ .start = 1404, .end = 1416, .default = 1410 },
+    .{ .start = 1416, .end = 1440, .default = 1418 },
+    .{ .start = 1440, .end = 1441, .default = 1440 },
+    .{ .start = 1441, .end = 1442, .default = 1441 },
+    .{ .start = 1442, .end = 1443, .default = 1442 },
+    .{ .start = 1443, .end = 1444, .default = 1443 },
+    .{ .start = 1444, .end = 1445, .default = 1444 },
+    .{ .start = 1445, .end = 1446, .default = 1445 },
+    .{ .start = 1446, .end = 1447, .default = 1446 },
+    .{ .start = 1447, .end = 1448, .default = 1447 },
+    .{ .start = 1448, .end = 1449, .default = 1448 },
+    .{ .start = 1449, .end = 1450, .default = 1449 },
+    .{ .start = 1450, .end = 1451, .default = 1450 },
+    .{ .start = 1451, .end = 1452, .default = 1451 },
+    .{ .start = 1452, .end = 1453, .default = 1452 },
+    .{ .start = 1453, .end = 1454, .default = 1453 },
+    .{ .start = 1454, .end = 1455, .default = 1454 },
+    .{ .start = 1455, .end = 1456, .default = 1455 },
+    .{ .start = 1456, .end = 1468, .default = 1456 },
+    .{ .start = 1468, .end = 1469, .default = 1468 },
+    .{ .start = 1469, .end = 1470, .default = 1469 },
+    .{ .start = 1470, .end = 1471, .default = 1470 },
+    .{ .start = 1471, .end = 1472, .default = 1471 },
+    .{ .start = 1472, .end = 1473, .default = 1472 },
+    .{ .start = 1473, .end = 1474, .default = 1473 },
+    .{ .start = 1474, .end = 1475, .default = 1474 },
+    .{ .start = 1475, .end = 1476, .default = 1475 },
+    .{ .start = 1476, .end = 1477, .default = 1476 },
+    .{ .start = 1477, .end = 1478, .default = 1477 },
+    .{ .start = 1478, .end = 1479, .default = 1478 },
+    .{ .start = 1479, .end = 1480, .default = 1479 },
+    .{ .start = 1480, .end = 1481, .default = 1480 },
+    .{ .start = 1481, .end = 1482, .default = 1481 },
+    .{ .start = 1482, .end = 1483, .default = 1482 },
+    .{ .start = 1483, .end = 1484, .default = 1483 },
+    .{ .start = 1484, .end = 1485, .default = 1484 },
+    .{ .start = 1485, .end = 1486, .default = 1485 },
+    .{ .start = 1486, .end = 1488, .default = 1487 },
+    .{ .start = 1488, .end = 1489, .default = 1488 },
+    .{ .start = 1489, .end = 1490, .default = 1489 },
+    .{ .start = 1490, .end = 1491, .default = 1490 },
+    .{ .start = 1491, .end = 1492, .default = 1491 },
+    .{ .start = 1492, .end = 1496, .default = 1492 },
+    .{ .start = 1496, .end = 2008, .default = 1527 },
+    .{ .start = 2008, .end = 2009, .default = 2008 },
+    .{ .start = 2009, .end = 2010, .default = 2009 },
+    .{ .start = 2010, .end = 2090, .default = 2021 },
+    .{ .start = 2090, .end = 2114, .default = 2091 },
+    .{ .start = 2114, .end = 3410, .default = 3274 },
+    .{ .start = 3410, .end = 3411, .default = 3410 },
+    .{ .start = 3411, .end = 3412, .default = 3411 },
+    .{ .start = 3412, .end = 3413, .default = 3412 },
+    .{ .start = 3413, .end = 3414, .default = 3413 },
+    .{ .start = 3414, .end = 3422, .default = 3414 },
+    .{ .start = 3422, .end = 3430, .default = 3422 },
+    .{ .start = 3430, .end = 3438, .default = 3431 },
+    .{ .start = 3438, .end = 3470, .default = 3439 },
+    .{ .start = 3470, .end = 3502, .default = 3471 },
+    .{ .start = 3502, .end = 3534, .default = 3503 },
+    .{ .start = 3534, .end = 3566, .default = 3535 },
+    .{ .start = 3566, .end = 3598, .default = 3567 },
+    .{ .start = 3598, .end = 3630, .default = 3599 },
+    .{ .start = 3630, .end = 3694, .default = 3641 },
+    .{ .start = 3694, .end = 3702, .default = 3695 },
+    .{ .start = 3702, .end = 3722, .default = 3703 },
+    .{ .start = 3722, .end = 3802, .default = 3733 },
+    .{ .start = 3802, .end = 3810, .default = 3803 },
+    .{ .start = 3810, .end = 3818, .default = 3811 },
+    .{ .start = 3818, .end = 3826, .default = 3819 },
+    .{ .start = 3826, .end = 3834, .default = 3827 },
+    .{ .start = 3834, .end = 3842, .default = 3835 },
+    .{ .start = 3842, .end = 3850, .default = 3843 },
+    .{ .start = 3850, .end = 3874, .default = 3859 },
+    .{ .start = 3874, .end = 3876, .default = 3875 },
+    .{ .start = 3876, .end = 3940, .default = 3887 },
+    .{ .start = 3940, .end = 3942, .default = 3941 },
+    .{ .start = 3942, .end = 3944, .default = 3943 },
+    .{ .start = 3944, .end = 3946, .default = 3945 },
+    .{ .start = 3946, .end = 3948, .default = 3947 },
+    .{ .start = 3948, .end = 3950, .default = 3949 },
+    .{ .start = 3950, .end = 3952, .default = 3951 },
+    .{ .start = 3952, .end = 3954, .default = 3953 },
+    .{ .start = 3954, .end = 3956, .default = 3955 },
+    .{ .start = 3956, .end = 3958, .default = 3956 },
+    .{ .start = 3958, .end = 3966, .default = 3958 },
+    .{ .start = 3966, .end = 3990, .default = 3975 },
+    .{ .start = 3990, .end = 3998, .default = 3990 },
+    .{ .start = 3998, .end = 3999, .default = 3998 },
+    .{ .start = 3999, .end = 4000, .default = 3999 },
+    .{ .start = 4000, .end = 4016, .default = 4000 },
+    .{ .start = 4016, .end = 4017, .default = 4016 },
+    .{ .start = 4017, .end = 4033, .default = 4017 },
+    .{ .start = 4033, .end = 4035, .default = 4034 },
+    .{ .start = 4035, .end = 4067, .default = 4066 },
+    .{ .start = 4067, .end = 4068, .default = 4067 },
+    .{ .start = 4068, .end = 4069, .default = 4068 },
+    .{ .start = 4069, .end = 4070, .default = 4069 },
+    .{ .start = 4070, .end = 4071, .default = 4070 },
+    .{ .start = 4071, .end = 4074, .default = 4072 },
+    .{ .start = 4074, .end = 4077, .default = 4075 },
+    .{ .start = 4077, .end = 4078, .default = 4077 },
+    .{ .start = 4078, .end = 4082, .default = 4078 },
+    .{ .start = 4082, .end = 4083, .default = 4082 },
+    .{ .start = 4083, .end = 4085, .default = 4083 },
+    .{ .start = 4085, .end = 4089, .default = 4085 },
+    .{ .start = 4089, .end = 4093, .default = 4089 },
+    .{ .start = 4093, .end = 4100, .default = 4093 },
+    .{ .start = 4100, .end = 4164, .default = 4103 },
+    .{ .start = 4164, .end = 4165, .default = 4164 },
+    .{ .start = 4165, .end = 4166, .default = 4165 },
+    .{ .start = 4166, .end = 4167, .default = 4166 },
+    .{ .start = 4167, .end = 4168, .default = 4167 },
+    .{ .start = 4168, .end = 4169, .default = 4168 },
+    .{ .start = 4169, .end = 4170, .default = 4169 },
+    .{ .start = 4170, .end = 4171, .default = 4170 },
+    .{ .start = 4171, .end = 4172, .default = 4171 },
+    .{ .start = 4172, .end = 4173, .default = 4172 },
+    .{ .start = 4173, .end = 4174, .default = 4173 },
+    .{ .start = 4174, .end = 4175, .default = 4174 },
+    .{ .start = 4175, .end = 4176, .default = 4175 },
+    .{ .start = 4176, .end = 4177, .default = 4176 },
+    .{ .start = 4177, .end = 4178, .default = 4177 },
+    .{ .start = 4178, .end = 4179, .default = 4178 },
+    .{ .start = 4179, .end = 4180, .default = 4179 },
+    .{ .start = 4180, .end = 4244, .default = 4195 },
+    .{ .start = 4244, .end = 4308, .default = 4259 },
+    .{ .start = 4308, .end = 4372, .default = 4323 },
+    .{ .start = 4372, .end = 4436, .default = 4387 },
+    .{ .start = 4436, .end = 4500, .default = 4451 },
+    .{ .start = 4500, .end = 4564, .default = 4515 },
+    .{ .start = 4564, .end = 4565, .default = 4564 },
+    .{ .start = 4565, .end = 4566, .default = 4565 },
+    .{ .start = 4566, .end = 4567, .default = 4566 },
+    .{ .start = 4567, .end = 4568, .default = 4567 },
+    .{ .start = 4568, .end = 4569, .default = 4568 },
+    .{ .start = 4569, .end = 4570, .default = 4569 },
+    .{ .start = 4570, .end = 4571, .default = 4570 },
+    .{ .start = 4571, .end = 4572, .default = 4571 },
+    .{ .start = 4572, .end = 4573, .default = 4572 },
+    .{ .start = 4573, .end = 4574, .default = 4573 },
+    .{ .start = 4574, .end = 4638, .default = 4574 },
+    .{ .start = 4638, .end = 4702, .default = 4638 },
+    .{ .start = 4702, .end = 4766, .default = 4702 },
+    .{ .start = 4766, .end = 4798, .default = 4797 },
+    .{ .start = 4798, .end = 4804, .default = 4801 },
+    .{ .start = 4804, .end = 4836, .default = 4835 },
+    .{ .start = 4836, .end = 4837, .default = 4836 },
+    .{ .start = 4837, .end = 4841, .default = 4837 },
+    .{ .start = 4841, .end = 4845, .default = 4841 },
+    .{ .start = 4845, .end = 4853, .default = 4845 },
+    .{ .start = 4853, .end = 4861, .default = 4853 },
+    .{ .start = 4861, .end = 4893, .default = 4892 },
+    .{ .start = 4893, .end = 5021, .default = 5020 },
+    .{ .start = 5021, .end = 5053, .default = 5028 },
+    .{ .start = 5053, .end = 5133, .default = 5064 },
+    .{ .start = 5133, .end = 5213, .default = 5144 },
+    .{ .start = 5213, .end = 5215, .default = 5214 },
+    .{ .start = 5215, .end = 5216, .default = 5215 },
+    .{ .start = 5216, .end = 5217, .default = 5216 },
+    .{ .start = 5217, .end = 5249, .default = 5248 },
+    .{ .start = 5249, .end = 5329, .default = 5260 },
+    .{ .start = 5329, .end = 5333, .default = 5329 },
+    .{ .start = 5333, .end = 5334, .default = 5333 },
+    .{ .start = 5334, .end = 5342, .default = 5341 },
+    .{ .start = 5342, .end = 5343, .default = 5342 },
+    .{ .start = 5343, .end = 5346, .default = 5343 },
+    .{ .start = 5346, .end = 5347, .default = 5346 },
+    .{ .start = 5347, .end = 5350, .default = 5347 },
+    .{ .start = 5350, .end = 5351, .default = 5350 },
+    .{ .start = 5351, .end = 5359, .default = 5355 },
+    .{ .start = 5359, .end = 5360, .default = 5359 },
+    .{ .start = 5360, .end = 5361, .default = 5360 },
+    .{ .start = 5361, .end = 5363, .default = 5362 },
+    .{ .start = 5363, .end = 5375, .default = 5363 },
+    .{ .start = 5375, .end = 5455, .default = 5386 },
+    .{ .start = 5455, .end = 5456, .default = 5455 },
+    .{ .start = 5456, .end = 5457, .default = 5456 },
+    .{ .start = 5457, .end = 5465, .default = 5458 },
+    .{ .start = 5465, .end = 5481, .default = 5474 },
+    .{ .start = 5481, .end = 5609, .default = 5608 },
+    .{ .start = 5609, .end = 5610, .default = 5609 },
+    .{ .start = 5610, .end = 5690, .default = 5621 },
+    .{ .start = 5690, .end = 5770, .default = 5701 },
+    .{ .start = 5770, .end = 5850, .default = 5781 },
+    .{ .start = 5850, .end = 5862, .default = 5856 },
+    .{ .start = 5862, .end = 5863, .default = 5862 },
+    .{ .start = 5863, .end = 6187, .default = 5866 },
+    .{ .start = 6187, .end = 6511, .default = 6190 },
+    .{ .start = 6511, .end = 6512, .default = 6511 },
+    .{ .start = 6512, .end = 6513, .default = 6512 },
+    .{ .start = 6513, .end = 6514, .default = 6513 },
+    .{ .start = 6514, .end = 6515, .default = 6514 },
+    .{ .start = 6515, .end = 6516, .default = 6515 },
+    .{ .start = 6516, .end = 6517, .default = 6516 },
+    .{ .start = 6517, .end = 6518, .default = 6517 },
+    .{ .start = 6518, .end = 6519, .default = 6518 },
+    .{ .start = 6519, .end = 6520, .default = 6519 },
+    .{ .start = 6520, .end = 6521, .default = 6520 },
+    .{ .start = 6521, .end = 6522, .default = 6521 },
+    .{ .start = 6522, .end = 6523, .default = 6522 },
+    .{ .start = 6523, .end = 6524, .default = 6523 },
+    .{ .start = 6524, .end = 6525, .default = 6524 },
+    .{ .start = 6525, .end = 6526, .default = 6525 },
+    .{ .start = 6526, .end = 6527, .default = 6526 },
+    .{ .start = 6527, .end = 6528, .default = 6527 },
+    .{ .start = 6528, .end = 6529, .default = 6528 },
+    .{ .start = 6529, .end = 6530, .default = 6529 },
+    .{ .start = 6530, .end = 6531, .default = 6530 },
+    .{ .start = 6531, .end = 6532, .default = 6531 },
+    .{ .start = 6532, .end = 6533, .default = 6532 },
+    .{ .start = 6533, .end = 6534, .default = 6533 },
+    .{ .start = 6534, .end = 6535, .default = 6534 },
+    .{ .start = 6535, .end = 6536, .default = 6535 },
+    .{ .start = 6536, .end = 6544, .default = 6536 },
+    .{ .start = 6544, .end = 6552, .default = 6544 },
+    .{ .start = 6552, .end = 6576, .default = 6561 },
+    .{ .start = 6576, .end = 6600, .default = 6585 },
+    .{ .start = 6600, .end = 6624, .default = 6609 },
+    .{ .start = 6624, .end = 6648, .default = 6633 },
+    .{ .start = 6648, .end = 6672, .default = 6657 },
+    .{ .start = 6672, .end = 6696, .default = 6681 },
+    .{ .start = 6696, .end = 6712, .default = 6696 },
+    .{ .start = 6712, .end = 6716, .default = 6712 },
+    .{ .start = 6716, .end = 6732, .default = 6716 },
+    .{ .start = 6732, .end = 6736, .default = 6732 },
+    .{ .start = 6736, .end = 6752, .default = 6736 },
+    .{ .start = 6752, .end = 6756, .default = 6752 },
+    .{ .start = 6756, .end = 6772, .default = 6756 },
+    .{ .start = 6772, .end = 6776, .default = 6772 },
+    .{ .start = 6776, .end = 6792, .default = 6776 },
+    .{ .start = 6792, .end = 6796, .default = 6792 },
+    .{ .start = 6796, .end = 6812, .default = 6796 },
+    .{ .start = 6812, .end = 6816, .default = 6812 },
+    .{ .start = 6816, .end = 6820, .default = 6816 },
+    .{ .start = 6820, .end = 6824, .default = 6820 },
+    .{ .start = 6824, .end = 6828, .default = 6824 },
+    .{ .start = 6828, .end = 6852, .default = 6829 },
+    .{ .start = 6852, .end = 6868, .default = 6852 },
+    .{ .start = 6868, .end = 6884, .default = 6868 },
+    .{ .start = 6884, .end = 6900, .default = 6885 },
+    .{ .start = 6900, .end = 6932, .default = 6916 },
+    .{ .start = 6932, .end = 6933, .default = 6932 },
+    .{ .start = 6933, .end = 6934, .default = 6933 },
+    .{ .start = 6934, .end = 6944, .default = 6934 },
+    .{ .start = 6944, .end = 6945, .default = 6944 },
+    .{ .start = 6945, .end = 6946, .default = 6945 },
+    .{ .start = 6946, .end = 6949, .default = 6947 },
+    .{ .start = 6949, .end = 7029, .default = 6960 },
+    .{ .start = 7029, .end = 7053, .default = 7042 },
+    .{ .start = 7053, .end = 7065, .default = 7054 },
+    .{ .start = 7065, .end = 7066, .default = 7065 },
+    .{ .start = 7066, .end = 7067, .default = 7066 },
+    .{ .start = 7067, .end = 7068, .default = 7067 },
+    .{ .start = 7068, .end = 7069, .default = 7068 },
+    .{ .start = 7069, .end = 7070, .default = 7069 },
+    .{ .start = 7070, .end = 7071, .default = 7070 },
+    .{ .start = 7071, .end = 7072, .default = 7071 },
+    .{ .start = 7072, .end = 7073, .default = 7072 },
+    .{ .start = 7073, .end = 7074, .default = 7073 },
+    .{ .start = 7074, .end = 7075, .default = 7074 },
+    .{ .start = 7075, .end = 7076, .default = 7075 },
+    .{ .start = 7076, .end = 7077, .default = 7076 },
+    .{ .start = 7077, .end = 7078, .default = 7077 },
+    .{ .start = 7078, .end = 7079, .default = 7078 },
+    .{ .start = 7079, .end = 7080, .default = 7079 },
+    .{ .start = 7080, .end = 7081, .default = 7080 },
+    .{ .start = 7081, .end = 7113, .default = 7112 },
+    .{ .start = 7113, .end = 7145, .default = 7144 },
+    .{ .start = 7145, .end = 7177, .default = 7176 },
+    .{ .start = 7177, .end = 7209, .default = 7208 },
+    .{ .start = 7209, .end = 7241, .default = 7240 },
+    .{ .start = 7241, .end = 7273, .default = 7272 },
+    .{ .start = 7273, .end = 7305, .default = 7304 },
+    .{ .start = 7305, .end = 7337, .default = 7336 },
+    .{ .start = 7337, .end = 7369, .default = 7368 },
+    .{ .start = 7369, .end = 7401, .default = 7400 },
+    .{ .start = 7401, .end = 7433, .default = 7432 },
+    .{ .start = 7433, .end = 7465, .default = 7464 },
+    .{ .start = 7465, .end = 7497, .default = 7496 },
+    .{ .start = 7497, .end = 7529, .default = 7528 },
+    .{ .start = 7529, .end = 7561, .default = 7560 },
+    .{ .start = 7561, .end = 7593, .default = 7592 },
+    .{ .start = 7593, .end = 7673, .default = 7604 },
+    .{ .start = 7673, .end = 7753, .default = 7684 },
+    .{ .start = 7753, .end = 7754, .default = 7753 },
+    .{ .start = 7754, .end = 7755, .default = 7754 },
+    .{ .start = 7755, .end = 7787, .default = 7786 },
+    .{ .start = 7787, .end = 7851, .default = 7802 },
+    .{ .start = 7851, .end = 7852, .default = 7851 },
+    .{ .start = 7852, .end = 7853, .default = 7852 },
+    .{ .start = 7853, .end = 7854, .default = 7853 },
+    .{ .start = 7854, .end = 7934, .default = 7865 },
+    .{ .start = 7934, .end = 8014, .default = 7945 },
+    .{ .start = 8014, .end = 8094, .default = 8025 },
+    .{ .start = 8094, .end = 8100, .default = 8097 },
+    .{ .start = 8100, .end = 8106, .default = 8103 },
+    .{ .start = 8106, .end = 8112, .default = 8109 },
+    .{ .start = 8112, .end = 8113, .default = 8112 },
+    .{ .start = 8113, .end = 8116, .default = 8114 },
+    .{ .start = 8116, .end = 8117, .default = 8116 },
+    .{ .start = 8117, .end = 8118, .default = 8117 },
+    .{ .start = 8118, .end = 8119, .default = 8118 },
+    .{ .start = 8119, .end = 8120, .default = 8119 },
+    .{ .start = 8120, .end = 8121, .default = 8120 },
+    .{ .start = 8121, .end = 8122, .default = 8121 },
+    .{ .start = 8122, .end = 8123, .default = 8122 },
+    .{ .start = 8123, .end = 8124, .default = 8123 },
+    .{ .start = 8124, .end = 8125, .default = 8124 },
+    .{ .start = 8125, .end = 8126, .default = 8125 },
+    .{ .start = 8126, .end = 8127, .default = 8126 },
+    .{ .start = 8127, .end = 8128, .default = 8127 },
+    .{ .start = 8128, .end = 8129, .default = 8128 },
+    .{ .start = 8129, .end = 8130, .default = 8129 },
+    .{ .start = 8130, .end = 8131, .default = 8130 },
+    .{ .start = 8131, .end = 8132, .default = 8131 },
+    .{ .start = 8132, .end = 8133, .default = 8132 },
+    .{ .start = 8133, .end = 8134, .default = 8133 },
+    .{ .start = 8134, .end = 8135, .default = 8134 },
+    .{ .start = 8135, .end = 8137, .default = 8136 },
+    .{ .start = 8137, .end = 8139, .default = 8138 },
+    .{ .start = 8139, .end = 8141, .default = 8140 },
+    .{ .start = 8141, .end = 8143, .default = 8142 },
+    .{ .start = 8143, .end = 8145, .default = 8144 },
+    .{ .start = 8145, .end = 8147, .default = 8146 },
+    .{ .start = 8147, .end = 8163, .default = 8147 },
+    .{ .start = 8163, .end = 8179, .default = 8163 },
+    .{ .start = 8179, .end = 8195, .default = 8179 },
+    .{ .start = 8195, .end = 8211, .default = 8195 },
+    .{ .start = 8211, .end = 8227, .default = 8211 },
+    .{ .start = 8227, .end = 8243, .default = 8227 },
+    .{ .start = 8243, .end = 8259, .default = 8243 },
+    .{ .start = 8259, .end = 8275, .default = 8259 },
+    .{ .start = 8275, .end = 8291, .default = 8275 },
+    .{ .start = 8291, .end = 8307, .default = 8291 },
+    .{ .start = 8307, .end = 8323, .default = 8307 },
+    .{ .start = 8323, .end = 8339, .default = 8323 },
+    .{ .start = 8339, .end = 8355, .default = 8339 },
+    .{ .start = 8355, .end = 8371, .default = 8355 },
+    .{ .start = 8371, .end = 8387, .default = 8371 },
+    .{ .start = 8387, .end = 8403, .default = 8387 },
+    .{ .start = 8403, .end = 8407, .default = 8403 },
+    .{ .start = 8407, .end = 8411, .default = 8407 },
+    .{ .start = 8411, .end = 8415, .default = 8411 },
+    .{ .start = 8415, .end = 8419, .default = 8415 },
+    .{ .start = 8419, .end = 8423, .default = 8419 },
+    .{ .start = 8423, .end = 8427, .default = 8423 },
+    .{ .start = 8427, .end = 8431, .default = 8427 },
+    .{ .start = 8431, .end = 8435, .default = 8431 },
+    .{ .start = 8435, .end = 8439, .default = 8435 },
+    .{ .start = 8439, .end = 8443, .default = 8439 },
+    .{ .start = 8443, .end = 8447, .default = 8443 },
+    .{ .start = 8447, .end = 8451, .default = 8447 },
+    .{ .start = 8451, .end = 8455, .default = 8451 },
+    .{ .start = 8455, .end = 8459, .default = 8455 },
+    .{ .start = 8459, .end = 8463, .default = 8459 },
+    .{ .start = 8463, .end = 8467, .default = 8463 },
+    .{ .start = 8467, .end = 8468, .default = 8467 },
+    .{ .start = 8468, .end = 8469, .default = 8468 },
+    .{ .start = 8469, .end = 8470, .default = 8469 },
+    .{ .start = 8470, .end = 8550, .default = 8481 },
+    .{ .start = 8550, .end = 8556, .default = 8553 },
+    .{ .start = 8556, .end = 8562, .default = 8559 },
+    .{ .start = 8562, .end = 8568, .default = 8565 },
+    .{ .start = 8568, .end = 8574, .default = 8571 },
+    .{ .start = 8574, .end = 8580, .default = 8577 },
+    .{ .start = 8580, .end = 8586, .default = 8583 },
+    .{ .start = 8586, .end = 8592, .default = 8589 },
+    .{ .start = 8592, .end = 8598, .default = 8595 },
+    .{ .start = 8598, .end = 8604, .default = 8601 },
+    .{ .start = 8604, .end = 8610, .default = 8607 },
+    .{ .start = 8610, .end = 8616, .default = 8613 },
+    .{ .start = 8616, .end = 8622, .default = 8619 },
+    .{ .start = 8622, .end = 8628, .default = 8625 },
+    .{ .start = 8628, .end = 8634, .default = 8631 },
+    .{ .start = 8634, .end = 8640, .default = 8637 },
+    .{ .start = 8640, .end = 8646, .default = 8643 },
+    .{ .start = 8646, .end = 8652, .default = 8649 },
+    .{ .start = 8652, .end = 8658, .default = 8655 },
+    .{ .start = 8658, .end = 8664, .default = 8661 },
+    .{ .start = 8664, .end = 8665, .default = 8664 },
+    .{ .start = 8665, .end = 8666, .default = 8665 },
+    .{ .start = 8666, .end = 8667, .default = 8666 },
+    .{ .start = 8667, .end = 8668, .default = 8667 },
+    .{ .start = 8668, .end = 8700, .default = 8675 },
+    .{ .start = 8700, .end = 8732, .default = 8707 },
+    .{ .start = 8732, .end = 8764, .default = 8739 },
+    .{ .start = 8764, .end = 8796, .default = 8771 },
+    .{ .start = 8796, .end = 8828, .default = 8803 },
+    .{ .start = 8828, .end = 8860, .default = 8859 },
+    .{ .start = 8860, .end = 8892, .default = 8891 },
+    .{ .start = 8892, .end = 8924, .default = 8923 },
+    .{ .start = 8924, .end = 8956, .default = 8955 },
+    .{ .start = 8956, .end = 8988, .default = 8987 },
+    .{ .start = 8988, .end = 9052, .default = 8999 },
+    .{ .start = 9052, .end = 9116, .default = 9063 },
+    .{ .start = 9116, .end = 9180, .default = 9127 },
+    .{ .start = 9180, .end = 9244, .default = 9191 },
+    .{ .start = 9244, .end = 9308, .default = 9255 },
+    .{ .start = 9308, .end = 9314, .default = 9312 },
+    .{ .start = 9314, .end = 9378, .default = 9377 },
+    .{ .start = 9378, .end = 9384, .default = 9378 },
+    .{ .start = 9384, .end = 9385, .default = 9384 },
+    .{ .start = 9385, .end = 9388, .default = 9386 },
+    .{ .start = 9388, .end = 9468, .default = 9399 },
+    .{ .start = 9468, .end = 9469, .default = 9468 },
+    .{ .start = 9469, .end = 9473, .default = 9469 },
+    .{ .start = 9473, .end = 9474, .default = 9473 },
+    .{ .start = 9474, .end = 9475, .default = 9474 },
+    .{ .start = 9475, .end = 9487, .default = 9481 },
+    .{ .start = 9487, .end = 9499, .default = 9493 },
+    .{ .start = 9499, .end = 9503, .default = 9499 },
+    .{ .start = 9503, .end = 9504, .default = 9503 },
+    .{ .start = 9504, .end = 9505, .default = 9504 },
+    .{ .start = 9505, .end = 9506, .default = 9505 },
+    .{ .start = 9506, .end = 9509, .default = 9507 },
+    .{ .start = 9509, .end = 9510, .default = 9509 },
+    .{ .start = 9510, .end = 9522, .default = 9515 },
+    .{ .start = 9522, .end = 9528, .default = 9526 },
+    .{ .start = 9528, .end = 9534, .default = 9532 },
+    .{ .start = 9534, .end = 9540, .default = 9538 },
+    .{ .start = 9540, .end = 9546, .default = 9544 },
+    .{ .start = 9546, .end = 9552, .default = 9550 },
+    .{ .start = 9552, .end = 9558, .default = 9556 },
+    .{ .start = 9558, .end = 9564, .default = 9562 },
+    .{ .start = 9564, .end = 9570, .default = 9568 },
+    .{ .start = 9570, .end = 9576, .default = 9574 },
+    .{ .start = 9576, .end = 9582, .default = 9580 },
+    .{ .start = 9582, .end = 9588, .default = 9586 },
+    .{ .start = 9588, .end = 9594, .default = 9592 },
+    .{ .start = 9594, .end = 9600, .default = 9598 },
+    .{ .start = 9600, .end = 9606, .default = 9604 },
+    .{ .start = 9606, .end = 9612, .default = 9610 },
+    .{ .start = 9612, .end = 9618, .default = 9616 },
+    .{ .start = 9618, .end = 9624, .default = 9622 },
+    .{ .start = 9624, .end = 9628, .default = 9624 },
+    .{ .start = 9628, .end = 9632, .default = 9628 },
+    .{ .start = 9632, .end = 9636, .default = 9632 },
+    .{ .start = 9636, .end = 9640, .default = 9636 },
+    .{ .start = 9640, .end = 9644, .default = 9640 },
+    .{ .start = 9644, .end = 9648, .default = 9644 },
+    .{ .start = 9648, .end = 9652, .default = 9648 },
+    .{ .start = 9652, .end = 9656, .default = 9652 },
+    .{ .start = 9656, .end = 9660, .default = 9656 },
+    .{ .start = 9660, .end = 9664, .default = 9660 },
+    .{ .start = 9664, .end = 9668, .default = 9664 },
+    .{ .start = 9668, .end = 9672, .default = 9668 },
+    .{ .start = 9672, .end = 9676, .default = 9672 },
+    .{ .start = 9676, .end = 9680, .default = 9676 },
+    .{ .start = 9680, .end = 9684, .default = 9680 },
+    .{ .start = 9684, .end = 9688, .default = 9684 },
+    .{ .start = 9688, .end = 9689, .default = 9688 },
+    .{ .start = 9689, .end = 9690, .default = 9689 },
+    .{ .start = 9690, .end = 9691, .default = 9690 },
+    .{ .start = 9691, .end = 9692, .default = 9691 },
+    .{ .start = 9692, .end = 9693, .default = 9692 },
+    .{ .start = 9693, .end = 9694, .default = 9693 },
+    .{ .start = 9694, .end = 9695, .default = 9694 },
+    .{ .start = 9695, .end = 9696, .default = 9695 },
+    .{ .start = 9696, .end = 9697, .default = 9696 },
+    .{ .start = 9697, .end = 9698, .default = 9697 },
+    .{ .start = 9698, .end = 9699, .default = 9698 },
+    .{ .start = 9699, .end = 9700, .default = 9699 },
+    .{ .start = 9700, .end = 9701, .default = 9700 },
+    .{ .start = 9701, .end = 9702, .default = 9701 },
+    .{ .start = 9702, .end = 9703, .default = 9702 },
+    .{ .start = 9703, .end = 9704, .default = 9703 },
+    .{ .start = 9704, .end = 9705, .default = 9704 },
+    .{ .start = 9705, .end = 9706, .default = 9705 },
+    .{ .start = 9706, .end = 9707, .default = 9706 },
+    .{ .start = 9707, .end = 9708, .default = 9707 },
+    .{ .start = 9708, .end = 9709, .default = 9708 },
+    .{ .start = 9709, .end = 9710, .default = 9709 },
+    .{ .start = 9710, .end = 9711, .default = 9710 },
+    .{ .start = 9711, .end = 9712, .default = 9711 },
+    .{ .start = 9712, .end = 9713, .default = 9712 },
+    .{ .start = 9713, .end = 9714, .default = 9713 },
+    .{ .start = 9714, .end = 9715, .default = 9714 },
+    .{ .start = 9715, .end = 9716, .default = 9715 },
+    .{ .start = 9716, .end = 9717, .default = 9716 },
+    .{ .start = 9717, .end = 9718, .default = 9717 },
+    .{ .start = 9718, .end = 9719, .default = 9718 },
+    .{ .start = 9719, .end = 9720, .default = 9719 },
+    .{ .start = 9720, .end = 9746, .default = 9720 },
+    .{ .start = 9746, .end = 9747, .default = 9746 },
+    .{ .start = 9747, .end = 9748, .default = 9747 },
+    .{ .start = 9748, .end = 9760, .default = 9748 },
+    .{ .start = 9760, .end = 9761, .default = 9760 },
+    .{ .start = 9761, .end = 9762, .default = 9761 },
+    .{ .start = 9762, .end = 9763, .default = 9762 },
+    .{ .start = 9763, .end = 9764, .default = 9763 },
+    .{ .start = 9764, .end = 9765, .default = 9764 },
+    .{ .start = 9765, .end = 9766, .default = 9765 },
+    .{ .start = 9766, .end = 9767, .default = 9766 },
+    .{ .start = 9767, .end = 9768, .default = 9767 },
+    .{ .start = 9768, .end = 9769, .default = 9768 },
+    .{ .start = 9769, .end = 9770, .default = 9769 },
+    .{ .start = 9770, .end = 9772, .default = 9770 },
+    .{ .start = 9772, .end = 9774, .default = 9772 },
+    .{ .start = 9774, .end = 9776, .default = 9774 },
+    .{ .start = 9776, .end = 9778, .default = 9776 },
+    .{ .start = 9778, .end = 9780, .default = 9778 },
+    .{ .start = 9780, .end = 9782, .default = 9780 },
+    .{ .start = 9782, .end = 9784, .default = 9782 },
+    .{ .start = 9784, .end = 9786, .default = 9784 },
+    .{ .start = 9786, .end = 9788, .default = 9786 },
+    .{ .start = 9788, .end = 9790, .default = 9788 },
+    .{ .start = 9790, .end = 9792, .default = 9790 },
+    .{ .start = 9792, .end = 9794, .default = 9792 },
+    .{ .start = 9794, .end = 9796, .default = 9794 },
+    .{ .start = 9796, .end = 9798, .default = 9796 },
+    .{ .start = 9798, .end = 9800, .default = 9798 },
+    .{ .start = 9800, .end = 9802, .default = 9800 },
+    .{ .start = 9802, .end = 9804, .default = 9802 },
+    .{ .start = 9804, .end = 9806, .default = 9804 },
+    .{ .start = 9806, .end = 9808, .default = 9806 },
+    .{ .start = 9808, .end = 9810, .default = 9808 },
+    .{ .start = 9810, .end = 9818, .default = 9810 },
+    .{ .start = 9818, .end = 9826, .default = 9818 },
+    .{ .start = 9826, .end = 9834, .default = 9826 },
+    .{ .start = 9834, .end = 9842, .default = 9834 },
+    .{ .start = 9842, .end = 9850, .default = 9842 },
+    .{ .start = 9850, .end = 9858, .default = 9850 },
+    .{ .start = 9858, .end = 9866, .default = 9858 },
+    .{ .start = 9866, .end = 9874, .default = 9866 },
+    .{ .start = 9874, .end = 9882, .default = 9874 },
+    .{ .start = 9882, .end = 9890, .default = 9882 },
+    .{ .start = 9890, .end = 9898, .default = 9890 },
+    .{ .start = 9898, .end = 9899, .default = 9898 },
+    .{ .start = 9899, .end = 9901, .default = 9899 },
+    .{ .start = 9901, .end = 9902, .default = 9901 },
+    .{ .start = 9902, .end = 9914, .default = 9902 },
+    .{ .start = 9914, .end = 9915, .default = 9914 },
+    .{ .start = 9915, .end = 9916, .default = 9915 },
+    .{ .start = 9916, .end = 9917, .default = 9916 },
+    .{ .start = 9917, .end = 9919, .default = 9917 },
+    .{ .start = 9919, .end = 9999, .default = 9930 },
+    .{ .start = 9999, .end = 10079, .default = 10010 },
+    .{ .start = 10079, .end = 10159, .default = 10090 },
+    .{ .start = 10159, .end = 10239, .default = 10170 },
+    .{ .start = 10239, .end = 10319, .default = 10250 },
+    .{ .start = 10319, .end = 10399, .default = 10330 },
+    .{ .start = 10399, .end = 10479, .default = 10410 },
+    .{ .start = 10479, .end = 10559, .default = 10490 },
+    .{ .start = 10559, .end = 10639, .default = 10570 },
+    .{ .start = 10639, .end = 10719, .default = 10650 },
+    .{ .start = 10719, .end = 10799, .default = 10730 },
+    .{ .start = 10799, .end = 10879, .default = 10810 },
+    .{ .start = 10879, .end = 10959, .default = 10890 },
+    .{ .start = 10959, .end = 11039, .default = 10970 },
+    .{ .start = 11039, .end = 11045, .default = 11042 },
+    .{ .start = 11045, .end = 11051, .default = 11048 },
+    .{ .start = 11051, .end = 11057, .default = 11054 },
+    .{ .start = 11057, .end = 11063, .default = 11060 },
+    .{ .start = 11063, .end = 11069, .default = 11066 },
+    .{ .start = 11069, .end = 11075, .default = 11072 },
+    .{ .start = 11075, .end = 11081, .default = 11078 },
+    .{ .start = 11081, .end = 11087, .default = 11084 },
+    .{ .start = 11087, .end = 11093, .default = 11090 },
+    .{ .start = 11093, .end = 11099, .default = 11096 },
+    .{ .start = 11099, .end = 11105, .default = 11102 },
+    .{ .start = 11105, .end = 11111, .default = 11108 },
+    .{ .start = 11111, .end = 11117, .default = 11114 },
+    .{ .start = 11117, .end = 11441, .default = 11120 },
+    .{ .start = 11441, .end = 11765, .default = 11444 },
+    .{ .start = 11765, .end = 12089, .default = 11768 },
+    .{ .start = 12089, .end = 12413, .default = 12092 },
+    .{ .start = 12413, .end = 12737, .default = 12416 },
+    .{ .start = 12737, .end = 13061, .default = 12740 },
+    .{ .start = 13061, .end = 13385, .default = 13064 },
+    .{ .start = 13385, .end = 13709, .default = 13388 },
+    .{ .start = 13709, .end = 14033, .default = 13712 },
+    .{ .start = 14033, .end = 14357, .default = 14036 },
+    .{ .start = 14357, .end = 14681, .default = 14360 },
+    .{ .start = 14681, .end = 15005, .default = 14684 },
+    .{ .start = 15005, .end = 15037, .default = 15036 },
+    .{ .start = 15037, .end = 15041, .default = 15037 },
+    .{ .start = 15041, .end = 15053, .default = 15042 },
+    .{ .start = 15053, .end = 15061, .default = 15054 },
+    .{ .start = 15061, .end = 15069, .default = 15062 },
+    .{ .start = 15069, .end = 15070, .default = 15069 },
+    .{ .start = 15070, .end = 15071, .default = 15070 },
+    .{ .start = 15071, .end = 15083, .default = 15075 },
+    .{ .start = 15083, .end = 15099, .default = 15086 },
+    .{ .start = 15099, .end = 15100, .default = 15099 },
+    .{ .start = 15100, .end = 15104, .default = 15100 },
+    .{ .start = 15104, .end = 15136, .default = 15105 },
+    .{ .start = 15136, .end = 15140, .default = 15139 },
+    .{ .start = 15140, .end = 15144, .default = 15143 },
+    .{ .start = 15144, .end = 15176, .default = 15147 },
+    .{ .start = 15176, .end = 15208, .default = 15179 },
+    .{ .start = 15208, .end = 15212, .default = 15208 },
+    .{ .start = 15212, .end = 15215, .default = 15213 },
+    .{ .start = 15215, .end = 15218, .default = 15216 },
+    .{ .start = 15218, .end = 15221, .default = 15219 },
+    .{ .start = 15221, .end = 15224, .default = 15222 },
+    .{ .start = 15224, .end = 15225, .default = 15224 },
+    .{ .start = 15225, .end = 15226, .default = 15225 },
+    .{ .start = 15226, .end = 15227, .default = 15226 },
+    .{ .start = 15227, .end = 15228, .default = 15227 },
+    .{ .start = 15228, .end = 15229, .default = 15228 },
+    .{ .start = 15229, .end = 15232, .default = 15230 },
+    .{ .start = 15232, .end = 15235, .default = 15233 },
+    .{ .start = 15235, .end = 15238, .default = 15236 },
+    .{ .start = 15238, .end = 15241, .default = 15239 },
+    .{ .start = 15241, .end = 15242, .default = 15241 },
+    .{ .start = 15242, .end = 15243, .default = 15242 },
+    .{ .start = 15243, .end = 15244, .default = 15243 },
+    .{ .start = 15244, .end = 15270, .default = 15244 },
+    .{ .start = 15270, .end = 15271, .default = 15270 },
+    .{ .start = 15271, .end = 15297, .default = 15271 },
+    .{ .start = 15297, .end = 15298, .default = 15297 },
+    .{ .start = 15298, .end = 15299, .default = 15298 },
+    .{ .start = 15299, .end = 15300, .default = 15299 },
+    .{ .start = 15300, .end = 15301, .default = 15300 },
+    .{ .start = 15301, .end = 15307, .default = 15304 },
+    .{ .start = 15307, .end = 15313, .default = 15310 },
+    .{ .start = 15313, .end = 15315, .default = 15314 },
+    .{ .start = 15315, .end = 15317, .default = 15316 },
+    .{ .start = 15317, .end = 15349, .default = 15348 },
+    .{ .start = 15349, .end = 15381, .default = 15380 },
+    .{ .start = 15381, .end = 15445, .default = 15396 },
+    .{ .start = 15445, .end = 15509, .default = 15460 },
+    .{ .start = 15509, .end = 15541, .default = 15516 },
+    .{ .start = 15541, .end = 15573, .default = 15548 },
+    .{ .start = 15573, .end = 15653, .default = 15584 },
+    .{ .start = 15653, .end = 15733, .default = 15664 },
+    .{ .start = 15733, .end = 15757, .default = 15742 },
+    .{ .start = 15757, .end = 15781, .default = 15766 },
+    .{ .start = 15781, .end = 15845, .default = 15792 },
+    .{ .start = 15845, .end = 15909, .default = 15856 },
+    .{ .start = 15909, .end = 15941, .default = 15910 },
+    .{ .start = 15941, .end = 15973, .default = 15942 },
+    .{ .start = 15973, .end = 15981, .default = 15974 },
+    .{ .start = 15981, .end = 15989, .default = 15982 },
+    .{ .start = 15989, .end = 15993, .default = 15990 },
+    .{ .start = 15993, .end = 16005, .default = 16003 },
+    .{ .start = 16005, .end = 16014, .default = 16005 },
+    .{ .start = 16014, .end = 16030, .default = 16014 },
+    .{ .start = 16030, .end = 16054, .default = 16030 },
+    .{ .start = 16054, .end = 16078, .default = 16054 },
+    .{ .start = 16078, .end = 16079, .default = 16078 },
+    .{ .start = 16079, .end = 16080, .default = 16079 },
+    .{ .start = 16080, .end = 16081, .default = 16080 },
+    .{ .start = 16081, .end = 16082, .default = 16081 },
+    .{ .start = 16082, .end = 16083, .default = 16082 },
+    .{ .start = 16083, .end = 16088, .default = 16083 },
+    .{ .start = 16088, .end = 16089, .default = 16088 },
+    .{ .start = 16089, .end = 16090, .default = 16089 },
+    .{ .start = 16090, .end = 16091, .default = 16090 },
+    .{ .start = 16091, .end = 16092, .default = 16091 },
+    .{ .start = 16092, .end = 16093, .default = 16092 },
+    .{ .start = 16093, .end = 16094, .default = 16093 },
+    .{ .start = 16094, .end = 16174, .default = 16105 },
+    .{ .start = 16174, .end = 16498, .default = 16177 },
+    .{ .start = 16498, .end = 16504, .default = 16501 },
+    .{ .start = 16504, .end = 16505, .default = 16504 },
+    .{ .start = 16505, .end = 16506, .default = 16505 },
+    .{ .start = 16506, .end = 16507, .default = 16506 },
+    .{ .start = 16507, .end = 16508, .default = 16507 },
+    .{ .start = 16508, .end = 16514, .default = 16511 },
+    .{ .start = 16514, .end = 16594, .default = 16525 },
+    .{ .start = 16594, .end = 16918, .default = 16597 },
+    .{ .start = 16918, .end = 16919, .default = 16918 },
+    .{ .start = 16919, .end = 16999, .default = 16930 },
+    .{ .start = 16999, .end = 17005, .default = 17002 },
+    .{ .start = 17005, .end = 17007, .default = 17006 },
+    .{ .start = 17007, .end = 17031, .default = 17016 },
+    .{ .start = 17031, .end = 17355, .default = 17034 },
+    .{ .start = 17355, .end = 17356, .default = 17355 },
+    .{ .start = 17356, .end = 17357, .default = 17356 },
+    .{ .start = 17357, .end = 17358, .default = 17357 },
+    .{ .start = 17358, .end = 17374, .default = 17361 },
+    .{ .start = 17374, .end = 17390, .default = 17377 },
+    .{ .start = 17390, .end = 17406, .default = 17393 },
+    .{ .start = 17406, .end = 17422, .default = 17409 },
+    .{ .start = 17422, .end = 17438, .default = 17425 },
+    .{ .start = 17438, .end = 17454, .default = 17441 },
+    .{ .start = 17454, .end = 17470, .default = 17457 },
+    .{ .start = 17470, .end = 17486, .default = 17473 },
+    .{ .start = 17486, .end = 17502, .default = 17489 },
+    .{ .start = 17502, .end = 17518, .default = 17505 },
+    .{ .start = 17518, .end = 17534, .default = 17521 },
+    .{ .start = 17534, .end = 17550, .default = 17537 },
+    .{ .start = 17550, .end = 17566, .default = 17553 },
+    .{ .start = 17566, .end = 17582, .default = 17569 },
+    .{ .start = 17582, .end = 17598, .default = 17585 },
+    .{ .start = 17598, .end = 17614, .default = 17601 },
+    .{ .start = 17614, .end = 17630, .default = 17617 },
+    .{ .start = 17630, .end = 17632, .default = 17631 },
+    .{ .start = 17632, .end = 17634, .default = 17633 },
+    .{ .start = 17634, .end = 17636, .default = 17635 },
+    .{ .start = 17636, .end = 17638, .default = 17637 },
+    .{ .start = 17638, .end = 17640, .default = 17639 },
+    .{ .start = 17640, .end = 17642, .default = 17641 },
+    .{ .start = 17642, .end = 17644, .default = 17643 },
+    .{ .start = 17644, .end = 17646, .default = 17645 },
+    .{ .start = 17646, .end = 17648, .default = 17647 },
+    .{ .start = 17648, .end = 17650, .default = 17649 },
+    .{ .start = 17650, .end = 17652, .default = 17651 },
+    .{ .start = 17652, .end = 17654, .default = 17653 },
+    .{ .start = 17654, .end = 17656, .default = 17655 },
+    .{ .start = 17656, .end = 17658, .default = 17657 },
+    .{ .start = 17658, .end = 17660, .default = 17659 },
+    .{ .start = 17660, .end = 17662, .default = 17661 },
+    .{ .start = 17662, .end = 17664, .default = 17663 },
+    .{ .start = 17664, .end = 17665, .default = 17664 },
+    .{ .start = 17665, .end = 17666, .default = 17665 },
+    .{ .start = 17666, .end = 17678, .default = 17675 },
+    .{ .start = 17678, .end = 17690, .default = 17687 },
+    .{ .start = 17690, .end = 17702, .default = 17699 },
+    .{ .start = 17702, .end = 17714, .default = 17711 },
+    .{ .start = 17714, .end = 17715, .default = 17714 },
+    .{ .start = 17715, .end = 17716, .default = 17715 },
+    .{ .start = 17716, .end = 17717, .default = 17716 },
+    .{ .start = 17717, .end = 17718, .default = 17717 },
+    .{ .start = 17718, .end = 17814, .default = 17719 },
+    .{ .start = 17814, .end = 17815, .default = 17814 },
+    .{ .start = 17815, .end = 17816, .default = 17815 },
+    .{ .start = 17816, .end = 17817, .default = 17816 },
+    .{ .start = 17817, .end = 17818, .default = 17817 },
+    .{ .start = 17818, .end = 17819, .default = 17818 },
+    .{ .start = 17819, .end = 17820, .default = 17819 },
+    .{ .start = 17820, .end = 17821, .default = 17820 },
+    .{ .start = 17821, .end = 17822, .default = 17821 },
+    .{ .start = 17822, .end = 17823, .default = 17822 },
+    .{ .start = 17823, .end = 17824, .default = 17823 },
+    .{ .start = 17824, .end = 17904, .default = 17835 },
+    .{ .start = 17904, .end = 17984, .default = 17915 },
+    .{ .start = 17984, .end = 18064, .default = 17995 },
+    .{ .start = 18064, .end = 18144, .default = 18075 },
+    .{ .start = 18144, .end = 18150, .default = 18147 },
+    .{ .start = 18150, .end = 18156, .default = 18153 },
+    .{ .start = 18156, .end = 18162, .default = 18159 },
+    .{ .start = 18162, .end = 18168, .default = 18165 },
+    .{ .start = 18168, .end = 18169, .default = 18168 },
+    .{ .start = 18169, .end = 18170, .default = 18169 },
+    .{ .start = 18170, .end = 18171, .default = 18170 },
+    .{ .start = 18171, .end = 18172, .default = 18171 },
+    .{ .start = 18172, .end = 18173, .default = 18172 },
+    .{ .start = 18173, .end = 18174, .default = 18173 },
+    .{ .start = 18174, .end = 18175, .default = 18174 },
+    .{ .start = 18175, .end = 18176, .default = 18175 },
+    .{ .start = 18176, .end = 18256, .default = 18187 },
+    .{ .start = 18256, .end = 18336, .default = 18267 },
+    .{ .start = 18336, .end = 18416, .default = 18347 },
+    .{ .start = 18416, .end = 18496, .default = 18427 },
+    .{ .start = 18496, .end = 18502, .default = 18499 },
+    .{ .start = 18502, .end = 18508, .default = 18505 },
+    .{ .start = 18508, .end = 18514, .default = 18511 },
+    .{ .start = 18514, .end = 18520, .default = 18517 },
+    .{ .start = 18520, .end = 18544, .default = 18539 },
+    .{ .start = 18544, .end = 18564, .default = 18549 },
+    .{ .start = 18564, .end = 18565, .default = 18564 },
+    .{ .start = 18565, .end = 18617, .default = 18566 },
+    .{ .start = 18617, .end = 18619, .default = 18618 },
+    .{ .start = 18619, .end = 18620, .default = 18619 },
+    .{ .start = 18620, .end = 18621, .default = 18620 },
+    .{ .start = 18621, .end = 18622, .default = 18621 },
+    .{ .start = 18622, .end = 18623, .default = 18622 },
+    .{ .start = 18623, .end = 18624, .default = 18623 },
+    .{ .start = 18624, .end = 18656, .default = 18625 },
+    .{ .start = 18656, .end = 18664, .default = 18657 },
+    .{ .start = 18664, .end = 18680, .default = 18667 },
+    .{ .start = 18680, .end = 18682, .default = 18681 },
+    .{ .start = 18682, .end = 18683, .default = 18682 },
+    .{ .start = 18683, .end = 18686, .default = 18684 },
+    .{ .start = 18686, .end = 18687, .default = 18686 },
+    .{ .start = 18687, .end = 18767, .default = 18698 },
+    .{ .start = 18767, .end = 18773, .default = 18770 },
+    .{ .start = 18773, .end = 19097, .default = 18776 },
+    .{ .start = 19097, .end = 19098, .default = 19097 },
+    .{ .start = 19098, .end = 19178, .default = 19109 },
+    .{ .start = 19178, .end = 19184, .default = 19181 },
+    .{ .start = 19184, .end = 19508, .default = 19187 },
+    .{ .start = 19508, .end = 19509, .default = 19508 },
+    .{ .start = 19509, .end = 19589, .default = 19520 },
+    .{ .start = 19589, .end = 19595, .default = 19592 },
+    .{ .start = 19595, .end = 19919, .default = 19598 },
+    .{ .start = 19919, .end = 19920, .default = 19919 },
+    .{ .start = 19920, .end = 20000, .default = 19931 },
+    .{ .start = 20000, .end = 20006, .default = 20003 },
+    .{ .start = 20006, .end = 20330, .default = 20009 },
+    .{ .start = 20330, .end = 20331, .default = 20330 },
+    .{ .start = 20331, .end = 20332, .default = 20331 },
+    .{ .start = 20332, .end = 20333, .default = 20332 },
+    .{ .start = 20333, .end = 20336, .default = 20334 },
+    .{ .start = 20336, .end = 20337, .default = 20336 },
+    .{ .start = 20337, .end = 20338, .default = 20337 },
+    .{ .start = 20338, .end = 20339, .default = 20338 },
+    .{ .start = 20339, .end = 20340, .default = 20339 },
+    .{ .start = 20340, .end = 20341, .default = 20340 },
+    .{ .start = 20341, .end = 20342, .default = 20341 },
 };
 
 pub const item_block_ids = [_]?BlockTag{
@@ -24910,6 +24916,4688 @@ pub const item_block_ids = [_]?BlockTag{
     .pointed_dripstone,
 };
 
+pub const BlockProperty = struct { name: []const u8, value: []const u8 };
+
+pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty) BlockState {
+    const tag_info = block_states_info[@enumToInt(tag)];
+    var state = block_states[tag_info.default];
+    switch (state) {
+        .grass_block => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "snowy"));
+            data.snowy = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .podzol => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "snowy"));
+            data.snowy = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .oak_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .spruce_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .birch_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .jungle_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .acacia_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .dark_oak_sapling => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
+            data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .water => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
+            data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .lava => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
+            data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .oak_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .spruce_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .birch_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .jungle_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .acacia_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .dark_oak_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_spruce_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_birch_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_jungle_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_acacia_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_dark_oak_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_oak_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .oak_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .spruce_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .birch_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .jungle_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .acacia_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .dark_oak_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_oak_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_spruce_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_birch_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_jungle_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_acacia_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_dark_oak_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .oak_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .azalea_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .flowering_azalea_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dispenser => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "triggered")) {
+                    data.triggered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .note_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "instrument")) {
+                    data.instrument = std.meta.stringToEnum(@TypeOf(data.instrument), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "note")) {
+                    data.note = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .white_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .orange_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .magenta_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .light_blue_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .yellow_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .lime_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .pink_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .gray_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .light_gray_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .cyan_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .purple_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .blue_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .brown_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .green_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .red_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .black_bed => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "occupied")) {
+                    data.occupied = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "part")) {
+                    data.part = std.meta.stringToEnum(@TypeOf(data.part), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .powered_rail => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .detector_rail => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sticky_piston => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "extended")) {
+                    data.extended = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .tall_seagrass => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .piston => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "extended")) {
+                    data.extended = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .piston_head => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "short")) {
+                    data.short = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .moving_piston => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .tnt => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "unstable"));
+            data.unstable = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .wall_torch => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .fire => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "age")) {
+                    data.age = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .chest => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .redstone_wire => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "power")) {
+                    data.power = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .wheat => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .farmland => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "moisture"));
+            data.moisture = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .furnace => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .ladder => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .rail => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cobblestone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .lever => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .iron_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .spruce_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .birch_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .jungle_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .acacia_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dark_oak_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .redstone_ore => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .deepslate_redstone_ore => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .redstone_torch => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .redstone_wall_torch => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .snow => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "layers"));
+            data.layers = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .cactus => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .sugar_cane => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .jukebox => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "has_record"));
+            data.has_record = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .oak_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .basalt => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .polished_basalt => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .soul_wall_torch => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .nether_portal => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .carved_pumpkin => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .jack_o_lantern => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "bites"));
+            data.bites = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .repeater => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "delay")) {
+                    data.delay = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "locked")) {
+                    data.locked = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brown_mushroom_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_mushroom_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mushroom_stem => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .iron_bars => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .chain => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "axis")) {
+                    data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .attached_pumpkin_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .attached_melon_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .pumpkin_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .melon_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .vine => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .glow_lichen => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mycelium => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "snowy"));
+            data.snowy = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .nether_brick_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .nether_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .nether_wart => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .brewing_stand => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "has_bottle_0")) {
+                    data.has_bottle_0 = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "has_bottle_1")) {
+                    data.has_bottle_1 = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "has_bottle_2")) {
+                    data.has_bottle_2 = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .water_cauldron => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
+            data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .powder_snow_cauldron => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
+            data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .end_portal_frame => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "eye")) {
+                    data.eye = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .redstone_lamp => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .cocoa => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "age")) {
+                    data.age = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .sandstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .ender_chest => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .tripwire_hook => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "attached")) {
+                    data.attached = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .tripwire => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "attached")) {
+                    data.attached = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "disarmed")) {
+                    data.disarmed = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .command_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "conditional")) {
+                    data.conditional = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .cobblestone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .mossy_cobblestone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .carrots => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .potatoes => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .oak_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .skeleton_skull => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .skeleton_wall_skull => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .wither_skeleton_skull => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .wither_skeleton_wall_skull => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .zombie_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .zombie_wall_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .player_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .player_wall_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .creeper_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .creeper_wall_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .dragon_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .dragon_wall_head => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .anvil => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .chipped_anvil => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .damaged_anvil => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .trapped_chest => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light_weighted_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "power"));
+            data.power = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .heavy_weighted_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "power"));
+            data.power = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .comparator => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "mode")) {
+                    data.mode = std.meta.stringToEnum(@TypeOf(data.mode), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .daylight_detector => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "inverted")) {
+                    data.inverted = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "power")) {
+                    data.power = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else unreachable;
+            }
+        },
+        .hopper => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "enabled")) {
+                    data.enabled = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .quartz_pillar => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .quartz_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .activator_rail => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dropper => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "triggered")) {
+                    data.triggered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .white_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .orange_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .magenta_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light_blue_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .yellow_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .lime_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .pink_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .gray_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light_gray_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cyan_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .purple_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .blue_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brown_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .green_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .black_stained_glass_pane => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "level")) {
+                    data.level = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .iron_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .prismarine_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .prismarine_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_prismarine_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .prismarine_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .prismarine_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_prismarine_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .hay_block => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .sunflower => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .lilac => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .rose_bush => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .peony => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .tall_grass => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .large_fern => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "half"));
+            data.half = std.meta.stringToEnum(@TypeOf(data.half), property_list[0].value) orelse unreachable;
+        },
+        .white_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .orange_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .magenta_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .light_blue_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .yellow_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .lime_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .pink_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .gray_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .light_gray_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .cyan_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .purple_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .blue_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .brown_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .green_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .red_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .black_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
+            data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .white_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .orange_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .magenta_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_blue_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .yellow_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .lime_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .pink_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .gray_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_gray_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .cyan_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .purple_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .blue_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .brown_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .green_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .red_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .black_wall_banner => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .red_sandstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oak_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_stone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cut_sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .petrified_oak_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cobblestone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .nether_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .quartz_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cut_red_sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .purpur_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .spruce_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .birch_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .jungle_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .acacia_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dark_oak_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .end_rod => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .chorus_plant => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .chorus_flower => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .purpur_pillar => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .purpur_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .beetroots => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .repeating_command_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "conditional")) {
+                    data.conditional = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .chain_command_block => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "conditional")) {
+                    data.conditional = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .frosted_ice => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .bone_block => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .observer => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .white_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .orange_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .magenta_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_blue_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .yellow_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .lime_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .pink_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .gray_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_gray_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .cyan_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .purple_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .blue_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .brown_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .green_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .red_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .black_shulker_box => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .white_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .orange_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .magenta_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_blue_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .yellow_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .lime_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .pink_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .gray_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .light_gray_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .cyan_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .purple_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .blue_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .brown_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .green_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .red_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .black_glazed_terracotta => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .kelp => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .turtle_egg => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "eggs")) {
+                    data.eggs = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "hatch")) {
+                    data.hatch = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else unreachable;
+            }
+        },
+        .dead_tube_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_brain_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_bubble_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_fire_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_horn_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .tube_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .brain_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .bubble_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .fire_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .horn_coral => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_tube_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_brain_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_bubble_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_fire_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_horn_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .tube_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .brain_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .bubble_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .fire_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .horn_coral_fan => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .dead_tube_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dead_brain_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dead_bubble_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dead_fire_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .dead_horn_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .tube_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brain_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .bubble_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .fire_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .horn_coral_wall_fan => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sea_pickle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "pickles")) {
+                    data.pickles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .conduit => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .bamboo => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "age")) {
+                    data.age = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "leaves")) {
+                    data.leaves = std.meta.stringToEnum(@TypeOf(data.leaves), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "stage")) {
+                    data.stage = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else unreachable;
+            }
+        },
+        .bubble_column => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "drag"));
+            data.drag = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .polished_granite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_red_sandstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mossy_stone_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_diorite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mossy_cobblestone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .end_stone_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_sandstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_quartz_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .granite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .andesite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_nether_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_andesite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .diorite_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_granite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_red_sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mossy_stone_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_diorite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mossy_cobblestone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .end_stone_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_sandstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smooth_quartz_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .granite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .andesite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_nether_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_andesite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .diorite_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .prismarine_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .red_sandstone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .mossy_stone_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .granite_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .stone_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .nether_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .andesite_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .red_nether_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .sandstone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .end_stone_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .diorite_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .scaffolding => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "bottom")) {
+                    data.bottom = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .loom => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .barrel => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .smoker => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .blast_furnace => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .grindstone => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .lectern => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "has_book")) {
+                    data.has_book = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .stonecutter => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "facing"));
+            data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property_list[0].value) orelse unreachable;
+        },
+        .bell => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "attachment")) {
+                    data.attachment = std.meta.stringToEnum(@TypeOf(data.attachment), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .lantern => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "hanging")) {
+                    data.hanging = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .soul_lantern => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "hanging")) {
+                    data.hanging = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .campfire => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "signal_fire")) {
+                    data.signal_fire = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .soul_campfire => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "signal_fire")) {
+                    data.signal_fire = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sweet_berry_bush => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .warped_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_warped_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .warped_hyphae => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_warped_hyphae => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .crimson_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_crimson_stem => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .crimson_hyphae => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_crimson_hyphae => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .weeping_vines => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .twisting_vines => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "age"));
+            data.age = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .crimson_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .warped_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .crimson_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .crimson_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .warped_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .structure_block => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "mode"));
+            data.mode = std.meta.stringToEnum(@TypeOf(data.mode), property_list[0].value) orelse unreachable;
+        },
+        .jigsaw => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "orientation"));
+            data.orientation = std.meta.stringToEnum(@TypeOf(data.orientation), property_list[0].value) orelse unreachable;
+        },
+        .composter => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
+            data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .target => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "power"));
+            data.power = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .bee_nest => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "honey_level")) {
+                    data.honey_level = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else unreachable;
+            }
+        },
+        .beehive => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "honey_level")) {
+                    data.honey_level = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else unreachable;
+            }
+        },
+        .respawn_anchor => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "charges"));
+            data.charges = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
+        },
+        .blackstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .blackstone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .blackstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .polished_blackstone_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_blackstone_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .white_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .orange_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .magenta_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light_blue_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .yellow_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .lime_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .pink_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .gray_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .light_gray_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cyan_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .purple_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .blue_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .brown_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .green_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .red_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .black_candle => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "candles")) {
+                    data.candles = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "lit")) {
+                    data.lit = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .white_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .orange_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .magenta_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .light_blue_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .yellow_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .lime_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .pink_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .gray_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .light_gray_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .cyan_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .purple_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .blue_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .brown_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .green_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .red_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .black_candle_cake => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "lit"));
+            data.lit = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .amethyst_cluster => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .large_amethyst_bud => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .medium_amethyst_bud => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .small_amethyst_bud => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sculk_sensor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "power")) {
+                    data.power = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "sculk_sensor_phase")) {
+                    data.sculk_sensor_phase = std.meta.stringToEnum(@TypeOf(data.sculk_sensor_phase), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oxidized_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .weathered_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .exposed_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .oxidized_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .weathered_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .exposed_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_oxidized_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_weathered_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_exposed_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_cut_copper_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_oxidized_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_weathered_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_exposed_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .waxed_cut_copper_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .lightning_rod => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .pointed_dripstone => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "thickness")) {
+                    data.thickness = std.meta.stringToEnum(@TypeOf(data.thickness), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "vertical_direction")) {
+                    data.vertical_direction = std.meta.stringToEnum(@TypeOf(data.vertical_direction), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cave_vines => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "age")) {
+                    data.age = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "berries")) {
+                    data.berries = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cave_vines_plant => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "berries"));
+            data.berries = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .big_dripleaf => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "tilt")) {
+                    data.tilt = std.meta.stringToEnum(@TypeOf(data.tilt), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .big_dripleaf_stem => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .small_dripleaf => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .hanging_roots => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .deepslate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .cobbled_deepslate_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cobbled_deepslate_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .cobbled_deepslate_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .polished_deepslate_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_deepslate_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .polished_deepslate_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .deepslate_tile_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .deepslate_tile_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .deepslate_tile_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .deepslate_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .deepslate_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .deepslate_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .infested_deepslate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        else => {},
+    }
+    return state;
+}
+
 test "idFromState" {
     try std.testing.expect(idFromState(.{ .air = {} }) == 0);
     try std.testing.expect(idFromState(.{ .redstone_wire = .{
@@ -24920,4 +29608,23 @@ test "idFromState" {
         .west = .up,
     } }) == 2114);
     try std.testing.expect(idFromState(.{ .redstone_wire = .{} }) == 3274);
+}
+
+test "stateFromPropertyList" {
+    @setEvalBranchQuota(2_000);
+
+    const air = BlockState{ .air = .{} };
+    const air_list = [_]BlockProperty{};
+    try std.testing.expectEqual(air, stateFromPropertyList(.air, &air_list));
+
+    const snowy_grass = BlockState{ .grass_block = .{ .snowy = true } };
+    const snowy_grass_list = [_]BlockProperty{ .{ .name = "snowy", .value = "true" }};
+    try std.testing.expectEqual(snowy_grass, stateFromPropertyList(.grass_block, &snowy_grass_list));
+
+    const bamboo = BlockState{ .bamboo = .{ .age = 4, .leaves = .small } };
+    const bamboo_list = [_]BlockProperty{
+        .{ .name = "age", .value = "4" },
+        .{ .name = "leaves", .value = "small" },
+    };
+    try std.testing.expectEqual(bamboo, stateFromPropertyList(.bamboo, &bamboo_list));
 }
