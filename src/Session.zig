@@ -12,6 +12,7 @@ const client_packets = @import("client_packets.zig");
 const ClientPacket = client_packets.Packet;
 const server_packets = @import("server_packets.zig");
 const ServerPacket = server_packets.Packet;
+const block_constants = @import("block_constants.zig");
 
 const Self = @This();
 
@@ -39,7 +40,7 @@ keep_alive_ids: [2]?i64 = [2]?i64{ null, null },
 timed_out: bool = false,
 
 active_slot: usize = 0,
-player_slots: [9]WorldState.BlockId = [_]WorldState.BlockId{.air} ** 9,
+player_slots: [9]u16 = [_]u16{0} ** 9,
 
 /// After this call `connection` is owned by this object and will be cleaned up.
 pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) void {
@@ -245,8 +246,9 @@ fn sendLoginPackets(self: *Self) !void {
         // zig fmt: on
     };
     for (chunk_positions) |pos| {
-        const chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, pos[0], pos[1]);
-        const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
+        //const chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, pos[0], pos[1]);
+        //const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
+        const chunk_data = try self.world.encodeChunkSectionData();
         //const chunk_data = blk: {
         //    if (pos[0] == 0 and pos[1] == 0) {
         //        //break :blk try self.world.encodeChunkSectionData();

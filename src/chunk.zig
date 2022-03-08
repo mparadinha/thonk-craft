@@ -518,21 +518,21 @@ pub const ChunkSection = struct {
         try writer.writeIntBig(i16, 4096); // number of non-air blocks
 
         try encodePalettedContainer(writer, self.block_palette.items, self.packed_block_data.items);
-        try encodePalettedContainer(writer, self.biome_palette.items, self.packed_biome_data.items);
+        //try encodePalettedContainer(writer, self.biome_palette.items, self.packed_biome_data.items);
 
         // chunk created w/ `new16BlockChunkSection` needs this to render in. why? dunno
-        //// as far as I can tell the equivalent of the block id global palette for biomes
-        //// is the dimension codec, sent in the "join game" packet.
-        //// entries in the "minecraft:worldgen/biome" part of that NBT data have an 'id'
-        //// field. the biome palette for chunk sections maps to these 'id's.
-        //{ // biomes (paletted container)
-        //    try writer.writeByte(0); // bits per block
-        //    // palette
-        //    try types.VarInt.encode(writer, 1); // plains
-        //    // biome data
-        //    const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
-        //    for (biomes) |entry| try writer.writeIntBig(u64, entry);
-        //}
+        // as far as I can tell the equivalent of the block id global palette for biomes
+        // is the dimension codec, sent in the "join game" packet.
+        // entries in the "minecraft:worldgen/biome" part of that NBT data have an 'id'
+        // field. the biome palette for chunk sections maps to these 'id's.
+        { // biomes (paletted container)
+            try writer.writeByte(0); // bits per block
+            // palette
+            try types.VarInt.encode(writer, 1); // plains
+            // biome data
+            const biomes = [_]u64{0x0000_0000_0000_0001} ** 26; // why 26???
+            for (biomes) |entry| try writer.writeIntBig(u64, entry);
+        }
     }
 };
 

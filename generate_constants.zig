@@ -10,18 +10,13 @@ pub fn main() !void {
     _ = arg_iter.skip(); // skip executable name (first argument)
     const folder_path = arg_iter.next() orelse @panic("please pass path to generated folder");
 
-    const blocks_json_path = try std.fs.path.join(gpa, &.{ folder_path, "reports/blocks.json" });
-    defer gpa.free(blocks_json_path);
-    const blocks_json = try std.fs.cwd().openFile(blocks_json_path, .{});
-    const blocks_json_data = try blocks_json.readToEndAlloc(gpa, std.math.maxInt(usize));
-
+    const blocks_json_data = try readWholeFile(folder_path, "reports/blocks.json", gpa);
     const block_infos = try parseBlocksJson(blocks_json_data, gpa);
     defer gpa.free(block_infos);
 
     // property name => [ property value => # of occurences ]
     var all_properties = std.StringHashMap(std.StringHashMap(usize)).init(gpa);
     defer all_properties.deinit();
-
     for (block_infos) |block_info| {
         for (block_info.states) |block_state| {
             for (block_state.properties) |property| {
@@ -36,43 +31,269 @@ pub fn main() !void {
         }
     }
 
-    const registries_json_path = try std.fs.path.join(gpa, &.{ folder_path, "reports/registries.json" });
-    defer gpa.free(registries_json_path);
-    const registries_json = try std.fs.cwd().openFile(registries_json_path, .{});
-    const registries_json_data = try registries_json.readToEndAlloc(gpa, std.math.maxInt(usize));
-
+    const registries_json_data = try readWholeFile(folder_path, "reports/registries.json", gpa);
     const item_block_ids = try parseRegistries(registries_json_data, gpa);
     defer gpa.free(item_block_ids);
-
-    for (block_infos) |info, i| {
-        std.debug.print("block [{d}]{{ .name={s}, .states.len={d} }} (default id = {d})\n", .{
-            i,
-            info.name,
-            info.states.len,
-            info.states[info.default_state].id,
-        });
-    }
-
-    std.debug.print("all unique properties: (and possibe values)\n", .{});
-    var map_iterator = all_properties.iterator();
-    while (map_iterator.next()) |pair| {
-        std.debug.print("'{s}': ", .{pair.key_ptr.*});
-        var value_iterator = pair.value_ptr.keyIterator();
-        while (value_iterator.next()) |value| std.debug.print("{s}, ", .{value.*});
-        std.debug.print("\n", .{});
-    }
-
+    // check that item id are mapping to the correct block id
     for (item_block_ids) |entry| {
-        std.debug.print("item_id for '{s}' is {d} (corresponding block id is {d})\n", .{
-            entry.name, entry.item_id, entry.block_id,
-        });
+        if (entry.block_id) |block_id| {
+            const block_name = block_infos[block_id].name;
+            std.debug.assert(std.mem.eql(u8, entry.name, block_name));
+        }
     }
+
+    //for (block_infos) |info, i| {
+    //    std.debug.print("block [{d}]{{ .name={s}, .states.len={d} }} (default id = {d})\n", .{
+    //        i,
+    //        info.name,
+    //        info.states.len,
+    //        info.states[info.default_state].id,
+    //    });
+    //}
+
+    //for (block_infos) |info, i| {
+    //    if (info.possible_properties.len != 0) {
+    //        std.debug.print("possible properties for block [{d}] {s}:\n", .{ i, info.name });
+    //    }
+    //    for (info.possible_properties) |property| {
+    //        std.debug.print("  {s} (type to use: {s}): {s}\n", .{
+    //            property.name,
+    //            @tagName(property.typeToUse()),
+    //            property.values,
+    //        });
+    //    }
+    //}
+
+    //std.debug.print("all unique properties: (and possibe values)\n", .{});
+    //var map_iterator = all_properties.iterator();
+    //while (map_iterator.next()) |pair| {
+    //    std.debug.print("'{s}': ", .{pair.key_ptr.*});
+    //    var value_iterator = pair.value_ptr.keyIterator();
+    //    while (value_iterator.next()) |value| std.debug.print("{s}, ", .{value.*});
+    //    std.debug.print("\n", .{});
+    //}
+
+    //for (item_block_ids) |entry| {
+    //    std.debug.print("item_id for '{s}' is {d} (corresponding block id is {d})\n", .{
+    //        entry.name, entry.item_id, entry.block_id,
+    //    });
+    //}
+
+    // below is the zig code generation
+
+    const writer = std.io.getStdOut().writer();
+
+    _ = try writer.write(
+        \\//! This file was generated using the `reports/blocks.json` file which is provided
+        \\//! by the mojang minecraft server, by running the official `server.jar`
+        \\//! with the following command line options:
+        \\//! $ java -DbundlerMainClass=net.minecraft.data.Main -jar server.jar --all
+        \\//! (see https://wiki.vg/Data_Generators for more information)
+        \\//!
+        \\//! This file contains the following declaration/functions:
+        \\//! * the `BlockState` union, which maps every unique block to an anonymous struct
+        \\//!   representing its possible block states (default values match default block state)
+        \\//! * `idFromState` function. given a `BlockState` return its corresponding block
+        \\//!   state numeric id
+        \\//! * the `block_states` array lists every single block state for every single
+        \\//!   block type, sorted by its numeric id. it has over 20,000 entries.
+        \\//! * the `block_state_range` maps the `BlockState` tag to a usize "start/end"
+        \\//!   pair, which gives a range in the `block_states` array ("end" is exclusive)
+        \\//! * the `item_block_ids` array maps an item id (different from block id) to its
+        \\//!   corresponding `BlockTag`, or `null` if that item has no corresponding block (like
+        \\//!   a saddle or music discs, for e.g). example: the tuff item has an item id of 12,
+        \\//!   so item_blocks_ids[12] is `BlockTag.tuff`
+        \\//!
+        \\//! (fun fact: `minecraft:redstone_wire` has 1296 unique block states)
+        \\
+    );
+    _ = try writer.write("\n");
+    _ = try writer.write("const std = @import(\"std\");\n");
+    _ = try writer.write("\n");
+    _ = try writer.write(
+        \\pub fn idFromState(block_state: BlockState) u16 {
+        \\    @setEvalBranchQuota(2_000);
+        \\    const range = block_state_ranges[@enumToInt(block_state)];
+        \\    for (block_states[range[0]..range[1]]) |cmp_state, i| {
+        \\        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + range[0]);
+        \\    } else unreachable;
+        \\}
+        \\
+    );
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const BlockTag = std.meta.Tag(BlockState);\n");
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const BlockState = union(enum(u16)) {\n");
+    for (block_infos) |info| {
+        try writer.print("    {s}", .{afterColon(info.name)});
+        if (info.states.len == 1) {
+            _ = try writer.write(": void,\n");
+            continue;
+        }
+        const properties = info.possible_properties;
+        const oneline = (properties.len == 1 and properties[0].typeToUse() != .Enum);
+        const endline_char: u8 = if (oneline) ' ' else '\n';
+        try writer.print(": struct {{{c}", .{endline_char});
+        for (properties) |property| {
+            if (!oneline) _ = try writer.write("        ");
+            try writeIdentifier(writer, property.name);
+            _ = try writer.write(": ");
+            const default_value = blk: {
+                for (info.states[info.default_state].properties) |state_property| {
+                    if (std.mem.eql(u8, state_property.name, property.name))
+                        break :blk state_property.value;
+                } else unreachable;
+            };
+            switch (property.typeToUse()) {
+                .Int => try writer.print("u8 = {s}", .{default_value}),
+                .Bool => try writer.print("bool = {s}", .{default_value}),
+                .Enum => {
+                    std.debug.assert(property.values.len <= 256);
+                    _ = try writer.write("enum { ");
+                    for (property.values) |value, i| {
+                        try writeIdentifier(writer, value);
+                        if (i != property.values.len - 1) _ = try writer.write(", ");
+                    }
+                    try writer.print(" }} = .{s}", .{default_value});
+                },
+                else => unreachable,
+            }
+            if (!oneline) _ = try writer.write(",\n");
+        }
+        if (!oneline) _ = try writer.write("   ");
+        _ = try writer.write(" },\n");
+    }
+    _ = try writer.write("};\n"); // close `BlockState`
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const block_states = [_]BlockState{\n");
+    var next_block_state_id: u16 = 0; // to make sure the Id's are sequential
+    for (block_infos) |info| {
+        const block_name = afterColon(info.name);
+        if (info.states.len == 1) {
+            std.debug.assert(next_block_state_id == info.states[0].id);
+            next_block_state_id += 1;
+            try writer.print("    .{{ .{s} = {{}} }},\n", .{block_name});
+            continue;
+        }
+        for (info.states) |state| {
+            std.debug.assert(next_block_state_id == state.id);
+            next_block_state_id += 1;
+            try writer.print("    .{{ .{s} = .{{ ", .{block_name});
+            for (state.properties) |property, i| {
+                _ = try writer.write(".");
+                try writeIdentifier(writer, property.name);
+                _ = try writer.write(" = ");
+                if (info.typeForProperty(property.name) == .Enum) _ = try writer.write(".");
+                _ = try writer.write(property.value);
+                if (i != state.properties.len - 1) _ = try writer.write(", ");
+            }
+            _ = try writer.write(" } },\n");
+        }
+    }
+    _ = try writer.write("};\n"); // close `block_states`
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const block_state_ranges = [_][2]usize{\n");
+    var last_range_end: u16 = 0;
+    for (block_infos) |info| {
+        const start = info.states[0].id;
+        const end = start + info.states.len;
+        std.debug.assert(start == last_range_end);
+        last_range_end = @intCast(u16, end);
+        try writer.print("    [2]usize{{ {d}, {d} }},\n", .{ start, end });
+    }
+    _ = try writer.write("};\n"); // close `block_state_ranges`
+    _ = try writer.write("\n");
+    _ = try writer.write("pub const item_block_ids = [_]?BlockTag{\n");
+    for (item_block_ids) |entry| {
+        if (entry.block_id) |_| {
+            try writer.print("    .{s},\n", .{afterColon(entry.name)});
+        } else {
+            try writer.print("    null, // {s}\n", .{afterColon(entry.name)});
+        }
+    }
+    _ = try writer.write("};\n"); // close `item_block_ids`
+    _ = try writer.write("\n");
+    _ = try writer.write(
+        \\test "idFromState" {
+        \\    try std.testing.expect(idFromState(.{ .air = {} }) == 0);
+        \\    try std.testing.expect(idFromState(.{ .redstone_wire = .{
+        \\        .east = .up,
+        \\        .north = .up,
+        \\        .power = 0,
+        \\        .south = .up,
+        \\        .west = .up,
+        \\    } }) == 2114);
+        \\    try std.testing.expect(idFromState(.{ .redstone_wire = .{} }) == 3274);
+        \\}
+        \\
+    );
+}
+
+/// wraps the identifier in @"" if needed
+fn writeIdentifier(writer: anytype, identifier: []const u8) !void {
+    if (isValidIdentifier(identifier)) {
+        _ = try writer.write(identifier);
+    } else {
+        try writer.print("@\"{s}\"", .{identifier});
+    }
+}
+
+fn afterColon(string: []const u8) []const u8 {
+    const colon_pos = blk: {
+        for (string) |char, i| if (char == ':') break :blk i;
+        break :blk 0;
+    };
+    return string[colon_pos + 1 ..];
+}
+
+fn readWholeFile(folder_path: []const u8, file_path: []const u8, allocator: Allocator) ![]const u8 {
+    const path = try std.fs.path.join(allocator, &.{ folder_path, file_path });
+    defer allocator.free(path);
+
+    const file = try std.fs.cwd().openFile(path, .{});
+    const data = try file.readToEndAlloc(allocator, std.math.maxInt(usize));
+
+    return data;
+}
+
+/// basically check that this string isn't a Zig keyword, or a type
+fn isValidIdentifier(identifier: []const u8) bool {
+    const zig_keywords = [_][]const u8{ "align", "allowzero", "and", "anyframe", "anytype", "asm", "async", "await", "break", "catch", "comptime", "const", "continue", "defer", "else", "enum", "errdefer", "error", "export", "extern", "false", "fn", "for", "if", "inline", "noalias", "nosuspend", "null", "or", "orelse", "packed", "pub", "resume", "return", "linksection", "struct", "suspend", "switch", "test", "threadlocal", "true", "try", "undefined", "union", "unreachable", "usingnamespace", "var", "volatile", "while" };
+    for (zig_keywords) |keyword| {
+        if (std.mem.eql(u8, identifier, keyword)) return false;
+    }
+    if (std.mem.eql(u8, identifier, "type")) return false;
+    if (identifier.len > 0 and (identifier[0] == 'i' or identifier[0] == 'u')) {
+        if (std.fmt.parseInt(u16, identifier[1..], 0)) |_| {
+            return false;
+        } else |_| {}
+    }
+    if (identifier.len > 0 and identifier[0] == 'f') {
+        if (std.fmt.parseInt(u8, identifier[1..], 0)) |bits| {
+            if (bits == 16 or bits == 32 or bits == 64 or bits == 80) return false;
+        } else |_| {}
+    }
+    return true;
+}
+
+fn isError(err_union: anytype) bool {
+    return if (err_union) |_| false else |_| true;
 }
 
 const BlockInfo = struct {
     name: []const u8,
     states: []BlockState,
     default_state: usize,
+    possible_properties: []BlockPossiblePropertyValues,
+
+    pub fn typeForProperty(self: BlockInfo, property_name: []const u8) std.builtin.TypeId {
+        for (self.possible_properties) |property| {
+            if (std.mem.eql(u8, property_name, property.name)) {
+                return property.typeToUse();
+            }
+        }
+        unreachable;
+    }
 };
 
 const BlockState = struct {
@@ -85,78 +306,32 @@ const BlockProperty = struct {
     value: []const u8,
 };
 
-const __BlockProperties__ = struct {
-    powered: bool,
-    lit: bool,
-    waterlogged: bool,
-    persistent: bool,
-    has_bottle_0: bool,
-    has_bottle_1: bool,
-    has_bottle_2: bool,
-    hanging: bool,
-    in_wall: bool,
-    enabled: bool,
-    extended: bool,
-    drag: bool,
-    eye: bool,
-    snowy: bool,
-    open: bool,
-    berries: bool,
-    attached: bool,
-    bottom: bool,
-    has_record: bool,
-    inverted: bool,
-    unstable: bool,
-    up: bool,
-    locked: bool,
-    triggered: bool,
-    occupied: bool,
-    hinge: bool,
-    down: bool,
-    short: bool,
-    disarmed: bool,
-    conditional: bool,
-    signal_fire: bool,
-    has_book: bool,
-    stage: u8,
-    bites: u8,
-    honey_level: u8,
-    distance: u8,
-    power: u8,
-    hatch: u8,
-    delay: u8,
-    level: u8,
-    age: u8,
-    pickles: u8,
-    eggs: u8,
-    layers: u8,
-    candles: u8,
-    note: u8,
-    moisture: u8,
-    charges: u8,
-    rotation: u8,
-    part: enum { head, foot },
-    thickness: enum { middle, base, tip_merge, tip, frustum },
-    shape: enum { south_west, ascending_south, south_east, ascending_west, north_south, north_east, ascending_north, ascending_east, inner_left, inner_right, outer_right, straight, outer_left, north_west, east_west },
-    axis: enum { x, y, z },
-    leaves: enum { large, none, small },
-    sculk_sensor_phase: enum { cooldown, active, inactive },
-    facing: enum { down, east, west, up, north, south },
-    mode: enum { data, subtract, load, save, compare, corner },
-    face: enum { ceiling, wall, floor },
-    attachment: enum { ceiling, single_wall, floor, double_wall },
-    @"type": enum { right, double, single, normal, top, sticky, bottom, left },
-    vertical_direction: enum { up, down },
-    instrument: enum { hat, bass, chime, didgeridoo, harp, iron_xylophone, xylophone, banjo, flute, basedrum, snare, bell, cow_bell, bit, pling, guitar },
-    tilt: enum { none, partial, unstable },
-    orientation: enum { down_south, up_east, east_up, down_west, south_up, down_north, up_west, up_north, up_south, west_up, down_east, north_up },
+const BlockPossiblePropertyValues = struct {
+    name: []const u8,
+    values: [][]const u8,
 
-    south: DirectionProperty,
-    east: DirectionProperty,
-    west: DirectionProperty,
-    north: DirectionProperty,
+    pub fn typeToUse(property: BlockPossiblePropertyValues) std.builtin.TypeId {
+        // no property has mixed possible types. in other words, the first value
+        // is enough to determine the overall type of the property
+        std.debug.assert(property.values.len > 0);
+        const value = property.values[0];
 
-    const DirectionProperty = enum { side, tall, @"true", @"false", up, none, low };
+        // try integer first
+        const parse_result = std.fmt.parseInt(u64, value, 0);
+        if (!std.meta.isError(parse_result)) {
+            std.debug.assert(property.values.len <= 256);
+            return .Int;
+        }
+        // then bool
+        if (property.values.len == 2) {
+            const second_value = property.values[1];
+            if ((std.mem.eql(u8, value, "true") and std.mem.eql(u8, second_value, "false")) or
+                (std.mem.eql(u8, value, "false") and std.mem.eql(u8, second_value, "true")))
+                return .Bool;
+        }
+        // and if its neither integer nor boolean then use enum
+        return .Enum;
+    }
 };
 
 fn parseBlocksJson(json_data: []const u8, allocator: Allocator) ![]BlockInfo {
@@ -190,6 +365,8 @@ fn parseBlockInfo(
 ) !BlockInfo {
     var block_info: BlockInfo = undefined;
     block_info.name = getSlice(name_tk, stream);
+    block_info.states.len = 0;
+    block_info.possible_properties.len = 0;
 
     var token = try stream.next();
     expectToken(token.?, .ObjectBegin);
@@ -205,10 +382,8 @@ fn parseBlockInfo(
                     block_info.default_state = state_info.default_state;
                     block_info.states = state_info.state_list.toOwnedSlice();
                 } else if (std.mem.eql(u8, string, "properties")) {
-                    // skip the properties list
-                    var next_tk = try stream.next();
-                    expectToken(next_tk.?, .ObjectBegin);
-                    try skipUntilObjectEnd(stream);
+                    const properties = try parseBlockPossibleProperties(stream, allocator);
+                    block_info.possible_properties = properties;
                 } else {
                     std.debug.print("unknown string '{s}'\n", .{string});
                     @panic("");
@@ -224,6 +399,55 @@ fn parseBlockInfo(
     return block_info;
 }
 
+fn parseBlockPossibleProperties(
+    stream: *std.json.TokenStream,
+    allocator: Allocator,
+) ![]BlockPossiblePropertyValues {
+    var properties = std.ArrayList(BlockPossiblePropertyValues).init(allocator);
+
+    var token = try stream.next();
+    expectToken(token.?, .ObjectBegin);
+    token = try stream.next();
+    while (token) |tk| : (token = try stream.next()) {
+        switch (tk) {
+            .ObjectEnd => break,
+            .String => |data| {
+                const property_name = getSlice(data, stream);
+                var possible_values = std.ArrayList([]const u8).init(allocator);
+
+                var inner_token = try stream.next();
+                expectToken(inner_token.?, .ArrayBegin);
+                inner_token = try stream.next();
+                while (inner_token) |inner_tk| : (inner_token = try stream.next()) {
+                    switch (inner_tk) {
+                        .ArrayEnd => break,
+                        .String => |inner_data| {
+                            const property_value = getSlice(inner_data, stream);
+                            try possible_values.append(property_value);
+                        },
+                        else => {
+                            std.debug.print("got tk={any}, i={}\n", .{ inner_tk, stream.i });
+                            unreachable;
+                        },
+                    }
+                }
+
+                const property = BlockPossiblePropertyValues{
+                    .name = property_name,
+                    .values = possible_values.toOwnedSlice(),
+                };
+                try properties.append(property);
+            },
+            else => {
+                std.debug.print("got tk={any}, i={}\n", .{ tk, stream.i });
+                unreachable;
+            },
+        }
+    }
+
+    return properties.toOwnedSlice();
+}
+
 fn parseBlockStateArray(
     stream: *std.json.TokenStream,
     allocator: Allocator,
@@ -233,7 +457,6 @@ fn parseBlockStateArray(
 
     var token = try stream.next();
     expectToken(token.?, .ArrayBegin);
-    //try skipUntilArrayEnd(stream);
     token = try stream.next();
     while (token) |tk| : (token = try stream.next()) {
         switch (tk) {
@@ -324,7 +547,7 @@ fn parseBlockProperties(
 const ItemBlockIds = struct {
     name: []const u8,
     item_id: u16,
-    block_id: u16,
+    block_id: ?u16,
 };
 
 const NamedId = struct { name: []const u8, id: u16 };
@@ -376,13 +599,11 @@ fn parseRegistries(json_data: []const u8, allocator: Allocator) ![]ItemBlockIds 
                 break :blk null;
             }
         };
-        if (block_id) |id| {
-            try item_block_ids_list.append(.{
-                .name = item.name,
-                .item_id = item.id,
-                .block_id = id,
-            });
-        }
+        try item_block_ids_list.append(.{
+            .name = item.name,
+            .item_id = item.id,
+            .block_id = block_id,
+        });
     }
 
     return item_block_ids_list.toOwnedSlice();

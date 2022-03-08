@@ -10,6 +10,7 @@ const types = @import("types.zig");
 const nbt = @import("nbt.zig");
 const Chunk = @import("chunk.zig").Chunk;
 const ChunkSection = @import("chunk.zig").ChunkSection;
+const block_constants = @import("block_constants.zig");
 
 const Self = @This();
 
@@ -47,19 +48,13 @@ pub const BlockId = enum(u15) {
     piston_head_north = 1418,
 };
 
-pub fn itemIdToBlockId(item_id: i32) BlockId {
-    switch (item_id) {
-        0...7 => return @intToEnum(BlockId, item_id),
-        15 => return .dirt,
-        16 => return .coarse_dirt,
-        17 => return .podzol,
-        21...27 => return @intToEnum(BlockId, item_id - (21 - @enumToInt(BlockId.cobblestone))),
-        36 => return .bedrock,
-        else => {
-            std.debug.print("unknown item_id={d}. crashing.\n", .{item_id});
-            unreachable;
-        },
-    }
+pub fn itemIdToBlockId(item_id: i32) u16 {
+    const block_tag = block_constants.item_block_ids[@intCast(usize, item_id)];
+    if (block_tag) |tag| {
+        const tag_int = @enumToInt(tag);
+        const range = block_constants.block_state_ranges[tag_int];
+        return @intCast(u16, range[0]);
+    } else unreachable;
 }
 
 const EntityPos = struct { x: f32, feet_y: f32, z: f32 };
@@ -100,14 +95,14 @@ pub fn getBlock(self: *Self, x: u4, y: u4, z: u4) u16 {
 /// `x`, `y` and `z` are the block coords relative to the chunk section
 pub fn removeBlock(self: *Self, x: u4, y: u4, z: u4) void {
     std.debug.print("removing block @ ({}, {}, {})\n", .{ x, y, z });
-    self.changeBlock(x, y, z, BlockId.air);
+    self.changeBlock(x, y, z, block_constants.idFromState(.{ .air = {} }));
 }
 
 /// `x`, `y` and `z` are the block coords relative to the chunk section
-pub fn changeBlock(self: *Self, x: u4, y: u4, z: u4, new_id: BlockId) void {
+pub fn changeBlock(self: *Self, x: u4, y: u4, z: u4, new_id: u16) void {
     self.mutex.lock();
     defer self.mutex.unlock();
-    self.the_chunk.changeBlock(x, y, z, @enumToInt(new_id)) catch unreachable;
+    self.the_chunk.changeBlock(x, y, z, new_id) catch unreachable;
 
     // TODO check for redstone block and pistons
 }
@@ -376,6 +371,8 @@ pub fn getChunkFromRegionFile(
 
     const chunk_data: []const u8 = file_bytes[loc_start .. loc_start + loc_size];
     const compression_type = chunk_data[4];
+    // TODO: gzip isn't used anymore by the official server but we should still accept it
+    //       or at least error out instead of asserting here
     std.debug.assert(compression_type == 2); // zlib
 
     const zlib_data = chunk_data[5..];
