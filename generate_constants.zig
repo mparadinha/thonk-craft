@@ -236,7 +236,9 @@ pub fn main() !void {
         if (info.possible_properties.len == 1) {
             const property = info.possible_properties[0];
             try printIndent(writer, 3, "std.debug.assert(std.mem.eql(u8, property_list[0].name, \"{s}\"));\n", .{property.name});
-            try printIndent(writer, 3, "data.{s} = ", .{property.name});
+            try writeIndent(writer, 3, "data.");
+            try writeIdentifier(writer, property.name);
+            _ = try writer.write(" = ");
             switch (property.typeToUse()) {
                 .Bool => _ = try writer.write("std.mem.eql(u8, property_list[0].value, \"true\");\n"),
                 .Int => _ = try writer.write("std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;\n"),
@@ -249,7 +251,9 @@ pub fn main() !void {
                 try writeIndent(writer, 4, "");
                 if (i > 0) _ = try writer.write("} else ");
                 try writer.print("if (std.mem.eql(u8, property.name, \"{s}\")) {{\n", .{property.name});
-                try printIndent(writer, 5, "data.{s} = ", .{property.name});
+                try writeIndent(writer, 5, "data.");
+                try writeIdentifier(writer, property.name);
+                _ = try writer.write(" = ");
                 switch (property.typeToUse()) {
                     .Bool => _ = try writer.write("std.mem.eql(u8, property.value, \"true\");\n"),
                     .Int => _ = try writer.write("std.fmt.parseInt(u8, property.value, 0) catch unreachable;\n"),
@@ -362,10 +366,6 @@ fn isValidIdentifier(identifier: []const u8) bool {
         } else |_| {}
     }
     return true;
-}
-
-fn isError(err_union: anytype) bool {
-    return if (err_union) |_| false else |_| true;
 }
 
 const BlockInfo = struct {

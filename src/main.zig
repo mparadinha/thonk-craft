@@ -15,7 +15,9 @@ pub fn main() !void {
     defer world_state.deinit();
 
     var world_manager = try world.Manager.init("r.0.0.mca", gpa);
-    _ = world_manager;
+    defer world_manager.deinit();
+    const game_thread = try std.Thread.spawn(.{}, world.Manager.startLoop, .{&world_manager});
+    defer game_thread.join();
 
     var server = StreamServer.init(.{
         // I shouldn't need this here. but sometimes we crash and this way we don't have
@@ -34,7 +36,7 @@ pub fn main() !void {
         const connection = try server.accept();
         std.debug.print("connection: {}\n", .{connection});
 
-        const thread = try std.Thread.spawn(.{}, Session.start, .{ connection, gpa, &world_state });
+        const thread = try std.Thread.spawn(.{}, Session.start, .{ connection, gpa, &world_state, &world_manager });
         thread.detach();
     }
 }

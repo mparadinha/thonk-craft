@@ -1,4 +1,6 @@
 //! This struct handles a single connection to a single client.
+//! It's job is to take care of player login and checking it's alive,
+//! and forwarding received packets to the world manager.
 //! This is usually run in its own thread.
 
 const std = @import("std");
@@ -13,6 +15,8 @@ const ClientPacket = client_packets.Packet;
 const server_packets = @import("server_packets.zig");
 const ServerPacket = server_packets.Packet;
 const block_constants = @import("block_constants.zig");
+//const world = @import("world.zig");
+const WorldManager = @import("world.zig").Manager;
 
 const Self = @This();
 
@@ -32,22 +36,24 @@ connection: Connection,
 allocator: Allocator,
 state: State = .handshaking,
 compress_packets: bool = false,
-world: *WorldState,
+world: *WorldState, // temporary until I replace it with world_manager
+//world_manager: *world.Manager,
+world_manager: *WorldManager,
+player: @import("world.zig").Player,
 
 keep_alive_thread: ?std.Thread = null,
 keep_alive_ids: [2]?i64 = [2]?i64{ null, null },
 /// set to `true` by the keep alive loop if the client doesn't respond for 30 seconds
 timed_out: bool = false,
 
-active_slot: usize = 0,
-player_slots: [9]u16 = [_]u16{0} ** 9,
-
 /// After this call `connection` is owned by this object and will be cleaned up.
-pub fn start(connection: Connection, allocator: Allocator, world: *WorldState) void {
+pub fn start(connection: Connection, allocator: Allocator, world: *WorldState, world_manager: *WorldManager) void {
     var self = Self{
         .connection = connection,
         .allocator = allocator,
         .world = world,
+        .world_manager = world_manager,
+        .player = undefined,
     };
     defer self.deinit();
 
@@ -193,101 +199,15 @@ fn handleLoginPacket(
 
             self.keep_alive_thread = try std.Thread.spawn(.{}, Self.keepAliveLoop, .{self});
 
-            try self.sendLoginPackets();
+            self.player = .{
+                .session = self,
+                .pos = .{ .x = 0, .y = 0, .z = 0 },
+                .last_sent_pos = .{ .x = 0, .y = 0, .z = 0 },
+                .dimension = .overworld,
+            };
+            self.world_manager.addPlayer(&self.player) catch @panic("");
         },
     }
-}
-
-fn sendLoginPackets(self: *Self) !void {
-    const blobs = @import("binary_blobs.zig");
-    _ = blobs;
-
-    var overworld_id = types.String{ .value = "minecraft:overworld" };
-    var dimension_names = [_]types.String{overworld_id};
-    try self.sendPacketData(server_packets.PlayData{ .join_game = .{
-        .entity_id = 0,
-        .is_hardcore = false,
-        .gamemode = 1,
-        .previous_gamemode = 1,
-        .world_count = types.VarInt{ .value = @intCast(i32, dimension_names.len) },
-        .dimension_names = &dimension_names,
-        .dimension_codec = try WorldState.genDimensionCodecBlob(self.allocator),
-        .dimension = try WorldState.genDimensionBlob(self.allocator),
-        .dimension_name = overworld_id,
-        .hashed_seed = 0,
-        .max_players = types.VarInt{ .value = 420 },
-        .view_distance = types.VarInt{ .value = 32 },
-        .simulation_distance = types.VarInt{ .value = 32 },
-        .reduced_debug_info = false,
-        .enable_respawn = false,
-        .is_debug = false,
-        .is_flat = true,
-    } });
-
-    const test_chunk_data = try WorldState.genSingleChunkSectionDataBlob(self.allocator, 1);
-    defer self.allocator.free(test_chunk_data);
-    //const all_stone_chunk = try WorldState.genSingleBlockTypeChunkSection(self.allocator, 0x01);
-    //var official_chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, 0, 0);
-    var official_chunk = try WorldState.getChunkFromRegionFile("nether_r.0.0.mca", self.allocator, 0, 0);
-    const official_chunk_data = try official_chunk.makeIntoPacketFormat(self.allocator);
-    defer self.allocator.free(official_chunk_data);
-    //const chunk_positions = [_][2]i32{
-    //    // zig fmt: off
-    //    [2]i32{ -1, -1 }, [2]i32{ -1, 0 }, [2]i32{ -1, 1 },
-    //    [2]i32{  0, -1 }, [2]i32{  0, 0 }, [2]i32{  0, 1 },
-    //    [2]i32{  1, -1 }, [2]i32{  1, 0 }, [2]i32{  1, 1 },
-    //    // zig fmt: on
-    //};
-    const chunk_positions = [_][2]i32{
-        // zig fmt: off
-        [2]i32{ 0, 0 }, [2]i32{ 0, 1 }, [2]i32{ 0, 2 },
-        [2]i32{ 1, 0 }, [2]i32{ 1, 1 }, [2]i32{ 1, 2 },
-        [2]i32{ 2, 0 }, [2]i32{ 2, 1 }, [2]i32{ 2, 2 },
-        // zig fmt: on
-    };
-    for (chunk_positions) |pos| {
-        //const chunk = try WorldState.getChunkFromRegionFile("r.0.0.mca", self.allocator, pos[0], pos[1]);
-        //const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
-        const chunk_data = try self.world.the_chunk.makeIntoPacketFormat(self.allocator);
-        //const chunk_data = try self.world.encodeChunkSectionData();
-        //const chunk_data = blk: {
-        //    if (pos[0] == 0 and pos[1] == 0) {
-        //        //break :blk try self.world.encodeChunkSectionData();
-        //        break :blk test_chunk_data;
-        //    } else if (pos[0] == 1 and pos[1] == 1) {
-        //        break :blk official_chunk_data;
-        //    } else break :blk test_chunk_data;
-        //};
-        const data = server_packets.PlayData{
-            .chunk_data_and_update_light = .{
-                .chunk_x = pos[0],
-                .chunk_z = pos[1],
-                //.heightmaps = try WorldState.genHeighmapBlob(self.allocator),
-                .heightmaps = try WorldState.genHeightmapSingleHeight(self.allocator, 64),
-                //.heightmaps = try WorldState.genHeightmapSeaLevel(self.allocator),
-                .size = types.VarInt{ .value = @intCast(i32, chunk_data.len) },
-                .data = chunk_data,
-                .trust_edges = true,
-                .sky_light_mask = 0,
-                .block_light_mask = 0,
-                .empty_sky_light_mask = 0,
-                .empty_block_light_mask = 0,
-            },
-        };
-        defer self.allocator.free(data.chunk_data_and_update_light.heightmaps.blob);
-        try self.sendPacketData(data);
-    }
-
-    try self.sendPacketData(server_packets.PlayData{ .player_position_and_look = .{
-        .x = 0,
-        .y = 70,
-        .z = 0,
-        .yaw = 0,
-        .pitch = 0,
-        .flags = 0,
-        .teleport_id = types.VarInt{ .value = 0 },
-        .dismount_vehicle = false,
-    } });
 }
 
 fn handlePlayPacket(
@@ -298,7 +218,6 @@ fn handlePlayPacket(
         // sent as confirmation that the client got our 'player position and look' packet
         // maybe we should check for this and resend that packet if this one never arrives?
         .teleport_confirm => {},
-
         .keep_alive => |data| {
             const is_alive = self.checkKeepAliveId(data.keep_alive_id);
             if (!is_alive) {
@@ -306,58 +225,23 @@ fn handlePlayPacket(
                 self.state = .close_connection;
             }
         },
-
-        .player_digging => |data| {
-            std.debug.print("dig: status={}, loc={}, face={}\n", data);
-            const pos = data.location;
-            const status = data.status.value;
-            if (status == 0 or status == 1) {
-                self.world.changeBlock(
-                    @intCast(i32, pos.x), @intCast(i32, pos.y), @intCast(i32, pos.z),
-                    block_constants.idFromState(.{ .air = {} }),
-                );
-
-                // TODO: update all other players of the change
-            }
-        },
-
         .held_item_change => |data| {
             std.debug.print("held item change: slot={}\n", data);
-            self.active_slot = @intCast(usize, data.slot);
+            self.player.active_slot = @intCast(usize, data.slot);
         },
-
         .creative_inventory_action => |data| {
             std.debug.print("creative_inventory_action: {any}\n", .{data});
-
             if (data.clicked_item.present and data.slot >= 36) {
                 const slot = @intCast(usize, data.slot - 36);
                 const raw_item_id = data.clicked_item.item_id.value;
                 const block_id = WorldState.itemIdToBlockId(raw_item_id);
-                self.player_slots[slot] = block_id;
+                self.player.slots[slot] = block_id;
                 std.debug.print("player_slot[{d}] = {}\n", .{ slot, block_id });
             }
         },
-
-        .player_block_placement => |data| {
-            std.debug.print("block place: hand={}, loc={}, face={}, cursor_pos=({},{},{}), inside_block={}\n", data);
-
-            var pos = data.location;
-            switch (data.face.value) {
-                0 => pos.y -= 1, // clicked on -Y face
-                1 => pos.y += 1, // clicked on +Y face
-                2 => pos.z -= 1, // clicked on -Z face
-                3 => pos.z += 1, // clicked on +Z face
-                4 => pos.x -= 1, // clicked on -X face
-                5 => pos.x += 1, // clicked on +X face
-                else => unreachable,
-            }
-            const new_block = self.player_slots[self.active_slot];
-            std.debug.print("placing {} @ ({d}, {d}, {d})\n", .{ new_block, pos.x, pos.y, pos.z });
-            self.world.changeBlock(@intCast(i32, pos.x), @intCast(i32, pos.y), @intCast(i32, pos.z), new_block);
+        else => {
+            try self.world_manager.addPlayerPacket(packet_data, &self.player);
         },
-
-        // ignore everything else right now, cause our server doesn't do shit yet
-        else => {},
     }
 }
 
@@ -431,7 +315,7 @@ fn checkKeepAliveId(self: *Self, check_id: i64) bool {
 // send `ServerPacket.play` packets using the a normal `sendPacket` function.
 // (this is a known stage1 bug with deeply nested annonymous structures)
 // I have no idea why only that specific enum in the ServerPacket union crashes though.
-fn sendPacketData(self: *Self, data: anytype) !void {
+pub fn sendPacketData(self: *Self, data: anytype) !void {
     std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
     try encode_packet_data(self.connection.stream.writer(), data);
     std.debug.print("done.\n", .{});
@@ -442,9 +326,9 @@ fn encode_packet_data(writer: anytype, data: anytype) !void {
     const data_encode_size = data.encodedSize();
     const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
 
-        try types.VarInt.encode(writer, @intCast(i32, packet_size));
-        try types.VarInt.encode(writer, raw_id);
-        try data.encode(writer);
+    try types.VarInt.encode(writer, @intCast(i32, packet_size));
+    try types.VarInt.encode(writer, raw_id);
+    try data.encode(writer);
 }
 
 fn sendPacket(self: *Self, packet: ServerPacket) !void {

@@ -25377,7 +25377,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else if (std.mem.eql(u8, property.name, "short")) {
                     data.short = std.mem.eql(u8, property.value, "true");
                 } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else unreachable;
             }
         },
@@ -25386,7 +25386,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else unreachable;
             }
         },
@@ -25433,7 +25433,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26402,7 +26402,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26814,7 +26814,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .prismarine_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26823,7 +26823,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .prismarine_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26832,7 +26832,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .dark_prismarine_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27010,7 +27010,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27019,7 +27019,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .spruce_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27028,7 +27028,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .birch_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27037,7 +27037,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .jungle_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27046,7 +27046,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .acacia_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27055,7 +27055,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .dark_oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27064,7 +27064,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .stone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27073,7 +27073,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_stone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27082,7 +27082,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27091,7 +27091,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27100,7 +27100,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .petrified_oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27109,7 +27109,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cobblestone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27118,7 +27118,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27127,7 +27127,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27136,7 +27136,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .nether_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27145,7 +27145,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .quartz_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27154,7 +27154,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27163,7 +27163,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27172,7 +27172,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .purpur_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28002,7 +28002,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_granite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28011,7 +28011,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28020,7 +28020,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .mossy_stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28029,7 +28029,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_diorite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28038,7 +28038,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .mossy_cobblestone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28047,7 +28047,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .end_stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28056,7 +28056,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28065,7 +28065,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_quartz_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28074,7 +28074,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .granite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28083,7 +28083,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .andesite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28092,7 +28092,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .red_nether_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28101,7 +28101,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_andesite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28110,7 +28110,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .diorite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28488,7 +28488,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .crimson_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28497,7 +28497,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .warped_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28782,7 +28782,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .blackstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28791,7 +28791,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_blackstone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28843,7 +28843,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_blackstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29238,7 +29238,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .oxidized_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29247,7 +29247,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .weathered_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29256,7 +29256,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .exposed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29265,7 +29265,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29326,7 +29326,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_oxidized_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29335,7 +29335,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_weathered_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29344,7 +29344,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_exposed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29353,7 +29353,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29449,7 +29449,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cobbled_deepslate_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29488,7 +29488,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_deepslate_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29527,7 +29527,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .deepslate_tile_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29566,7 +29566,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .deepslate_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
