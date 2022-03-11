@@ -168,15 +168,27 @@ pub const LoginData = union(LoginId) {
 };
 
 pub const PlayId = enum(u7) {
+    spawn_player = 0x04,
     block_change = 0x0c,
     keep_alive = 0x21,
     chunk_data_and_update_light = 0x22,
     join_game = 0x26,
+    entity_position = 0x29,
+    player_info = 0x36,
     player_position_and_look = 0x38,
     spawn_position = 0x4b,
 };
 
 pub const PlayData = union(PlayId) {
+    spawn_player: struct {
+        entity_id: VarInt,
+        player_uuid: u128,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: u8, // steps of 1/256 of a full turn
+        pitch: u8, // steps of 1/256 of a full turn
+    },
     block_change: struct {
         location: Position,
         block_id: VarInt,
@@ -232,6 +244,23 @@ pub const PlayData = union(PlayId) {
         is_debug: bool,
         is_flat: bool,
     },
+    entity_position: struct {
+        entity_id: VarInt,
+        delta_x: i16,
+        delta_y: i16,
+        delta_z: i16,
+        on_ground: bool,
+    },
+    player_info: struct {
+        action: VarInt,
+        number_of_players: VarInt,
+        uuid: u128,
+        name: String,
+        number_of_properties: VarInt,
+        gamemode: VarInt,
+        ping: VarInt,
+        has_display_name: bool,
+    },
     player_position_and_look: struct {
         x: f64,
         y: f64,
@@ -249,10 +278,13 @@ pub const PlayData = union(PlayId) {
 
     pub fn encodedSize(self: PlayData) usize {
         return switch (self) {
+            .spawn_player => |data| genericEncodedDataSize(data),
             .block_change => |data| genericEncodedDataSize(data),
             .keep_alive => |data| genericEncodedDataSize(data),
             .chunk_data_and_update_light => |data| genericEncodedDataSize(data),
             .join_game => |data| genericEncodedDataSize(data),
+            .entity_position => |data| genericEncodedDataSize(data),
+            .player_info => |data| genericEncodedDataSize(data),
             .player_position_and_look => |data| genericEncodedDataSize(data),
             .spawn_position => |data| genericEncodedDataSize(data),
         };
@@ -260,10 +292,13 @@ pub const PlayData = union(PlayId) {
 
     pub fn encode(self: PlayData, writer: anytype) !void {
         switch (self) {
+            .spawn_player => |data| try genericEncodeData(data, writer),
             .block_change => |data| try genericEncodeData(data, writer),
             .keep_alive => |data| try genericEncodeData(data, writer),
             .chunk_data_and_update_light => |data| try genericEncodeData(data, writer),
             .join_game => |data| try genericEncodeData(data, writer),
+            .entity_position => |data| try genericEncodeData(data, writer),
+            .player_info => |data| try genericEncodeData(data, writer),
             .player_position_and_look => |data| try genericEncodeData(data, writer),
             .spawn_position => |data| try genericEncodeData(data, writer),
         }

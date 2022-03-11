@@ -16,6 +16,7 @@ pub fn main() !void {
 
     var world_manager = try world.Manager.init("r.0.0.mca", gpa);
     defer world_manager.deinit();
+    try world_manager.startup();
     const game_thread = try std.Thread.spawn(.{}, world.Manager.startLoop, .{&world_manager});
     defer game_thread.join();
 
@@ -39,4 +40,6 @@ pub fn main() !void {
         const thread = try std.Thread.spawn(.{}, Session.start, .{ connection, gpa, &world_state, &world_manager });
         thread.detach();
     }
+
+    std.debug.print("Thank you for playing Wing Commander!\n", .{});
 }

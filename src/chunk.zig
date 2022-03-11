@@ -41,6 +41,13 @@ pub const Chunk = struct {
     };
 
     /// `x` and `z` are chunk relative coords (i.e. 0-15)
+    pub fn getBlock(self: *Chunk, x: u4, y: i32, z: u4) u16 {
+        const section_idx = @intCast(usize, @divFloor(y, 16) - self.ypos);
+        const section_y = @intCast(u4, @import("WorldState.zig").specialMod(y, 16));
+        return self.sections[section_idx].getBlock(x, section_y, z);
+    }
+
+    /// `x` and `z` are chunk relative coords (i.e. 0-15)
     pub fn changeBlock(self: *Chunk, x: u4, y: i32, z: u4, new_block: u16) !void {
         const section_idx = @intCast(usize, @divFloor(y, 16) - self.ypos);
         const section_y = @intCast(u4, @import("WorldState.zig").specialMod(y, 16));

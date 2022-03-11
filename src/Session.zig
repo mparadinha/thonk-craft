@@ -40,6 +40,7 @@ world: *WorldState, // temporary until I replace it with world_manager
 //world_manager: *world.Manager,
 world_manager: *WorldManager,
 player: @import("world.zig").Player,
+mutex: std.Thread.Mutex,
 
 keep_alive_thread: ?std.Thread = null,
 keep_alive_ids: [2]?i64 = [2]?i64{ null, null },
@@ -54,6 +55,7 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState, w
         .world = world,
         .world_manager = world_manager,
         .player = undefined,
+        .mutex = std.Thread.Mutex{},
     };
     defer self.deinit();
 
@@ -62,7 +64,7 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState, w
     };
 
     self.state = .close_connection;
-
+    self.world_manager.removePlayer(&self.player);
     if (self.keep_alive_thread) |thread| thread.join();
 }
 
@@ -191,9 +193,17 @@ fn handleLoginPacket(
             //    .threshold = compression_threshold,
             //} });
 
+            var prng = std.rand.DefaultPrng.init(blk: {
+                var seed: u64 = undefined;
+                try std.os.getrandom(std.mem.asBytes(&seed));
+                break :blk seed;
+            });
+            const rand = prng.random();
+            const player_uuid = rand.int(u128);
+
             try self.sendPacketData(server_packets.LoginData{ .login_success = .{
-                .uuid = 0,
-                .username = try types.String.fromLiteral(self.allocator, "OfflinePlayer"),
+                .uuid = player_uuid,
+                .username = .{ .value = data.name.value },
             } });
             self.state = .play;
 
@@ -201,6 +211,8 @@ fn handleLoginPacket(
 
             self.player = .{
                 .session = self,
+                .uuid = player_uuid,
+                .name = try self.allocator.dupe(u8, data.name.value),
                 .pos = .{ .x = 0, .y = 0, .z = 0 },
                 .last_sent_pos = .{ .x = 0, .y = 0, .z = 0 },
                 .dimension = .overworld,
@@ -316,9 +328,11 @@ fn checkKeepAliveId(self: *Self, check_id: i64) bool {
 // (this is a known stage1 bug with deeply nested annonymous structures)
 // I have no idea why only that specific enum in the ServerPacket union crashes though.
 pub fn sendPacketData(self: *Self, data: anytype) !void {
-    std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
+    self.mutex.lock();
+    defer self.mutex.unlock();
+    //std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
     try encode_packet_data(self.connection.stream.writer(), data);
-    std.debug.print("done.\n", .{});
+    //std.debug.print("done.\n", .{});
 }
 
 fn encode_packet_data(writer: anytype, data: anytype) !void {
