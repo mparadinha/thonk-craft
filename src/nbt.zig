@@ -44,7 +44,8 @@ pub const Token = struct {
 
             pub fn getElemsAlloc(self: Self, allocator: Allocator) ![]ElementType {
                 var array = try allocator.alloc(ElementType, self.len);
-                const reader = std.io.fixedBufferStream(self.array_data).reader();
+                var stream = std.io.fixedBufferStream(self.array_data);
+                const reader = stream.reader();
                 for (array) |*entry| entry.* = try reader.readIntBig(ElementType);
                 return array;
             }
@@ -184,7 +185,7 @@ pub const TokenStream = struct {
     }
 };
 
-fn Number(comptime T: type, tag: Tag) type {
+fn Number(comptime T: type, comptime tag: Tag) type {
     return struct {
         const Self = @This();
         pub fn addRaw(writer: anytype, number: T) !void {
@@ -215,7 +216,7 @@ pub const Long = Number(i64, .long);
 pub const Float = Number(f32, .float);
 pub const Double = Number(f64, .double);
 
-fn NumberArray(comptime T: type, tag: Tag) type {
+fn NumberArray(comptime T: type, comptime tag: Tag) type {
     return struct {
         const Self = @This();
         pub fn addRaw(writer: anytype, numbers: []const T) !void {

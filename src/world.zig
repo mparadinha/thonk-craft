@@ -4,8 +4,8 @@ const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
 const Session = @import("Session.zig");
 const Chunk = @import("chunk.zig").Chunk;
-const ClientPacket = @import("client_packets.zig").PlayData;
-const ServerPacket = @import("server_packets.zig").PlayData;
+const ClientPacket = @import("client_packets.zig").Packet;
+const ServerPacket = @import("server_packets.zig").Packet;
 const block_constants = @import("block_constants.zig");
 const specialMod = @import("WorldState.zig").specialMod;
 
@@ -114,10 +114,10 @@ pub const Manager = struct {
                             .y = @intCast(i12, data.pos.y),
                             .z = @intCast(i26, data.pos.z),
                         };
-                        player.session.sendPacketData(ServerPacket{ .block_change = .{
+                        player.session.sendPacket(ServerPacket{ .play = .{ .block_change = .{
                             .location = pos,
                             .block_id = .{ .value = data.block_id },
-                        } }) catch unreachable;
+                        } } }) catch unreachable;
                     },
                     .player_join => |data| {
                         if (player == data.player) continue;
@@ -130,7 +130,7 @@ pub const Manager = struct {
                                 if (data.player == cmp_player) break :blk i;
                             } else break :blk 0;
                         };
-                        player.session.sendPacketData(ServerPacket{ .spawn_player = .{
+                        player.session.sendPacket(ServerPacket{ .play = .{ .spawn_player = .{
                             .entity_id = .{ .value = @intCast(i32, entity_id) },
                             .player_uuid = 0,
                             .x = data.pos.x,
@@ -138,7 +138,7 @@ pub const Manager = struct {
                             .z = data.pos.z,
                             .yaw = 0,
                             .pitch = 0,
-                        } }) catch unreachable;
+                        } } }) catch unreachable;
                     },
                     .player_move => |data| {
                         if (data.player == player) continue;
@@ -152,13 +152,13 @@ pub const Manager = struct {
                             .y = (data.player.pos.y * 32 - data.player.last_sent_pos.y * 32) / 128,
                             .z = (data.player.pos.z * 32 - data.player.last_sent_pos.z * 32) / 128,
                         };
-                        player.session.sendPacketData(ServerPacket{ .entity_position = .{
+                        player.session.sendPacket(ServerPacket{ .play = .{ .entity_position = .{
                             .entity_id = .{ .value = @intCast(i32, entity_id) },
                             .delta_x = @floatToInt(i16, delta_pos.x),
                             .delta_y = @floatToInt(i16, delta_pos.y),
                             .delta_z = @floatToInt(i16, delta_pos.z),
                             .on_ground = true,
-                        } }) catch unreachable;
+                        } } }) catch unreachable;
                     },
                 }
             }
@@ -183,7 +183,7 @@ pub const Manager = struct {
         var overworld_id = types.String{ .value = "minecraft:overworld" };
         var dimension_names = [_]types.String{overworld_id};
         const WorldState = @import("WorldState.zig");
-        try player.session.sendPacketData(ServerPacket{ .join_game = .{
+        try player.session.sendPacket(ServerPacket{ .play = .{ .join_game = .{
             .entity_id = @intCast(i32, entity_id),
             .is_hardcore = false,
             .gamemode = 1,
@@ -201,13 +201,13 @@ pub const Manager = struct {
             .enable_respawn = false,
             .is_debug = false,
             .is_flat = true,
-        } });
+        } } });
 
         const chunk = self.overworld.loaded_chunks.items[0];
         const chunk_data = try chunk.makeIntoPacketFormat(self.allocator);
         const heightmap_blob = try WorldState.genHeightmapSingleHeight(self.allocator, 64);
         defer self.allocator.free(heightmap_blob.blob);
-        try player.session.sendPacketData(ServerPacket{ .chunk_data_and_update_light = .{
+        try player.session.sendPacket(ServerPacket{ .play = .{ .chunk_data_and_update_light = .{
             .chunk_x = 0,
             .chunk_z = 0,
             .heightmaps = heightmap_blob,
@@ -218,9 +218,9 @@ pub const Manager = struct {
             .block_light_mask = 0,
             .empty_sky_light_mask = 0,
             .empty_block_light_mask = 0,
-        } });
+        } } });
 
-        try player.session.sendPacketData(ServerPacket{ .player_position_and_look = .{
+        try player.session.sendPacket(ServerPacket{ .play = .{ .player_position_and_look = .{
             .x = 0,
             .y = 70,
             .z = 0,
@@ -229,7 +229,7 @@ pub const Manager = struct {
             .flags = 0,
             .teleport_id = types.VarInt{ .value = 0 },
             .dismount_vehicle = false,
-        } });
+        } } });
 
         self.updates_to_send.append(.{ .player_join = .{ .player = player } }) catch unreachable;
         self.updates_to_send.append(.{ .player_visible = .{
@@ -248,7 +248,7 @@ pub const Manager = struct {
         // TODO: also update tab info when players leave
     }
 
-    /// Safe to call from multiple threads concurrently 
+    /// Safe to call from multiple threads concurrently
     pub fn addPlayerPacket(self: *Manager, packet: ClientPacket, player: *Player) !void {
         self.mutex.lock();
         defer self.mutex.unlock();
@@ -260,7 +260,7 @@ pub const Manager = struct {
         for (self.unprocessed_packets.items) |player_packet| {
             var player = player_packet.player;
             const packet = player_packet.packet;
-            switch (packet) {
+            switch (packet.play) {
                 .player_position => |data| {
                     player.last_sent_pos = player.pos;
                     player.pos.x = data.x;
@@ -280,7 +280,7 @@ pub const Manager = struct {
                     const pos = data.location;
                     const status = data.status.value;
                     if (status != 0) {
-                        std.debug.print("dig status={d} not implemented\n", .{data.status});
+                        std.debug.print("dig status={d} not implemented\n", .{data.status.value});
                         continue;
                     }
                     const block_x = @intCast(i32, pos.x);
@@ -339,7 +339,7 @@ pub const Manager = struct {
     pub fn sendTabInfo(self: *Manager, player: *Player, tab_player: *Player) void {
         // TODO: use this function to update all the players in the info tab
         _ = self;
-        player.session.sendPacketData(ServerPacket{ .player_info = .{
+        player.session.sendPacket(ServerPacket{ .play = .{ .player_info = .{
             .action = .{ .value = 0 },
             .number_of_players = .{ .value = 1 },
             .uuid = tab_player.uuid,
@@ -348,13 +348,13 @@ pub const Manager = struct {
             .gamemode = .{ .value = 1 },
             .ping = .{ .value = 314 },
             .has_display_name = false,
-        } }) catch unreachable;
+        } } }) catch unreachable;
     }
 };
 
 const Dimension = struct {
     manager: *Manager,
-    @"type": Type,
+    type: Type,
     scheduled_block_ticks: std.ArrayList(BlockUpdate), // TODO: priorities
     loaded_chunks: std.ArrayList(Chunk),
 
@@ -366,7 +366,7 @@ const Dimension = struct {
     pub fn init(manager: *Manager, @"type": Type, allocator: Allocator) Dimension {
         return Dimension{
             .manager = manager,
-            .@"type" = @"type",
+            .type = @"type",
             .scheduled_block_ticks = std.ArrayList(BlockUpdate).init(allocator),
             .loaded_chunks = std.ArrayList(Chunk).init(allocator),
             .mutex = std.Thread.Mutex{},
@@ -387,7 +387,7 @@ const Dimension = struct {
         // Player sleeping logic
 
         // If this dimension is overworld:
-        if (self.@"type" == .overworld) {
+        if (self.type == .overworld) {
             // The game-time and day-time increase
             // Scheduled functions are executed
         }

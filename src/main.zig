@@ -39,6 +39,9 @@ pub fn main() !void {
 
         const thread = try std.Thread.spawn(.{}, Session.start, .{ connection, gpa, &world_state, &world_manager });
         thread.detach();
+
+        // TODO: cleanup all the threads?
+        // TODO: configurable max number of threads?
     }
 
     std.debug.print("Thank you for playing Wing Commander!\n", .{});

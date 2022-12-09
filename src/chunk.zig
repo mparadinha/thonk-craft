@@ -57,18 +57,17 @@ pub const Chunk = struct {
     pub fn makeIntoPacketFormat(self: Chunk, allocator: Allocator) ![]u8 {
         var buf = try allocator.alloc(u8, 0xa0000); // 640KB. ought to be enough :)
 
-        const writer = std.io.fixedBufferStream(buf).writer();
+        var stream = std.io.fixedBufferStream(buf);
+        const writer = stream.writer();
         for (self.sections) |section| try section.encode(writer);
 
         const blob = writer.context.getWritten();
-        buf = allocator.resize(buf, blob.len).?;
+        std.debug.assert(allocator.resize(buf, blob.len));
         return buf;
     }
 };
 
 pub fn loadFromNBT(nbt_data: []const u8, allocator: Allocator) !Chunk {
-    _ = allocator;
-
     var chunk: Chunk = undefined;
 
     var stream = nbt.TokenStream.init(nbt_data);
@@ -99,7 +98,7 @@ pub fn loadFromNBT(nbt_data: []const u8, allocator: Allocator) !Chunk {
             chunk.sections = try allocator.alloc(ChunkSection, tk.data.list.len);
             for (chunk.sections) |*section| section.* = try loadSection(&stream, allocator);
         } else {
-            std.debug.print("unknown entry in chunk nbt: '{s}'. skipping\n", .{tk.name});
+            std.debug.print("unknown entry in chunk nbt: '{s}'. skipping\n", .{tk.name orelse "<null>"});
             try stream.skip(tk);
         }
     }
@@ -136,14 +135,14 @@ fn loadSection(stream: *nbt.TokenStream, allocator: Allocator) !ChunkSection {
                         section.packed_block_data.append(@bitCast(u64, elem)) catch unreachable;
                     }
                 } else {
-                    std.debug.print("unknown entry in block_states nbt: '{s}'. skipping\n", .{inner_tk.name});
+                    std.debug.print("unknown entry in block_states nbt: '{s}'. skipping\n", .{inner_tk.name orelse "<null>"});
                     try stream.skip(tk);
                 }
             }
         } else if (std.mem.eql(u8, tk.name.?, "biomes")) {
             try loadBiomes(stream, allocator, &section.biome_palette, &section.packed_biome_data);
         } else {
-            std.debug.print("unknown entry in section nbt: '{s}'. skipping\n", .{tk.name});
+            std.debug.print("unknown entry in section nbt: '{s}'. skipping\n", .{tk.name orelse "<null>"});
             try stream.skip(tk);
         }
     }
@@ -159,7 +158,6 @@ fn loadBiomes(
     packed_data_list: *std.ArrayList(u64),
 ) !void {
     _ = allocator;
-    _ = palette_list;
     _ = packed_data_list;
 
     var token = try stream.next();
@@ -303,8 +301,7 @@ fn translateBlockResourceLocation(name: []const u8, properties: []block_constant
 pub fn expectToken(token: nbt.Token, tag: nbt.Tag) void {
     const active = std.meta.activeTag(token.data);
     if (active != tag) {
-        std.debug.print("expected {}, got {} (token.name='{s}')\n", .{ active, tag, token.name });
-        unreachable;
+        std.debug.panic("expected {}, got {} (token.name='{s}')\n", .{ active, tag, token.name orelse "<null>" });
     }
 }
 

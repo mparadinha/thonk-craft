@@ -63,6 +63,9 @@ pub fn start(connection: Connection, allocator: Allocator, world: *WorldState, w
         std.debug.print("err={}\n", .{err});
     };
 
+    // TODO: instead of having a separate thread for the keep alive stuff, just go to sleep
+    // with a timer
+
     self.state = .close_connection;
     self.world_manager.removePlayer(&self.player);
     if (self.keep_alive_thread) |thread| thread.join();
@@ -104,13 +107,13 @@ fn handleConnection(self: *Self) !void {
             else => return err,
         };
 
-        //const inner_tag_name = switch (packet) {
-        //    .handshaking => |data| @tagName(data),
-        //    .status => |data| @tagName(data),
-        //    .login => |data| @tagName(data),
-        //    .play => |data| @tagName(data),
-        //};
-        //std.debug.print("got a {s}::{s} packet\n", .{ @tagName(packet), inner_tag_name });
+        const inner_tag_name = switch (packet) {
+            .handshaking => |data| @tagName(data),
+            .status => |data| @tagName(data),
+            .login => |data| @tagName(data),
+            .play => |data| @tagName(data),
+        };
+        std.debug.print("got a {s}::{s} packet\n", .{ @tagName(packet), inner_tag_name });
 
         switch (packet) {
             .handshaking => |data| self.handleHandshakingPacket(data),
@@ -141,8 +144,8 @@ fn handleStatusPacket(
             const response_str_fmt =
                 \\{{
                 \\    "version": {{
-                \\        "name": "1.18.1",
-                \\        "protocol": 757
+                \\        "name": "1.19.2",
+                \\        "protocol": 760
                 \\    }},
                 \\    "players": {{
                 \\        "max": 420,
@@ -154,20 +157,20 @@ fn handleStatusPacket(
                 \\    "favicon": "data:image/png;base64,{s}"
                 \\}}
             ;
-            const thonk_png_data = @embedFile("../thonk_64x64.png");
+            const thonk_png_data = @embedFile("thonk_64x64.png");
             var base64_buffer: [0x4000]u8 = undefined;
             const base64_png = std.base64.standard.Encoder.encode(&base64_buffer, thonk_png_data);
             var tmpbuf: [0x4000]u8 = undefined;
             const response_str = try std.fmt.bufPrint(&tmpbuf, response_str_fmt, .{base64_png});
 
-            try self.sendPacketData(server_packets.StatusData{ .response = .{
+            try self.sendPacket(ServerPacket{ .status = .{ .response = .{
                 .json_response = types.String{ .value = response_str },
-            } });
+            } } });
         },
         .ping => |data| {
-            try self.sendPacketData(server_packets.StatusData{ .pong = .{
+            try self.sendPacket(ServerPacket{ .status = .{ .pong = .{
                 .payload = data.payload,
-            } });
+            } } });
             self.state = .close_connection;
         },
     }
@@ -189,7 +192,7 @@ fn handleLoginPacket(
             //       so I would have to write a zlib compressor first.
             // enable compression for all following packets (given they pass a size threshold)
             //const compression_threshold = 256;
-            //try self.sendPacketData(server_packets.LoginData{ .set_compression = .{
+            //try self.sendPacket(ServerPacket{ .login = .{ .set_compression = .{
             //    .threshold = compression_threshold,
             //} });
 
@@ -201,10 +204,10 @@ fn handleLoginPacket(
             const rand = prng.random();
             const player_uuid = rand.int(u128);
 
-            try self.sendPacketData(server_packets.LoginData{ .login_success = .{
+            try self.sendPacket(ServerPacket{ .login = .{ .login_success = .{
                 .uuid = player_uuid,
                 .username = .{ .value = data.name.value },
-            } });
+            } } });
             self.state = .play;
 
             self.keep_alive_thread = try std.Thread.spawn(.{}, Self.keepAliveLoop, .{self});
@@ -217,7 +220,7 @@ fn handleLoginPacket(
                 .last_sent_pos = .{ .x = 0, .y = 0, .z = 0 },
                 .dimension = .overworld,
             };
-            self.world_manager.addPlayer(&self.player) catch @panic("");
+            try self.world_manager.addPlayer(&self.player);
         },
     }
 }
@@ -252,7 +255,7 @@ fn handlePlayPacket(
             }
         },
         else => {
-            try self.world_manager.addPlayerPacket(packet_data, &self.player);
+            try self.world_manager.addPlayerPacket(ClientPacket{ .play = packet_data }, &self.player);
         },
     }
 }
@@ -269,11 +272,9 @@ fn keepAliveLoop(self: *Self) void {
         }
 
         const time_of_send = std.time.milliTimestamp();
-        self.sendPacketData(server_packets.PlayData{ .keep_alive = .{
+        self.sendPacket(ServerPacket{ .play = .{ .keep_alive = .{
             .keep_alive_id = time_of_send,
-        } }) catch {
-            return;
-        };
+        } } }) catch return;
 
         for (self.keep_alive_ids) |*id| {
             if (id.*) |id_time| {
@@ -318,38 +319,9 @@ fn checkKeepAliveId(self: *Self, check_id: i64) bool {
     //unreachable;
 }
 
-// this is a workaround. if we try to use the main Packet.encode we hit a stage1
-// compiler bug where the union tag value is getting overwritten (only for PlayData member)
-// when copying over the actual data when doing ServerPacket{ .play = data }.
-// looks like a codegen error.
-// also:
-// I'm getting a compiler crash (codegen.cpp:8603 in gen_const_val) when I try to
-// send `ServerPacket.play` packets using the a normal `sendPacket` function.
-// (this is a known stage1 bug with deeply nested annonymous structures)
-// I have no idea why only that specific enum in the ServerPacket union crashes though.
-pub fn sendPacketData(self: *Self, data: anytype) !void {
-    self.mutex.lock();
-    defer self.mutex.unlock();
-    //std.debug.print("sending a ??::{s} packet...", .{@tagName(std.meta.activeTag(data))});
-    try encode_packet_data(self.connection.stream.writer(), data);
-    //std.debug.print("done.\n", .{});
-}
-
-fn encode_packet_data(writer: anytype, data: anytype) !void {
-    const raw_id = @intCast(i32, @enumToInt(std.meta.activeTag(data)));
-    const data_encode_size = data.encodedSize();
-    const packet_size = types.VarInt.encodedSize(raw_id) + data_encode_size;
-
-    try types.VarInt.encode(writer, @intCast(i32, packet_size));
-    try types.VarInt.encode(writer, raw_id);
-    try data.encode(writer);
-}
-
-fn sendPacket(self: *Self, packet: ServerPacket) !void {
+pub fn sendPacket(self: *Self, packet: ServerPacket) !void {
     const inner_tag_name = switch (packet) {
-        .status => |data| @tagName(data),
-        .login => |data| @tagName(data),
-        .play => |data| @tagName(data),
+        inline else => |data| @tagName(data),
     };
     std.debug.print("sending a {s}::{s} packet... ", .{ @tagName(packet), inner_tag_name });
     try packet.encode(self.connection.stream.writer());

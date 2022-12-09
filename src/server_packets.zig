@@ -26,25 +26,23 @@ pub const Packet = union(enum) {
 
     fn rawDataId(self: Packet) i32 {
         return @intCast(i32, switch (self) {
-            .status => |data| @enumToInt(std.meta.activeTag(data)),
-            .login => |data| @enumToInt(std.meta.activeTag(data)),
-            .play => |data| @enumToInt(std.meta.activeTag(data)),
+            inline else => |data| @enumToInt(std.meta.activeTag(data)),
         });
     }
 
     fn encodedDataSize(self: Packet) usize {
         return switch (self) {
-            .status => |data| data.encodedSize(),
-            .login => |data| data.encodedSize(),
-            .play => |data| data.encodedSize(),
+            inline else => |data| switch (data) {
+                inline else => |packet_data| genericEncodedDataSize(packet_data),
+            },
         };
     }
 
     fn encodeData(self: Packet, writer: anytype) !void {
         switch (self) {
-            .status => |data| try data.encode(writer),
-            .login => |data| try data.encode(writer),
-            .play => |data| try data.encode(writer),
+            inline else => |data| switch (data) {
+                inline else => |packet_data| try genericEncodeData(packet_data, writer),
+            },
         }
     }
 };
@@ -128,20 +126,6 @@ pub const StatusData = union(StatusId) {
     pong: struct {
         payload: i64,
     },
-
-    pub fn encodedSize(self: StatusData) usize {
-        return switch (self) {
-            .response => |data| genericEncodedDataSize(data),
-            .pong => |data| genericEncodedDataSize(data),
-        };
-    }
-
-    pub fn encode(self: StatusData, writer: anytype) !void {
-        switch (self) {
-            .response => |data| try genericEncodeData(data, writer),
-            .pong => |data| try genericEncodeData(data, writer),
-        }
-    }
 };
 
 pub const LoginId = enum(u7) {
@@ -153,18 +137,6 @@ pub const LoginData = union(LoginId) {
         uuid: u128,
         username: String,
     },
-
-    pub fn encodedSize(self: LoginData) usize {
-        return switch (self) {
-            .login_success => |data| genericEncodedDataSize(data),
-        };
-    }
-
-    pub fn encode(self: LoginData, writer: anytype) !void {
-        switch (self) {
-            .login_success => |data| try genericEncodeData(data, writer),
-        }
-    }
 };
 
 pub const PlayId = enum(u7) {
@@ -275,34 +247,6 @@ pub const PlayData = union(PlayId) {
         location: Position,
         angle: f32,
     },
-
-    pub fn encodedSize(self: PlayData) usize {
-        return switch (self) {
-            .spawn_player => |data| genericEncodedDataSize(data),
-            .block_change => |data| genericEncodedDataSize(data),
-            .keep_alive => |data| genericEncodedDataSize(data),
-            .chunk_data_and_update_light => |data| genericEncodedDataSize(data),
-            .join_game => |data| genericEncodedDataSize(data),
-            .entity_position => |data| genericEncodedDataSize(data),
-            .player_info => |data| genericEncodedDataSize(data),
-            .player_position_and_look => |data| genericEncodedDataSize(data),
-            .spawn_position => |data| genericEncodedDataSize(data),
-        };
-    }
-
-    pub fn encode(self: PlayData, writer: anytype) !void {
-        switch (self) {
-            .spawn_player => |data| try genericEncodeData(data, writer),
-            .block_change => |data| try genericEncodeData(data, writer),
-            .keep_alive => |data| try genericEncodeData(data, writer),
-            .chunk_data_and_update_light => |data| try genericEncodeData(data, writer),
-            .join_game => |data| try genericEncodeData(data, writer),
-            .entity_position => |data| try genericEncodeData(data, writer),
-            .player_info => |data| try genericEncodeData(data, writer),
-            .player_position_and_look => |data| try genericEncodeData(data, writer),
-            .spawn_position => |data| try genericEncodeData(data, writer),
-        }
-    }
 };
 
 /// Right now all the packet ID's fit in 7 or less bits, which means

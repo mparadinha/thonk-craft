@@ -98,7 +98,8 @@ pub fn genDimensionCodecBlob(allocator: Allocator) !types.NBT {
 // same as overworld element in dimension codec for now
 pub fn genDimensionBlob(allocator: Allocator) !types.NBT {
     var buf = try allocator.alloc(u8, 0x4000);
-    const writer = std.io.fixedBufferStream(buf).writer();
+    var stream = std.io.fixedBufferStream(buf);
+    const writer = stream.writer();
 
     {
         try nbt.Compound.startNamed(writer, "");
@@ -122,7 +123,7 @@ pub fn genDimensionBlob(allocator: Allocator) !types.NBT {
     }
 
     const blob = writer.context.getWritten();
-    buf = allocator.resize(buf, blob.len).?;
+    std.debug.assert(allocator.resize(buf, blob.len));
     return types.NBT{ .blob = blob };
 }
 
@@ -283,7 +284,8 @@ pub fn genHeightmapSeaLevel(allocator: Allocator) !types.NBT {
 
 pub fn genHeightmapSingleHeight(allocator: Allocator, height: u9) !types.NBT {
     var buf = try allocator.alloc(u8, 0x4000);
-    const writer = std.io.fixedBufferStream(buf).writer();
+    var stream = std.io.fixedBufferStream(buf);
+    const writer = stream.writer();
 
     {
         try nbt.Compound.startNamed(writer, "");
@@ -304,7 +306,7 @@ pub fn genHeightmapSingleHeight(allocator: Allocator, height: u9) !types.NBT {
     }
 
     const blob = writer.context.getWritten();
-    buf = allocator.resize(buf, blob.len).?;
+    std.debug.assert(allocator.resize(buf, blob.len));
     return types.NBT{ .blob = blob };
 }
 

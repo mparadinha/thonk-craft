@@ -38,7 +38,8 @@ pub const Packet = union(enum) {
             if (bytes_read != readbuf.len) return DecodeError.IncorrectPacketSize;
         }
 
-        const packet_reader = std.io.fixedBufferStream(readbuf).reader();
+        var stream = std.io.fixedBufferStream(readbuf);
+        const packet_reader = stream.reader();
 
         const raw_id = (try VarInt.decode(packet_reader)).value;
         const data_len = @intCast(usize, id_data_len - types.VarInt.encodedSize(raw_id));
@@ -132,7 +133,7 @@ pub const HandshakingData = union(HandshakingId) {
 
     pub fn decode(id: HandshakingId, reader: anytype, allocator: Allocator) !HandshakingData {
         switch (id) {
-            .handshake => return genericDecodeById(HandshakingData, .handshake, reader, allocator),
+            inline else => |tag| return genericDecodeById(HandshakingData, tag, reader, allocator),
         }
     }
 };
@@ -150,8 +151,7 @@ pub const StatusData = union(StatusId) {
 
     pub fn decode(id: StatusId, reader: anytype, allocator: Allocator) !StatusData {
         switch (id) {
-            .request => return genericDecodeById(StatusData, .request, reader, allocator),
-            .ping => return genericDecodeById(StatusData, .ping, reader, allocator),
+            inline else => |tag| return genericDecodeById(StatusData, tag, reader, allocator),
         }
     }
 };
@@ -167,7 +167,7 @@ pub const LoginData = union(LoginId) {
 
     pub fn decode(id: LoginId, reader: anytype, allocator: Allocator) !LoginData {
         switch (id) {
-            .login_start => return genericDecodeById(LoginData, .login_start, reader, allocator),
+            inline else => |tag| return genericDecodeById(LoginData, tag, reader, allocator),
         }
     }
 };
@@ -268,22 +268,8 @@ pub const PlayData = union(PlayId) {
     },
 
     pub fn decode(id: PlayId, reader: anytype, allocator: Allocator) !PlayData {
-        _ = reader;
-        _ = allocator;
         switch (id) {
-            .teleport_confirm => return genericDecodeById(PlayData, .teleport_confirm, reader, allocator),
-            .client_settings => return genericDecodeById(PlayData, .client_settings, reader, allocator),
-            .keep_alive => return genericDecodeById(PlayData, .keep_alive, reader, allocator),
-            .player_position => return genericDecodeById(PlayData, .player_position, reader, allocator),
-            .player_position_and_rotation => return genericDecodeById(PlayData, .player_position_and_rotation, reader, allocator),
-            .player_rotation => return genericDecodeById(PlayData, .player_rotation, reader, allocator),
-            .player_abilities => return genericDecodeById(PlayData, .player_abilities, reader, allocator),
-            .player_digging => return genericDecodeById(PlayData, .player_digging, reader, allocator),
-            .entity_action => return genericDecodeById(PlayData, .entity_action, reader, allocator),
-            .held_item_change => return genericDecodeById(PlayData, .held_item_change, reader, allocator),
-            .creative_inventory_action => return genericDecodeById(PlayData, .creative_inventory_action, reader, allocator),
-            .animation => return genericDecodeById(PlayData, .animation, reader, allocator),
-            .player_block_placement => return genericDecodeById(PlayData, .player_block_placement, reader, allocator),
+            inline else => |tag| return genericDecodeById(PlayData, tag, reader, allocator),
         }
     }
 };

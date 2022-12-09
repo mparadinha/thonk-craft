@@ -85,7 +85,7 @@ pub const Position = struct {
         const as_uint =
             ((@bitCast(u64, @intCast(i64, self.x)) << 38) & 0xffff_ffc0_0000_0000) |
             ((@bitCast(u64, @intCast(i64, self.z)) << 12) & 0x0000_003f_ffff_f000) |
-            ((@bitCast(u64, @intCast(i64, self.y)) << 00) & 0x0000_0000_0000_0fff);
+            ((@bitCast(u64, @intCast(i64, self.y)) << 0) & 0x0000_0000_0000_0fff);
         try writer.writeIntBig(u64, as_uint);
     }
 
