@@ -88,9 +88,9 @@ pub fn genericDecodeData(comptime DataType: type, reader: anytype, allocator: Al
     const struct_info = type_info.Struct;
 
     inline for (struct_info.fields) |field| {
-        @field(data, field.name) = switch (field.field_type) {
+        @field(data, field.name) = switch (field.type) {
             bool => (try reader.readByte()) == 1,
-            u8, u16, u32, u64, i8, i16, i32, i64 => try reader.readIntBig(field.field_type),
+            u8, u16, u32, u64, u128, i8, i16, i32, i64 => try reader.readIntBig(field.type),
             f32 => @bitCast(f32, try reader.readIntBig(u32)),
             f64 => @bitCast(f64, try reader.readIntBig(u64)),
             VarInt => try VarInt.decode(reader),
@@ -98,14 +98,14 @@ pub fn genericDecodeData(comptime DataType: type, reader: anytype, allocator: Al
             State => @intToEnum(State, (try VarInt.decode(reader)).value),
             Position => try Position.decode(reader),
             Slot => try Slot.decode(reader),
-            else => @compileError("TODO decode type " ++ @typeName(field.field_type)),
+            else => @compileError("TODO decode type " ++ @typeName(field.type)),
         };
     }
 
     return data;
 }
 
-fn genericDecodeById(
+pub fn genericDecodeById(
     comptime DataType: type,
     comptime Id: std.meta.Tag(DataType),
     reader: anytype,
@@ -139,13 +139,13 @@ pub const HandshakingData = union(HandshakingId) {
 };
 
 pub const StatusId = enum(u7) {
-    request = 0x00,
-    ping = 0x01,
+    status_request = 0x00,
+    ping_request = 0x01,
 };
 
 pub const StatusData = union(StatusId) {
-    request: void,
-    ping: struct {
+    status_request: void,
+    ping_request: struct {
         payload: i64,
     },
 
@@ -173,26 +173,26 @@ pub const LoginData = union(LoginId) {
 };
 
 pub const PlayId = enum(u7) {
-    teleport_confirm = 0x00,
-    client_settings = 0x05,
-    keep_alive = 0x0f,
-    player_position = 0x11,
-    player_position_and_rotation = 0x12,
-    player_rotation = 0x13,
-    player_abilities = 0x19,
-    player_digging = 0x1a,
-    entity_action = 0x1b,
-    held_item_change = 0x25,
-    creative_inventory_action = 0x28,
-    animation = 0x2c,
-    player_block_placement = 0x2e,
+    confirm_teleportation = 0x00,
+    client_information = 0x08,
+    keep_alive = 0x12,
+    set_player_position = 0x14,
+    set_player_position_and_rotation = 0x15,
+    set_player_rotation = 0x16,
+    player_abilities = 0x1c,
+    player_action = 0x1d,
+    player_command = 0x1e,
+    set_held_item = 0x28,
+    set_creative_mode_slot = 0x2b,
+    swing_arm = 0x2f,
+    use_item_on = 0x31,
 };
 
 pub const PlayData = union(PlayId) {
-    teleport_confirm: struct {
+    confirm_teleportation: struct {
         teleport_id: VarInt,
     },
-    client_settings: struct {
+    client_information: struct {
         locale: String,
         view_distance: i8,
         /// enum: 0=enable, 1=commands only, 2=hidden
@@ -209,13 +209,13 @@ pub const PlayData = union(PlayId) {
     keep_alive: struct {
         keep_alive_id: i64,
     },
-    player_position: struct {
+    set_player_position: struct {
         x: f64,
         feet_y: f64,
         z: f64,
         on_ground: bool,
     },
-    player_position_and_rotation: struct {
+    set_player_position_and_rotation: struct {
         x: f64,
         feet_y: f64,
         z: f64,
@@ -223,7 +223,7 @@ pub const PlayData = union(PlayId) {
         pitch: f32,
         on_ground: bool,
     },
-    player_rotation: struct {
+    set_player_rotation: struct {
         yaw: f32,
         pitch: f32,
         on_ground: bool,
@@ -232,28 +232,28 @@ pub const PlayData = union(PlayId) {
         /// bit mask, 0x02 = is flying.
         flags: i8,
     },
-    player_digging: struct {
+    player_action: struct {
         status: VarInt, // enum. see: https://wiki.vg/Protocol#Player_Digging
         location: Position,
         /// values 0 to 5 map to: -Y, +Y, -Z, +Z, -X, +X
         face: i8,
     },
-    entity_action: struct {
+    player_command: struct {
         entity_id: VarInt,
         action_id: VarInt, // enum. see: https://wiki.vg/Protocol#Entity_Action
         jump_boost: VarInt,
     },
-    held_item_change: struct {
+    set_held_item: struct {
         slot: i16,
     },
-    creative_inventory_action: struct {
+    set_creative_mode_slot: struct {
         slot: i16,
         clicked_item: Slot,
     },
-    animation: struct {
+    swing_arm: struct {
         hand: VarInt, // 0 for main hand, 1 for off hand
     },
-    player_block_placement: struct {
+    use_item_on: struct {
         hand: VarInt, // 0 for main hand, 1 for off hand
         location: Position,
         face: VarInt, // same meaning as `face` in `player_digging` packet

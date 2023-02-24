@@ -420,7 +420,7 @@ pub const ChunkSection = struct {
             const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
             const unused_bitlen = @intCast(u6, 64 - @intCast(u8, self.bits_per_block));
             const mask = (~@as(u64, 0)) >> unused_bitlen;
-            for (unpacked_data) |*data, i| {
+            for (&unpacked_data, 0..) |*data, i| {
                 const idx_in_long = i % blocks_per_long;
                 const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
                 const long = self.packed_block_data.items[i / blocks_per_long];
@@ -434,7 +434,7 @@ pub const ChunkSection = struct {
         const blocks_per_long = 64 / @intCast(u8, self.bits_per_block);
         const longs_needed = std.math.ceil(4096 / @intToFloat(f32, blocks_per_long));
         try self.packed_block_data.resize(@floatToInt(usize, longs_needed));
-        for (unpacked_data) |data, i| {
+        for (unpacked_data, 0..) |data, i| {
             const idx_in_long = i % blocks_per_long;
             const shift_len = @intCast(u6, idx_in_long * self.bits_per_block);
 
@@ -451,7 +451,7 @@ pub const ChunkSection = struct {
     /// Return the index in the palette that corresponds to this block id.
     /// Inserts a new item in the palette if it's a new block id.
     fn getOrInsertPaletteEntry(self: *ChunkSection, block_id: u16) !usize {
-        for (self.block_palette.items) |entry, i| {
+        for (self.block_palette.items, 0..) |entry, i| {
             if (entry == block_id) return i;
         } else {
             try self.block_palette.append(block_id);

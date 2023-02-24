@@ -140,7 +140,7 @@ fn handleStatusPacket(
     packet_data: std.meta.TagPayload(ClientPacket, .status),
 ) !void {
     switch (packet_data) {
-        .request => {
+        .status_request => {
             const response_str_fmt =
                 \\{{
                 \\    "version": {{
@@ -163,12 +163,12 @@ fn handleStatusPacket(
             var tmpbuf: [0x4000]u8 = undefined;
             const response_str = try std.fmt.bufPrint(&tmpbuf, response_str_fmt, .{base64_png});
 
-            try self.sendPacket(ServerPacket{ .status = .{ .response = .{
+            try self.sendPacket(ServerPacket{ .status = .{ .status_response = .{
                 .json_response = types.String{ .value = response_str },
             } } });
         },
-        .ping => |data| {
-            try self.sendPacket(ServerPacket{ .status = .{ .pong = .{
+        .ping_request => |data| {
+            try self.sendPacket(ServerPacket{ .status = .{ .ping_response = .{
                 .payload = data.payload,
             } } });
             self.state = .close_connection;
@@ -232,7 +232,7 @@ fn handlePlayPacket(
     switch (packet_data) {
         // sent as confirmation that the client got our 'player position and look' packet
         // maybe we should check for this and resend that packet if this one never arrives?
-        .teleport_confirm => {},
+        .confirm_teleportation => {},
         .keep_alive => |data| {
             const is_alive = self.checkKeepAliveId(data.keep_alive_id);
             if (!is_alive) {
@@ -240,11 +240,11 @@ fn handlePlayPacket(
                 self.state = .close_connection;
             }
         },
-        .held_item_change => |data| {
+        .set_held_item => |data| {
             std.debug.print("held item change: slot={}\n", data);
             self.player.active_slot = @intCast(usize, data.slot);
         },
-        .creative_inventory_action => |data| {
+        .set_creative_mode_slot => |data| {
             std.debug.print("creative_inventory_action: {any}\n", .{data});
             if (data.clicked_item.present and data.slot >= 36) {
                 const slot = @intCast(usize, data.slot - 36);
@@ -276,7 +276,7 @@ fn keepAliveLoop(self: *Self) void {
             .keep_alive_id = time_of_send,
         } } }) catch return;
 
-        for (self.keep_alive_ids) |*id| {
+        for (&self.keep_alive_ids) |*id| {
             if (id.*) |id_time| {
                 if (time_of_send - id_time > 30_000) {
                     self.timed_out = true;

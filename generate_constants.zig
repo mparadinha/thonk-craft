@@ -14,42 +14,63 @@ pub fn main() !void {
     const block_infos = try parseBlocksJson(blocks_json_data, gpa);
     defer gpa.free(block_infos);
 
-    // property name => [ property value => # of occurences ]
-    var all_properties = std.StringHashMap(std.StringHashMap(usize)).init(gpa);
-    defer all_properties.deinit();
-    for (block_infos) |block_info| {
-        for (block_info.states) |block_state| {
-            for (block_state.properties) |property| {
-                const name_result = try all_properties.getOrPut(property.name);
-                if (!name_result.found_existing) {
-                    name_result.value_ptr.* = std.StringHashMap(usize).init(gpa);
-                }
-                const value_result = try name_result.value_ptr.getOrPut(property.value);
-                if (!value_result.found_existing) value_result.value_ptr.* = 0;
-                value_result.value_ptr.* += 1;
-            }
-        }
-    }
-
     const registries_json_data = try readWholeFile(folder_path, "reports/registries.json", gpa);
     const item_block_ids = try parseRegistries(registries_json_data, gpa);
     defer gpa.free(item_block_ids);
-    // check that item id are mapping to the correct block id
-    for (item_block_ids) |entry| {
-        if (entry.block_id) |block_id| {
-            const block_name = block_infos[block_id].name;
-            std.debug.assert(std.mem.eql(u8, entry.name, block_name));
+
+    // check that all states for a given block have contiguous id's
+    for (block_infos) |block| {
+        std.debug.assert(block.states.len != 0);
+        if (block.states.len == 1) continue;
+
+        var min_id: u16 = std.math.maxInt(u16);
+        var max_id: u16 = std.math.minInt(u16);
+        for (block.states) |state| {
+            if (state.id < min_id) min_id = state.id;
+            if (state.id > max_id) max_id = state.id;
         }
+        // note: all block state id's have to be unique
+        std.debug.assert(block.states.len == max_id + 1 - min_id);
     }
 
-    //for (block_infos) |info, i| {
-    //    std.debug.print("block [{d}]{{ .name={s}, .states.len={d} }} (default id = {d})\n", .{
-    //        i,
-    //        info.name,
-    //        info.states.len,
-    //        info.states[info.default_state].id,
-    //    });
-    //}
+    // reorder `block_infos` so everything is in order of increasing block state id
+    for (block_infos) |block| {
+        const stateLessThan = (struct {
+            pub fn lessThan(_: void, lhs: BlockState, rhs: BlockState) bool {
+                return lhs.id < rhs.id;
+            }
+        }).lessThan;
+        std.sort.sort(BlockState, block.states, {}, stateLessThan);
+    }
+    const blockLessThan = (struct {
+        pub fn lessThan(_: void, lhs: BlockInfo, rhs: BlockInfo) bool {
+            return lhs.states[0].id < rhs.states[0].id;
+        }
+    }).lessThan;
+    std.sort.sort(BlockInfo, block_infos, {}, blockLessThan);
+
+    // fill in mapping information from item id to block index
+    // for example: minecraft:stone might use the protocol id 12 when being in item form
+    // but protocol id 20 when in block form. the `block index` is neither of these. it
+    // is the index of the corresponding block in the `block_infos` array from above
+    // (if it exists; pickaxe, for e.g., has no corresponding block)
+    for (item_block_ids) |*entry| {
+        for (block_infos, 0..) |block, block_idx| {
+            if (std.mem.eql(u8, entry.name, block.name)) {
+                entry.block_mapping_idx = block_idx;
+                break;
+            }
+        } else entry.block_mapping_idx = null;
+    }
+
+    // for (block_infos) |info, i| {
+    //     std.debug.print("block [{d}]{{ .name={s}, .states.len={d} }} (default id = {d})\n", .{
+    //         i,
+    //         info.name,
+    //         info.states.len,
+    //         info.states[info.default_state].id,
+    //     });
+    // }
 
     //for (block_infos) |info, i| {
     //    if (info.possible_properties.len != 0) {
@@ -64,20 +85,36 @@ pub fn main() !void {
     //    }
     //}
 
-    //std.debug.print("all unique properties: (and possibe values)\n", .{});
-    //var map_iterator = all_properties.iterator();
-    //while (map_iterator.next()) |pair| {
-    //    std.debug.print("'{s}': ", .{pair.key_ptr.*});
-    //    var value_iterator = pair.value_ptr.keyIterator();
-    //    while (value_iterator.next()) |value| std.debug.print("{s}, ", .{value.*});
-    //    std.debug.print("\n", .{});
-    //}
+    // // property name => [ property value => # of occurences ]
+    // var all_properties = std.StringHashMap(std.StringHashMap(usize)).init(gpa);
+    // defer all_properties.deinit();
+    // for (block_infos) |block_info| {
+    //     for (block_info.states) |block_state| {
+    //         for (block_state.properties) |property| {
+    //             const name_result = try all_properties.getOrPut(property.name);
+    //             if (!name_result.found_existing) {
+    //                 name_result.value_ptr.* = std.StringHashMap(usize).init(gpa);
+    //             }
+    //             const value_result = try name_result.value_ptr.getOrPut(property.value);
+    //             if (!value_result.found_existing) value_result.value_ptr.* = 0;
+    //             value_result.value_ptr.* += 1;
+    //         }
+    //     }
+    // }
+    // std.debug.print("all unique properties: (and possibe values)\n", .{});
+    // var map_iterator = all_properties.iterator();
+    // while (map_iterator.next()) |pair| {
+    //     std.debug.print("'{s}': ", .{pair.key_ptr.*});
+    //     var value_iterator = pair.value_ptr.keyIterator();
+    //     while (value_iterator.next()) |value| std.debug.print("{s}, ", .{value.*});
+    //     std.debug.print("\n", .{});
+    // }
 
-    //for (item_block_ids) |entry| {
-    //    std.debug.print("item_id for '{s}' is {d} (corresponding block id is {d})\n", .{
-    //        entry.name, entry.item_id, entry.block_id,
-    //    });
-    //}
+    // for (item_block_ids) |entry| {
+    //     std.debug.print("item_id for '{s}' is {d} (block_id={?}) (corresponding block index is {?})\n", .{
+    //         entry.name, entry.item_id, entry.block_id, entry.block_mapping_idx,
+    //     });
+    // }
 
     // below is the zig code generation
 
@@ -118,7 +155,7 @@ pub fn main() !void {
         \\pub fn idFromState(block_state: BlockState) u16 {
         \\    @setEvalBranchQuota(2_000);
         \\    const info = block_states_info[@enumToInt(block_state)];
-        \\    for (block_states[info.start..info.end]) |cmp_state, i| {
+        \\    for (block_states[info.start..info.end], 0..) |cmp_state, i| {
         \\        if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + info.start);
         \\    } else unreachable;
         \\}
@@ -154,7 +191,7 @@ pub fn main() !void {
                 .Enum => {
                     std.debug.assert(property.values.len <= 256);
                     _ = try writer.write("enum { ");
-                    for (property.values) |value, i| {
+                    for (property.values, 0..) |value, i| {
                         try writeIdentifier(writer, value);
                         if (i != property.values.len - 1) _ = try writer.write(", ");
                     }
@@ -183,7 +220,7 @@ pub fn main() !void {
             std.debug.assert(next_block_state_id == state.id);
             next_block_state_id += 1;
             try writer.print("    .{{ .{s} = .{{ ", .{block_name});
-            for (state.properties) |property, i| {
+            for (state.properties, 0..) |property, i| {
                 _ = try writer.write(".");
                 try writeIdentifier(writer, property.name);
                 _ = try writer.write(" = ");
@@ -247,7 +284,7 @@ pub fn main() !void {
             }
         } else {
             try writeIndent(writer, 3, "for (property_list) |property| {\n");
-            for (info.possible_properties) |property, i| {
+            for (info.possible_properties, 0..) |property, i| {
                 try writeIndent(writer, 4, "");
                 if (i > 0) _ = try writer.write("} else ");
                 try writer.print("if (std.mem.eql(u8, property.name, \"{s}\")) {{\n", .{property.name});
@@ -332,7 +369,7 @@ fn writeIdentifier(writer: anytype, identifier: []const u8) !void {
 
 fn afterColon(string: []const u8) []const u8 {
     const colon_pos = blk: {
-        for (string) |char, i| if (char == ':') break :blk i;
+        for (string, 0..) |char, i| if (char == ':') break :blk i;
         break :blk 0;
     };
     return string[colon_pos + 1 ..];
@@ -468,7 +505,7 @@ fn parseBlockInfo(
                 if (std.mem.eql(u8, string, "states")) {
                     var state_info = try parseBlockStateArray(stream, allocator);
                     block_info.default_state = state_info.default_state;
-                    block_info.states = state_info.state_list.toOwnedSlice();
+                    block_info.states = try state_info.state_list.toOwnedSlice();
                 } else if (std.mem.eql(u8, string, "properties")) {
                     const properties = try parseBlockPossibleProperties(stream, allocator);
                     block_info.possible_properties = properties;
@@ -522,7 +559,7 @@ fn parseBlockPossibleProperties(
 
                 const property = BlockPossiblePropertyValues{
                     .name = property_name,
-                    .values = possible_values.toOwnedSlice(),
+                    .values = try possible_values.toOwnedSlice(),
                 };
                 try properties.append(property);
             },
@@ -636,6 +673,7 @@ const ItemBlockIds = struct {
     name: []const u8,
     item_id: u16,
     block_id: ?u16,
+    block_mapping_idx: ?usize, // filled later
 };
 
 const NamedId = struct { name: []const u8, id: u16 };
@@ -691,6 +729,7 @@ fn parseRegistries(json_data: []const u8, allocator: Allocator) ![]ItemBlockIds 
             .name = item.name,
             .item_id = item.id,
             .block_id = block_id,
+            .block_mapping_idx = null,
         });
     }
 
@@ -765,7 +804,7 @@ fn getNamedIdEntries(stream: *std.json.TokenStream, allocator: Allocator) ![]Nam
     return entries.toOwnedSlice();
 }
 
-fn ReturnPayload(function: anytype) type {
+fn ReturnPayload(comptime function: anytype) type {
     const ReturnType = @typeInfo(@TypeOf(function)).Fn.return_type.?;
     return @typeInfo(ReturnType).ErrorUnion.payload;
 }

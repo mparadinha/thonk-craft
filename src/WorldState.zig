@@ -300,7 +300,7 @@ pub fn genHeightmapSingleHeight(allocator: Allocator, height: u9) !types.NBT {
             (@intCast(u64, height) << 10) |
             (@intCast(u64, height) << 1);
         var array_values: [37]i64 = undefined;
-        for (array_values) |*value| value.* = @bitCast(i64, one_long);
+        for (&array_values) |*value| value.* = @bitCast(i64, one_long);
 
         try nbt.LongArray.addNamed(writer, "MOTION_BLOCKING", &array_values);
     }

@@ -114,7 +114,7 @@ pub const Manager = struct {
                             .y = @intCast(i12, data.pos.y),
                             .z = @intCast(i26, data.pos.z),
                         };
-                        player.session.sendPacket(ServerPacket{ .play = .{ .block_change = .{
+                        player.session.sendPacket(ServerPacket{ .play = .{ .block_update = .{
                             .location = pos,
                             .block_id = .{ .value = data.block_id },
                         } } }) catch unreachable;
@@ -126,7 +126,7 @@ pub const Manager = struct {
                     .player_visible => |data| {
                         if (player == data.player) continue;
                         const entity_id = blk: {
-                            for (self.players.items) |cmp_player, i| {
+                            for (self.players.items, 0..) |cmp_player, i| {
                                 if (data.player == cmp_player) break :blk i;
                             } else break :blk 0;
                         };
@@ -143,7 +143,7 @@ pub const Manager = struct {
                     .player_move => |data| {
                         if (data.player == player) continue;
                         const entity_id = blk: {
-                            for (self.players.items) |cmp_player, i| {
+                            for (self.players.items, 0..) |cmp_player, i| {
                                 if (data.player == cmp_player) break :blk i;
                             } else break :blk 0;
                         };
@@ -152,7 +152,7 @@ pub const Manager = struct {
                             .y = (data.player.pos.y * 32 - data.player.last_sent_pos.y * 32) / 128,
                             .z = (data.player.pos.z * 32 - data.player.last_sent_pos.z * 32) / 128,
                         };
-                        player.session.sendPacket(ServerPacket{ .play = .{ .entity_position = .{
+                        player.session.sendPacket(ServerPacket{ .play = .{ .update_entity_position = .{
                             .entity_id = .{ .value = @intCast(i32, entity_id) },
                             .delta_x = @floatToInt(i16, delta_pos.x),
                             .delta_y = @floatToInt(i16, delta_pos.y),
@@ -183,7 +183,7 @@ pub const Manager = struct {
         var overworld_id = types.String{ .value = "minecraft:overworld" };
         var dimension_names = [_]types.String{overworld_id};
         const WorldState = @import("WorldState.zig");
-        try player.session.sendPacket(ServerPacket{ .play = .{ .join_game = .{
+        try player.session.sendPacket(ServerPacket{ .play = .{ .login = .{
             .entity_id = @intCast(i32, entity_id),
             .is_hardcore = false,
             .gamemode = 1,
@@ -220,7 +220,7 @@ pub const Manager = struct {
             .empty_block_light_mask = 0,
         } } });
 
-        try player.session.sendPacket(ServerPacket{ .play = .{ .player_position_and_look = .{
+        try player.session.sendPacket(ServerPacket{ .play = .{ .synchronize_player_position = .{
             .x = 0,
             .y = 70,
             .z = 0,
@@ -240,7 +240,7 @@ pub const Manager = struct {
 
     pub fn removePlayer(self: *Manager, player: *Player) void {
         const idx = blk: {
-            for (self.players.items) |cmp_player, i| {
+            for (self.players.items, 0..) |cmp_player, i| {
                 if (cmp_player == player) break :blk i;
             } else return;
         };
@@ -261,21 +261,21 @@ pub const Manager = struct {
             var player = player_packet.player;
             const packet = player_packet.packet;
             switch (packet.play) {
-                .player_position => |data| {
+                .set_player_position => |data| {
                     player.last_sent_pos = player.pos;
                     player.pos.x = data.x;
                     player.pos.y = data.feet_y;
                     player.pos.z = data.z;
                     self.updates_to_send.append(.{ .player_move = .{ .player = player } }) catch unreachable;
                 },
-                .player_position_and_rotation => |data| {
+                .set_player_position_and_rotation => |data| {
                     player.last_sent_pos = player.pos;
                     player.pos.x = data.x;
                     player.pos.y = data.feet_y;
                     player.pos.z = data.z;
                     self.updates_to_send.append(.{ .player_move = .{ .player = player } }) catch unreachable;
                 },
-                .player_digging => |data| {
+                .player_action => |data| {
                     std.debug.print("dig: status={}, loc={}, face={}\n", data);
                     const pos = data.location;
                     const status = data.status.value;
@@ -296,7 +296,7 @@ pub const Manager = struct {
 
                     // TODO: update all other players of the change
                 },
-                .player_block_placement => |data| {
+                .use_item_on => |data| {
                     std.debug.print(
                         "block place: hand={}, loc=({},{},{}), face={}, cursor_pos=({},{},{}), inside_block={}\n",
                         .{ data.hand.value, data.location.x, data.location.y, data.location.z, data.face.value, data.cursor_pos_x, data.cursor_pos_y, data.cursor_pos_z, data.inside_block },

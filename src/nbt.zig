@@ -19,7 +19,9 @@ pub const Tag = enum(u8) {
 
 pub const Token = struct {
     name: ?[]const u8,
-    data: union(Tag) {
+    data: Data,
+
+    pub const Data = union(Tag) {
         end: void,
         byte: i8,
         short: i16,
@@ -33,7 +35,7 @@ pub const Token = struct {
         compound: void,
         int_array: Array(i32),
         long_array: Array(i64),
-    },
+    };
 
     pub fn Array(comptime ElementType: type) type {
         return struct {
@@ -161,26 +163,24 @@ pub const TokenStream = struct {
         return data;
     }
 
-    // @TypeOf(Token.data) doesn't work???
-    const TokenData = @typeInfo(Token).Struct.fields[1].field_type;
-    fn readData(self: *TokenStream, tag: Tag) !TokenData {
+    fn readData(self: *TokenStream, tag: Tag) !Token.Data {
         switch (tag) {
-            .end => return TokenData{ .end = {} },
-            .byte => return TokenData{ .byte = self.readInt(i8) },
-            .short => return TokenData{ .short = self.readInt(i16) },
-            .int => return TokenData{ .int = self.readInt(i32) },
-            .long => return TokenData{ .long = self.readInt(i64) },
-            .float => return TokenData{ .float = @bitCast(f32, self.readInt(u32)) },
-            .double => return TokenData{ .double = @bitCast(f64, self.readInt(u64)) },
-            .byte_array => return TokenData{ .byte_array = self.readArray(i8) },
-            .string => return TokenData{ .string = self.readString() },
-            .list => return TokenData{ .list = .{
+            .end => return Token.Data{ .end = {} },
+            .byte => return Token.Data{ .byte = self.readInt(i8) },
+            .short => return Token.Data{ .short = self.readInt(i16) },
+            .int => return Token.Data{ .int = self.readInt(i32) },
+            .long => return Token.Data{ .long = self.readInt(i64) },
+            .float => return Token.Data{ .float = @bitCast(f32, self.readInt(u32)) },
+            .double => return Token.Data{ .double = @bitCast(f64, self.readInt(u64)) },
+            .byte_array => return Token.Data{ .byte_array = self.readArray(i8) },
+            .string => return Token.Data{ .string = self.readString() },
+            .list => return Token.Data{ .list = .{
                 .tag = std.meta.intToEnum(Tag, self.readInt(u8)) catch return Error.InvalidTag,
                 .len = @intCast(usize, self.readInt(i32)),
             } },
-            .compound => return TokenData{ .compound = {} },
-            .int_array => return TokenData{ .int_array = self.readArray(i32) },
-            .long_array => return TokenData{ .long_array = self.readArray(i64) },
+            .compound => return Token.Data{ .compound = {} },
+            .int_array => return Token.Data{ .int_array = self.readArray(i32) },
+            .long_array => return Token.Data{ .long_array = self.readArray(i64) },
         }
     }
 };

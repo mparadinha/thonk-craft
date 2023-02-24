@@ -29,7 +29,7 @@ const std = @import("std");
 pub fn idFromState(block_state: BlockState) u16 {
     @setEvalBranchQuota(2_000);
     const info = block_states_info[@enumToInt(block_state)];
-    for (block_states[info.start..info.end]) |cmp_state, i| {
+    for (block_states[info.start..info.end], 0..) |cmp_state, i| {
         if (std.meta.eql(block_state, cmp_state)) return @intCast(u16, i + info.start);
     } else unreachable;
 }
@@ -56,12 +56,19 @@ pub const BlockState = union(enum(u16)) {
     jungle_planks: void,
     acacia_planks: void,
     dark_oak_planks: void,
+    mangrove_planks: void,
     oak_sapling: struct { stage: u8 = 0 },
     spruce_sapling: struct { stage: u8 = 0 },
     birch_sapling: struct { stage: u8 = 0 },
     jungle_sapling: struct { stage: u8 = 0 },
     acacia_sapling: struct { stage: u8 = 0 },
     dark_oak_sapling: struct { stage: u8 = 0 },
+    mangrove_propagule: struct {
+        age: u8 = 0,
+        hanging: bool = false,
+        stage: u8 = 0,
+        waterlogged: bool = false,
+    },
     bedrock: void,
     water: struct { level: u8 = 0 },
     lava: struct { level: u8 = 0 },
@@ -93,6 +100,13 @@ pub const BlockState = union(enum(u16)) {
     dark_oak_log: struct {
         axis: enum { x, y, z } = .y,
     },
+    mangrove_log: struct {
+        axis: enum { x, y, z } = .y,
+    },
+    mangrove_roots: struct { waterlogged: bool = false },
+    muddy_mangrove_roots: struct {
+        axis: enum { x, y, z } = .y,
+    },
     stripped_spruce_log: struct {
         axis: enum { x, y, z } = .y,
     },
@@ -109,6 +123,9 @@ pub const BlockState = union(enum(u16)) {
         axis: enum { x, y, z } = .y,
     },
     stripped_oak_log: struct {
+        axis: enum { x, y, z } = .y,
+    },
+    stripped_mangrove_log: struct {
         axis: enum { x, y, z } = .y,
     },
     oak_wood: struct {
@@ -129,6 +146,9 @@ pub const BlockState = union(enum(u16)) {
     dark_oak_wood: struct {
         axis: enum { x, y, z } = .y,
     },
+    mangrove_wood: struct {
+        axis: enum { x, y, z } = .y,
+    },
     stripped_oak_wood: struct {
         axis: enum { x, y, z } = .y,
     },
@@ -147,37 +167,53 @@ pub const BlockState = union(enum(u16)) {
     stripped_dark_oak_wood: struct {
         axis: enum { x, y, z } = .y,
     },
+    stripped_mangrove_wood: struct {
+        axis: enum { x, y, z } = .y,
+    },
     oak_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     spruce_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     birch_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     jungle_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     acacia_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     dark_oak_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
+    },
+    mangrove_leaves: struct {
+        distance: u8 = 7,
+        persistent: bool = false,
+        waterlogged: bool = false,
     },
     azalea_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     flowering_azalea_leaves: struct {
         distance: u8 = 7,
         persistent: bool = false,
+        waterlogged: bool = false,
     },
     sponge: void,
     wet_sponge: void,
@@ -304,9 +340,9 @@ pub const BlockState = union(enum(u16)) {
         facing: enum { north, east, south, west, up, down } = .north,
     },
     piston_head: struct {
+        type: enum { normal, sticky } = .normal,
         facing: enum { north, east, south, west, up, down } = .north,
         short: bool = false,
-        @"type": enum { normal, sticky } = .normal,
     },
     white_wool: void,
     orange_wool: void,
@@ -325,8 +361,8 @@ pub const BlockState = union(enum(u16)) {
     red_wool: void,
     black_wool: void,
     moving_piston: struct {
+        type: enum { normal, sticky } = .normal,
         facing: enum { north, east, south, west, up, down } = .north,
-        @"type": enum { normal, sticky } = .normal,
     },
     dandelion: void,
     poppy: void,
@@ -371,8 +407,8 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     chest: struct {
+        type: enum { single, left, right } = .single,
         facing: enum { north, south, west, east } = .north,
-        @"type": enum { single, left, right } = .single,
         waterlogged: bool = false,
     },
     redstone_wire: struct {
@@ -413,6 +449,10 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     dark_oak_sign: struct {
+        rotation: u8 = 0,
+        waterlogged: bool = false,
+    },
+    mangrove_sign: struct {
         rotation: u8 = 0,
         waterlogged: bool = false,
     },
@@ -461,6 +501,10 @@ pub const BlockState = union(enum(u16)) {
         facing: enum { north, south, west, east } = .north,
         waterlogged: bool = false,
     },
+    mangrove_wall_sign: struct {
+        facing: enum { north, south, west, east } = .north,
+        waterlogged: bool = false,
+    },
     lever: struct {
         face: enum { floor, wall, ceiling } = .wall,
         facing: enum { north, south, west, east } = .north,
@@ -480,6 +524,7 @@ pub const BlockState = union(enum(u16)) {
     jungle_pressure_plate: struct { powered: bool = false },
     acacia_pressure_plate: struct { powered: bool = false },
     dark_oak_pressure_plate: struct { powered: bool = false },
+    mangrove_pressure_plate: struct { powered: bool = false },
     redstone_ore: struct { lit: bool = false },
     deepslate_redstone_ore: struct { lit: bool = false },
     redstone_torch: struct { lit: bool = true },
@@ -595,10 +640,19 @@ pub const BlockState = union(enum(u16)) {
         powered: bool = false,
         waterlogged: bool = false,
     },
+    mangrove_trapdoor: struct {
+        facing: enum { north, south, west, east } = .north,
+        half: enum { top, bottom } = .bottom,
+        open: bool = false,
+        powered: bool = false,
+        waterlogged: bool = false,
+    },
     stone_bricks: void,
     mossy_stone_bricks: void,
     cracked_stone_bricks: void,
     chiseled_stone_bricks: void,
+    packed_mud: void,
+    mud_bricks: void,
     infested_stone: void,
     infested_cobblestone: void,
     infested_stone_bricks: void,
@@ -685,6 +739,12 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     stone_brick_stairs: struct {
+        facing: enum { north, south, west, east } = .north,
+        half: enum { top, bottom } = .bottom,
+        shape: enum { straight, inner_left, inner_right, outer_left, outer_right } = .straight,
+        waterlogged: bool = false,
+    },
+    mud_brick_stairs: struct {
         facing: enum { north, south, west, east } = .north,
         half: enum { top, bottom } = .bottom,
         shape: enum { straight, inner_left, inner_right, outer_left, outer_right } = .straight,
@@ -802,6 +862,7 @@ pub const BlockState = union(enum(u16)) {
     potted_jungle_sapling: void,
     potted_acacia_sapling: void,
     potted_dark_oak_sapling: void,
+    potted_mangrove_propagule: void,
     potted_fern: void,
     potted_dandelion: void,
     potted_poppy: void,
@@ -852,6 +913,11 @@ pub const BlockState = union(enum(u16)) {
         facing: enum { north, south, west, east } = .north,
         powered: bool = false,
     },
+    mangrove_button: struct {
+        face: enum { floor, wall, ceiling } = .wall,
+        facing: enum { north, south, west, east } = .north,
+        powered: bool = false,
+    },
     skeleton_skull: struct { rotation: u8 = 0 },
     skeleton_wall_skull: struct {
         facing: enum { north, south, west, east } = .north,
@@ -886,8 +952,8 @@ pub const BlockState = union(enum(u16)) {
         facing: enum { north, south, west, east } = .north,
     },
     trapped_chest: struct {
+        type: enum { single, left, right } = .single,
         facing: enum { north, south, west, east } = .north,
-        @"type": enum { single, left, right } = .single,
         waterlogged: bool = false,
     },
     light_weighted_pressure_plate: struct { power: u8 = 0 },
@@ -1067,6 +1133,12 @@ pub const BlockState = union(enum(u16)) {
         shape: enum { straight, inner_left, inner_right, outer_left, outer_right } = .straight,
         waterlogged: bool = false,
     },
+    mangrove_stairs: struct {
+        facing: enum { north, south, west, east } = .north,
+        half: enum { top, bottom } = .bottom,
+        shape: enum { straight, inner_left, inner_right, outer_left, outer_right } = .straight,
+        waterlogged: bool = false,
+    },
     slime_block: void,
     barrier: void,
     light: struct {
@@ -1102,15 +1174,15 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     prismarine_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     prismarine_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     dark_prismarine_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     sea_lantern: void,
@@ -1228,79 +1300,87 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     oak_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     spruce_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     birch_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     jungle_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     acacia_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     dark_oak_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
+        waterlogged: bool = false,
+    },
+    mangrove_slab: struct {
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     stone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     smooth_stone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     cut_sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     petrified_oak_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     cobblestone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     stone_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
+        waterlogged: bool = false,
+    },
+    mud_brick_slab: struct {
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     nether_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     quartz_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     red_sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     cut_red_sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     purpur_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     smooth_stone: void,
@@ -1332,6 +1412,12 @@ pub const BlockState = union(enum(u16)) {
         powered: bool = false,
     },
     dark_oak_fence_gate: struct {
+        facing: enum { north, south, west, east } = .north,
+        in_wall: bool = false,
+        open: bool = false,
+        powered: bool = false,
+    },
+    mangrove_fence_gate: struct {
         facing: enum { north, south, west, east } = .north,
         in_wall: bool = false,
         open: bool = false,
@@ -1372,6 +1458,13 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
         west: bool = false,
     },
+    mangrove_fence: struct {
+        east: bool = false,
+        north: bool = false,
+        south: bool = false,
+        waterlogged: bool = false,
+        west: bool = false,
+    },
     spruce_door: struct {
         facing: enum { north, south, west, east } = .north,
         half: enum { upper, lower } = .lower,
@@ -1401,6 +1494,13 @@ pub const BlockState = union(enum(u16)) {
         powered: bool = false,
     },
     dark_oak_door: struct {
+        facing: enum { north, south, west, east } = .north,
+        half: enum { upper, lower } = .lower,
+        hinge: enum { left, right } = .left,
+        open: bool = false,
+        powered: bool = false,
+    },
+    mangrove_door: struct {
         facing: enum { north, south, west, east } = .north,
         half: enum { upper, lower } = .lower,
         hinge: enum { left, right } = .left,
@@ -1762,55 +1862,55 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     polished_granite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     smooth_red_sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     mossy_stone_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_diorite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     mossy_cobblestone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     end_stone_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     smooth_sandstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     smooth_quartz_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     granite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     andesite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     red_nether_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_andesite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     diorite_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     brick_wall: struct {
@@ -1854,6 +1954,14 @@ pub const BlockState = union(enum(u16)) {
         west: enum { none, low, tall } = .none,
     },
     stone_brick_wall: struct {
+        east: enum { none, low, tall } = .none,
+        north: enum { none, low, tall } = .none,
+        south: enum { none, low, tall } = .none,
+        up: bool = true,
+        waterlogged: bool = false,
+        west: enum { none, low, tall } = .none,
+    },
+    mud_brick_wall: struct {
         east: enum { none, low, tall } = .none,
         north: enum { none, low, tall } = .none,
         south: enum { none, low, tall } = .none,
@@ -2010,11 +2118,11 @@ pub const BlockState = union(enum(u16)) {
     crimson_planks: void,
     warped_planks: void,
     crimson_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     warped_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     crimson_pressure_plate: struct { powered: bool = false },
@@ -2154,7 +2262,7 @@ pub const BlockState = union(enum(u16)) {
         west: enum { none, low, tall } = .none,
     },
     blackstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_blackstone: void,
@@ -2162,7 +2270,7 @@ pub const BlockState = union(enum(u16)) {
     cracked_polished_blackstone_bricks: void,
     chiseled_polished_blackstone: void,
     polished_blackstone_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_blackstone_brick_stairs: struct {
@@ -2187,7 +2295,7 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     polished_blackstone_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_blackstone_pressure_plate: struct { powered: bool = false },
@@ -2336,6 +2444,22 @@ pub const BlockState = union(enum(u16)) {
         sculk_sensor_phase: enum { inactive, active, cooldown } = .inactive,
         waterlogged: bool = false,
     },
+    sculk: void,
+    sculk_vein: struct {
+        down: bool = false,
+        east: bool = false,
+        north: bool = false,
+        south: bool = false,
+        up: bool = false,
+        waterlogged: bool = false,
+        west: bool = false,
+    },
+    sculk_catalyst: struct { bloom: bool = false },
+    sculk_shrieker: struct {
+        can_summon: bool = false,
+        shrieking: bool = false,
+        waterlogged: bool = false,
+    },
     oxidized_copper: void,
     weathered_copper: void,
     exposed_copper: void,
@@ -2371,19 +2495,19 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     oxidized_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     weathered_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     exposed_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     waxed_copper_block: void,
@@ -2419,19 +2543,19 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     waxed_oxidized_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     waxed_weathered_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     waxed_exposed_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     waxed_cut_copper_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     lightning_rod: struct {
@@ -2471,6 +2595,7 @@ pub const BlockState = union(enum(u16)) {
     },
     hanging_roots: struct { waterlogged: bool = false },
     rooted_dirt: void,
+    mud: void,
     deepslate: struct {
         axis: enum { x, y, z } = .y,
     },
@@ -2482,7 +2607,7 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     cobbled_deepslate_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     cobbled_deepslate_wall: struct {
@@ -2501,7 +2626,7 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     polished_deepslate_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     polished_deepslate_wall: struct {
@@ -2520,7 +2645,7 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     deepslate_tile_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     deepslate_tile_wall: struct {
@@ -2539,7 +2664,7 @@ pub const BlockState = union(enum(u16)) {
         waterlogged: bool = false,
     },
     deepslate_brick_slab: struct {
-        @"type": enum { top, bottom, double } = .bottom,
+        type: enum { top, bottom, double } = .bottom,
         waterlogged: bool = false,
     },
     deepslate_brick_wall: struct {
@@ -2562,6 +2687,17 @@ pub const BlockState = union(enum(u16)) {
     raw_gold_block: void,
     potted_azalea_bush: void,
     potted_flowering_azalea_bush: void,
+    ochre_froglight: struct {
+        axis: enum { x, y, z } = .y,
+    },
+    verdant_froglight: struct {
+        axis: enum { x, y, z } = .y,
+    },
+    pearlescent_froglight: struct {
+        axis: enum { x, y, z } = .y,
+    },
+    frogspawn: void,
+    reinforced_deepslate: void,
 };
 
 pub const block_states = [_]BlockState{
@@ -2586,6 +2722,7 @@ pub const block_states = [_]BlockState{
     .{ .jungle_planks = {} },
     .{ .acacia_planks = {} },
     .{ .dark_oak_planks = {} },
+    .{ .mangrove_planks = {} },
     .{ .oak_sapling = .{ .stage = 0 } },
     .{ .oak_sapling = .{ .stage = 1 } },
     .{ .spruce_sapling = .{ .stage = 0 } },
@@ -2598,6 +2735,46 @@ pub const block_states = [_]BlockState{
     .{ .acacia_sapling = .{ .stage = 1 } },
     .{ .dark_oak_sapling = .{ .stage = 0 } },
     .{ .dark_oak_sapling = .{ .stage = 1 } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = true, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = true, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = true, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = true, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = false, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = false, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = false, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 0, .hanging = false, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = true, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = true, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = true, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = true, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = false, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = false, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = false, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 1, .hanging = false, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = true, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = true, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = true, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = true, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = false, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = false, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = false, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 2, .hanging = false, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = true, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = true, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = true, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = true, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = false, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = false, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = false, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 3, .hanging = false, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = true, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = true, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = true, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = true, .stage = 1, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = false, .stage = 0, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = false, .stage = 0, .waterlogged = false } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = false, .stage = 1, .waterlogged = true } },
+    .{ .mangrove_propagule = .{ .age = 4, .hanging = false, .stage = 1, .waterlogged = false } },
     .{ .bedrock = {} },
     .{ .water = .{ .level = 0 } },
     .{ .water = .{ .level = 1 } },
@@ -2659,6 +2836,14 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_log = .{ .axis = .x } },
     .{ .dark_oak_log = .{ .axis = .y } },
     .{ .dark_oak_log = .{ .axis = .z } },
+    .{ .mangrove_log = .{ .axis = .x } },
+    .{ .mangrove_log = .{ .axis = .y } },
+    .{ .mangrove_log = .{ .axis = .z } },
+    .{ .mangrove_roots = .{ .waterlogged = true } },
+    .{ .mangrove_roots = .{ .waterlogged = false } },
+    .{ .muddy_mangrove_roots = .{ .axis = .x } },
+    .{ .muddy_mangrove_roots = .{ .axis = .y } },
+    .{ .muddy_mangrove_roots = .{ .axis = .z } },
     .{ .stripped_spruce_log = .{ .axis = .x } },
     .{ .stripped_spruce_log = .{ .axis = .y } },
     .{ .stripped_spruce_log = .{ .axis = .z } },
@@ -2677,6 +2862,9 @@ pub const block_states = [_]BlockState{
     .{ .stripped_oak_log = .{ .axis = .x } },
     .{ .stripped_oak_log = .{ .axis = .y } },
     .{ .stripped_oak_log = .{ .axis = .z } },
+    .{ .stripped_mangrove_log = .{ .axis = .x } },
+    .{ .stripped_mangrove_log = .{ .axis = .y } },
+    .{ .stripped_mangrove_log = .{ .axis = .z } },
     .{ .oak_wood = .{ .axis = .x } },
     .{ .oak_wood = .{ .axis = .y } },
     .{ .oak_wood = .{ .axis = .z } },
@@ -2695,6 +2883,9 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_wood = .{ .axis = .x } },
     .{ .dark_oak_wood = .{ .axis = .y } },
     .{ .dark_oak_wood = .{ .axis = .z } },
+    .{ .mangrove_wood = .{ .axis = .x } },
+    .{ .mangrove_wood = .{ .axis = .y } },
+    .{ .mangrove_wood = .{ .axis = .z } },
     .{ .stripped_oak_wood = .{ .axis = .x } },
     .{ .stripped_oak_wood = .{ .axis = .y } },
     .{ .stripped_oak_wood = .{ .axis = .z } },
@@ -2713,118 +2904,261 @@ pub const block_states = [_]BlockState{
     .{ .stripped_dark_oak_wood = .{ .axis = .x } },
     .{ .stripped_dark_oak_wood = .{ .axis = .y } },
     .{ .stripped_dark_oak_wood = .{ .axis = .z } },
-    .{ .oak_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .oak_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .oak_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .spruce_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .spruce_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .birch_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .birch_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .jungle_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .jungle_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .acacia_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .acacia_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .azalea_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .azalea_leaves = .{ .distance = 7, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = false } },
-    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = true } },
-    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = false } },
+    .{ .stripped_mangrove_wood = .{ .axis = .x } },
+    .{ .stripped_mangrove_wood = .{ .axis = .y } },
+    .{ .stripped_mangrove_wood = .{ .axis = .z } },
+    .{ .oak_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .oak_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .oak_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .spruce_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .spruce_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .birch_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .birch_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .jungle_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .jungle_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .acacia_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .acacia_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .dark_oak_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .mangrove_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .mangrove_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .azalea_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .azalea_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 1, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 2, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 3, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 4, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 5, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 6, .persistent = false, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = true, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = true, .waterlogged = false } },
+    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = false, .waterlogged = true } },
+    .{ .flowering_azalea_leaves = .{ .distance = 7, .persistent = false, .waterlogged = false } },
     .{ .sponge = {} },
     .{ .wet_sponge = {} },
     .{ .glass = {} },
@@ -3981,30 +4315,30 @@ pub const block_states = [_]BlockState{
     .{ .piston = .{ .extended = false, .facing = .west } },
     .{ .piston = .{ .extended = false, .facing = .up } },
     .{ .piston = .{ .extended = false, .facing = .down } },
-    .{ .piston_head = .{ .facing = .north, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .north, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .north, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .north, .short = false, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .east, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .east, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .east, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .east, .short = false, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .south, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .south, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .south, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .south, .short = false, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .west, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .west, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .west, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .west, .short = false, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .up, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .up, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .up, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .up, .short = false, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .down, .short = true, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .down, .short = true, .@"type" = .sticky } },
-    .{ .piston_head = .{ .facing = .down, .short = false, .@"type" = .normal } },
-    .{ .piston_head = .{ .facing = .down, .short = false, .@"type" = .sticky } },
+    .{ .piston_head = .{ .type = .normal, .facing = .north, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .north, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .north, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .north, .short = false } },
+    .{ .piston_head = .{ .type = .normal, .facing = .east, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .east, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .east, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .east, .short = false } },
+    .{ .piston_head = .{ .type = .normal, .facing = .south, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .south, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .south, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .south, .short = false } },
+    .{ .piston_head = .{ .type = .normal, .facing = .west, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .west, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .west, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .west, .short = false } },
+    .{ .piston_head = .{ .type = .normal, .facing = .up, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .up, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .up, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .up, .short = false } },
+    .{ .piston_head = .{ .type = .normal, .facing = .down, .short = true } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .down, .short = true } },
+    .{ .piston_head = .{ .type = .normal, .facing = .down, .short = false } },
+    .{ .piston_head = .{ .type = .sticky, .facing = .down, .short = false } },
     .{ .white_wool = {} },
     .{ .orange_wool = {} },
     .{ .magenta_wool = {} },
@@ -4021,18 +4355,18 @@ pub const block_states = [_]BlockState{
     .{ .green_wool = {} },
     .{ .red_wool = {} },
     .{ .black_wool = {} },
-    .{ .moving_piston = .{ .facing = .north, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .north, .@"type" = .sticky } },
-    .{ .moving_piston = .{ .facing = .east, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .east, .@"type" = .sticky } },
-    .{ .moving_piston = .{ .facing = .south, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .south, .@"type" = .sticky } },
-    .{ .moving_piston = .{ .facing = .west, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .west, .@"type" = .sticky } },
-    .{ .moving_piston = .{ .facing = .up, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .up, .@"type" = .sticky } },
-    .{ .moving_piston = .{ .facing = .down, .@"type" = .normal } },
-    .{ .moving_piston = .{ .facing = .down, .@"type" = .sticky } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .north } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .north } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .east } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .east } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .south } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .south } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .west } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .west } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .up } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .up } },
+    .{ .moving_piston = .{ .type = .normal, .facing = .down } },
+    .{ .moving_piston = .{ .type = .sticky, .facing = .down } },
     .{ .dandelion = {} },
     .{ .poppy = {} },
     .{ .blue_orchid = {} },
@@ -4655,30 +4989,30 @@ pub const block_states = [_]BlockState{
     .{ .oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .chest = .{ .facing = .north, .@"type" = .single, .waterlogged = true } },
-    .{ .chest = .{ .facing = .north, .@"type" = .single, .waterlogged = false } },
-    .{ .chest = .{ .facing = .north, .@"type" = .left, .waterlogged = true } },
-    .{ .chest = .{ .facing = .north, .@"type" = .left, .waterlogged = false } },
-    .{ .chest = .{ .facing = .north, .@"type" = .right, .waterlogged = true } },
-    .{ .chest = .{ .facing = .north, .@"type" = .right, .waterlogged = false } },
-    .{ .chest = .{ .facing = .south, .@"type" = .single, .waterlogged = true } },
-    .{ .chest = .{ .facing = .south, .@"type" = .single, .waterlogged = false } },
-    .{ .chest = .{ .facing = .south, .@"type" = .left, .waterlogged = true } },
-    .{ .chest = .{ .facing = .south, .@"type" = .left, .waterlogged = false } },
-    .{ .chest = .{ .facing = .south, .@"type" = .right, .waterlogged = true } },
-    .{ .chest = .{ .facing = .south, .@"type" = .right, .waterlogged = false } },
-    .{ .chest = .{ .facing = .west, .@"type" = .single, .waterlogged = true } },
-    .{ .chest = .{ .facing = .west, .@"type" = .single, .waterlogged = false } },
-    .{ .chest = .{ .facing = .west, .@"type" = .left, .waterlogged = true } },
-    .{ .chest = .{ .facing = .west, .@"type" = .left, .waterlogged = false } },
-    .{ .chest = .{ .facing = .west, .@"type" = .right, .waterlogged = true } },
-    .{ .chest = .{ .facing = .west, .@"type" = .right, .waterlogged = false } },
-    .{ .chest = .{ .facing = .east, .@"type" = .single, .waterlogged = true } },
-    .{ .chest = .{ .facing = .east, .@"type" = .single, .waterlogged = false } },
-    .{ .chest = .{ .facing = .east, .@"type" = .left, .waterlogged = true } },
-    .{ .chest = .{ .facing = .east, .@"type" = .left, .waterlogged = false } },
-    .{ .chest = .{ .facing = .east, .@"type" = .right, .waterlogged = true } },
-    .{ .chest = .{ .facing = .east, .@"type" = .right, .waterlogged = false } },
+    .{ .chest = .{ .type = .single, .facing = .north, .waterlogged = true } },
+    .{ .chest = .{ .type = .single, .facing = .north, .waterlogged = false } },
+    .{ .chest = .{ .type = .left, .facing = .north, .waterlogged = true } },
+    .{ .chest = .{ .type = .left, .facing = .north, .waterlogged = false } },
+    .{ .chest = .{ .type = .right, .facing = .north, .waterlogged = true } },
+    .{ .chest = .{ .type = .right, .facing = .north, .waterlogged = false } },
+    .{ .chest = .{ .type = .single, .facing = .south, .waterlogged = true } },
+    .{ .chest = .{ .type = .single, .facing = .south, .waterlogged = false } },
+    .{ .chest = .{ .type = .left, .facing = .south, .waterlogged = true } },
+    .{ .chest = .{ .type = .left, .facing = .south, .waterlogged = false } },
+    .{ .chest = .{ .type = .right, .facing = .south, .waterlogged = true } },
+    .{ .chest = .{ .type = .right, .facing = .south, .waterlogged = false } },
+    .{ .chest = .{ .type = .single, .facing = .west, .waterlogged = true } },
+    .{ .chest = .{ .type = .single, .facing = .west, .waterlogged = false } },
+    .{ .chest = .{ .type = .left, .facing = .west, .waterlogged = true } },
+    .{ .chest = .{ .type = .left, .facing = .west, .waterlogged = false } },
+    .{ .chest = .{ .type = .right, .facing = .west, .waterlogged = true } },
+    .{ .chest = .{ .type = .right, .facing = .west, .waterlogged = false } },
+    .{ .chest = .{ .type = .single, .facing = .east, .waterlogged = true } },
+    .{ .chest = .{ .type = .single, .facing = .east, .waterlogged = false } },
+    .{ .chest = .{ .type = .left, .facing = .east, .waterlogged = true } },
+    .{ .chest = .{ .type = .left, .facing = .east, .waterlogged = false } },
+    .{ .chest = .{ .type = .right, .facing = .east, .waterlogged = true } },
+    .{ .chest = .{ .type = .right, .facing = .east, .waterlogged = false } },
     .{ .redstone_wire = .{ .east = .up, .north = .up, .power = 0, .south = .up, .west = .up } },
     .{ .redstone_wire = .{ .east = .up, .north = .up, .power = 0, .south = .up, .west = .side } },
     .{ .redstone_wire = .{ .east = .up, .north = .up, .power = 0, .south = .up, .west = .none } },
@@ -6195,6 +6529,38 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_sign = .{ .rotation = 14, .waterlogged = false } },
     .{ .dark_oak_sign = .{ .rotation = 15, .waterlogged = true } },
     .{ .dark_oak_sign = .{ .rotation = 15, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 0, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 0, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 1, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 1, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 2, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 2, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 3, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 3, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 4, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 4, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 5, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 5, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 6, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 6, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 7, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 7, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 8, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 8, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 9, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 9, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 10, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 10, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 11, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 11, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 12, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 12, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 13, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 13, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 14, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 14, .waterlogged = false } },
+    .{ .mangrove_sign = .{ .rotation = 15, .waterlogged = true } },
+    .{ .mangrove_sign = .{ .rotation = 15, .waterlogged = false } },
     .{ .oak_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = true } },
     .{ .oak_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = false } },
     .{ .oak_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = false, .powered = true } },
@@ -6415,6 +6781,14 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_wall_sign = .{ .facing = .west, .waterlogged = false } },
     .{ .dark_oak_wall_sign = .{ .facing = .east, .waterlogged = true } },
     .{ .dark_oak_wall_sign = .{ .facing = .east, .waterlogged = false } },
+    .{ .mangrove_wall_sign = .{ .facing = .north, .waterlogged = true } },
+    .{ .mangrove_wall_sign = .{ .facing = .north, .waterlogged = false } },
+    .{ .mangrove_wall_sign = .{ .facing = .south, .waterlogged = true } },
+    .{ .mangrove_wall_sign = .{ .facing = .south, .waterlogged = false } },
+    .{ .mangrove_wall_sign = .{ .facing = .west, .waterlogged = true } },
+    .{ .mangrove_wall_sign = .{ .facing = .west, .waterlogged = false } },
+    .{ .mangrove_wall_sign = .{ .facing = .east, .waterlogged = true } },
+    .{ .mangrove_wall_sign = .{ .facing = .east, .waterlogged = false } },
     .{ .lever = .{ .face = .floor, .facing = .north, .powered = true } },
     .{ .lever = .{ .face = .floor, .facing = .north, .powered = false } },
     .{ .lever = .{ .face = .floor, .facing = .south, .powered = true } },
@@ -6517,6 +6891,8 @@ pub const block_states = [_]BlockState{
     .{ .acacia_pressure_plate = .{ .powered = false } },
     .{ .dark_oak_pressure_plate = .{ .powered = true } },
     .{ .dark_oak_pressure_plate = .{ .powered = false } },
+    .{ .mangrove_pressure_plate = .{ .powered = true } },
+    .{ .mangrove_pressure_plate = .{ .powered = false } },
     .{ .redstone_ore = .{ .lit = true } },
     .{ .redstone_ore = .{ .lit = false } },
     .{ .deepslate_redstone_ore = .{ .lit = true } },
@@ -7129,10 +7505,76 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = true, .waterlogged = false } },
     .{ .dark_oak_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = false, .waterlogged = true } },
     .{ .dark_oak_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .top, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .north, .half = .bottom, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .top, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .south, .half = .bottom, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .top, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .west, .half = .bottom, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .top, .open = false, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = true, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = true, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = true, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = true, .powered = false, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = true, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = true, .waterlogged = false } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = false, .waterlogged = true } },
+    .{ .mangrove_trapdoor = .{ .facing = .east, .half = .bottom, .open = false, .powered = false, .waterlogged = false } },
     .{ .stone_bricks = {} },
     .{ .mossy_stone_bricks = {} },
     .{ .cracked_stone_bricks = {} },
     .{ .chiseled_stone_bricks = {} },
+    .{ .packed_mud = {} },
+    .{ .mud_bricks = {} },
     .{ .infested_stone = {} },
     .{ .infested_cobblestone = {} },
     .{ .infested_stone_bricks = {} },
@@ -7778,6 +8220,86 @@ pub const block_states = [_]BlockState{
     .{ .stone_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .stone_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .stone_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mud_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
     .{ .mycelium = .{ .snowy = true } },
     .{ .mycelium = .{ .snowy = false } },
     .{ .lily_pad = {} },
@@ -9083,6 +9605,7 @@ pub const block_states = [_]BlockState{
     .{ .potted_jungle_sapling = {} },
     .{ .potted_acacia_sapling = {} },
     .{ .potted_dark_oak_sapling = {} },
+    .{ .potted_mangrove_propagule = {} },
     .{ .potted_fern = {} },
     .{ .potted_dandelion = {} },
     .{ .potted_poppy = {} },
@@ -9261,6 +9784,30 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_button = .{ .face = .ceiling, .facing = .west, .powered = false } },
     .{ .dark_oak_button = .{ .face = .ceiling, .facing = .east, .powered = true } },
     .{ .dark_oak_button = .{ .face = .ceiling, .facing = .east, .powered = false } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .north, .powered = true } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .north, .powered = false } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .south, .powered = true } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .south, .powered = false } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .west, .powered = true } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .west, .powered = false } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .east, .powered = true } },
+    .{ .mangrove_button = .{ .face = .floor, .facing = .east, .powered = false } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .north, .powered = true } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .north, .powered = false } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .south, .powered = true } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .south, .powered = false } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .west, .powered = true } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .west, .powered = false } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .east, .powered = true } },
+    .{ .mangrove_button = .{ .face = .wall, .facing = .east, .powered = false } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .north, .powered = true } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .north, .powered = false } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .south, .powered = true } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .south, .powered = false } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .west, .powered = true } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .west, .powered = false } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .east, .powered = true } },
+    .{ .mangrove_button = .{ .face = .ceiling, .facing = .east, .powered = false } },
     .{ .skeleton_skull = .{ .rotation = 0 } },
     .{ .skeleton_skull = .{ .rotation = 1 } },
     .{ .skeleton_skull = .{ .rotation = 2 } },
@@ -9393,30 +9940,30 @@ pub const block_states = [_]BlockState{
     .{ .damaged_anvil = .{ .facing = .south } },
     .{ .damaged_anvil = .{ .facing = .west } },
     .{ .damaged_anvil = .{ .facing = .east } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .single, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .single, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .left, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .left, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .right, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .north, .@"type" = .right, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .single, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .single, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .left, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .left, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .right, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .south, .@"type" = .right, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .single, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .single, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .left, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .left, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .right, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .west, .@"type" = .right, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .single, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .single, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .left, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .left, .waterlogged = false } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .right, .waterlogged = true } },
-    .{ .trapped_chest = .{ .facing = .east, .@"type" = .right, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .north, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .north, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .north, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .north, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .north, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .north, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .south, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .south, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .south, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .south, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .south, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .south, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .west, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .west, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .west, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .west, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .west, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .west, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .east, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .single, .facing = .east, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .east, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .left, .facing = .east, .waterlogged = false } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .east, .waterlogged = true } },
+    .{ .trapped_chest = .{ .type = .right, .facing = .east, .waterlogged = false } },
     .{ .light_weighted_pressure_plate = .{ .power = 0 } },
     .{ .light_weighted_pressure_plate = .{ .power = 1 } },
     .{ .light_weighted_pressure_plate = .{ .power = 2 } },
@@ -10318,6 +10865,86 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .dark_oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .dark_oak_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .north, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .south, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .west, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .top, .shape = .outer_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .straight, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .straight, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .inner_right, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
+    .{ .mangrove_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
     .{ .slime_block = {} },
     .{ .barrier = {} },
     .{ .light = .{ .level = 0, .waterlogged = true } },
@@ -10659,24 +11286,24 @@ pub const block_states = [_]BlockState{
     .{ .dark_prismarine_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .dark_prismarine_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .dark_prismarine_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .prismarine_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .prismarine_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .prismarine_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .prismarine_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .prismarine_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .prismarine_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .prismarine_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .dark_prismarine_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .prismarine_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .prismarine_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .prismarine_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .prismarine_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .prismarine_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .prismarine_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .prismarine_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .prismarine_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .prismarine_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .prismarine_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .prismarine_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .prismarine_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .dark_prismarine_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .dark_prismarine_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .dark_prismarine_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .dark_prismarine_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .dark_prismarine_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .dark_prismarine_slab = .{ .type = .double, .waterlogged = false } },
     .{ .sea_lantern = {} },
     .{ .hay_block = .{ .axis = .x } },
     .{ .hay_block = .{ .axis = .y } },
@@ -11115,120 +11742,132 @@ pub const block_states = [_]BlockState{
     .{ .red_sandstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .red_sandstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .red_sandstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .oak_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .oak_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .oak_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .oak_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .oak_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .oak_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .spruce_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .spruce_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .spruce_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .spruce_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .spruce_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .spruce_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .birch_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .birch_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .birch_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .birch_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .birch_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .birch_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .jungle_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .jungle_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .jungle_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .jungle_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .jungle_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .jungle_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .acacia_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .acacia_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .acacia_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .acacia_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .acacia_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .acacia_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .dark_oak_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .dark_oak_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .dark_oak_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .dark_oak_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .dark_oak_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .dark_oak_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .stone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .stone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .stone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .stone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .stone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .stone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .smooth_stone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .smooth_stone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .smooth_stone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .smooth_stone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .smooth_stone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .smooth_stone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .cut_sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .petrified_oak_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .petrified_oak_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .petrified_oak_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .petrified_oak_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .petrified_oak_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .petrified_oak_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .cobblestone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .cobblestone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .cobblestone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .cobblestone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .cobblestone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .cobblestone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .stone_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .stone_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .stone_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .stone_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .nether_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .nether_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .nether_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .nether_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .nether_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .nether_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .quartz_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .quartz_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .quartz_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .quartz_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .quartz_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .quartz_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .red_sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .red_sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .red_sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .red_sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .cut_red_sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .purpur_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .purpur_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .purpur_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .purpur_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .purpur_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .purpur_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .oak_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .oak_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .oak_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .oak_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .oak_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .oak_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .spruce_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .spruce_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .spruce_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .spruce_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .spruce_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .spruce_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .birch_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .birch_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .birch_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .birch_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .birch_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .birch_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .jungle_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .jungle_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .jungle_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .jungle_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .jungle_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .jungle_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .acacia_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .acacia_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .acacia_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .acacia_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .acacia_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .acacia_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .dark_oak_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .dark_oak_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .dark_oak_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .dark_oak_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .dark_oak_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .dark_oak_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .mangrove_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .mangrove_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .mangrove_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .mangrove_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .mangrove_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .mangrove_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .stone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .stone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .stone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .stone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .stone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .stone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .smooth_stone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .smooth_stone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .smooth_stone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .smooth_stone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .smooth_stone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .smooth_stone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .cut_sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .cut_sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .cut_sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .cut_sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .cut_sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .cut_sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .petrified_oak_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .petrified_oak_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .petrified_oak_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .petrified_oak_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .petrified_oak_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .petrified_oak_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .cobblestone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .cobblestone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .cobblestone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .cobblestone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .cobblestone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .cobblestone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .stone_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .stone_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .stone_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .stone_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .stone_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .stone_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .mud_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .mud_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .mud_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .mud_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .mud_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .mud_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .nether_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .nether_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .nether_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .nether_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .nether_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .nether_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .quartz_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .quartz_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .quartz_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .quartz_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .quartz_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .quartz_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .red_sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .red_sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .red_sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .red_sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .red_sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .red_sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .cut_red_sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .cut_red_sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .cut_red_sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .cut_red_sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .cut_red_sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .cut_red_sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .purpur_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .purpur_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .purpur_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .purpur_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .purpur_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .purpur_slab = .{ .type = .double, .waterlogged = false } },
     .{ .smooth_stone = {} },
     .{ .smooth_sandstone = {} },
     .{ .smooth_quartz = {} },
@@ -11393,6 +12032,38 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_fence_gate = .{ .facing = .east, .in_wall = false, .open = true, .powered = false } },
     .{ .dark_oak_fence_gate = .{ .facing = .east, .in_wall = false, .open = false, .powered = true } },
     .{ .dark_oak_fence_gate = .{ .facing = .east, .in_wall = false, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = true, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = true, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = true, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = true, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = false, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = false, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = false, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .north, .in_wall = false, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = true, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = true, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = true, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = true, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = false, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = false, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = false, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .south, .in_wall = false, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = true, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = true, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = true, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = true, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = false, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = false, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = false, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .west, .in_wall = false, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = true, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = true, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = true, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = true, .open = false, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = false, .open = true, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = false, .open = true, .powered = false } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = false, .open = false, .powered = true } },
+    .{ .mangrove_fence_gate = .{ .facing = .east, .in_wall = false, .open = false, .powered = false } },
     .{ .spruce_fence = .{ .east = true, .north = true, .south = true, .waterlogged = true, .west = true } },
     .{ .spruce_fence = .{ .east = true, .north = true, .south = true, .waterlogged = true, .west = false } },
     .{ .spruce_fence = .{ .east = true, .north = true, .south = true, .waterlogged = false, .west = true } },
@@ -11553,6 +12224,38 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_fence = .{ .east = false, .north = false, .south = false, .waterlogged = true, .west = false } },
     .{ .dark_oak_fence = .{ .east = false, .north = false, .south = false, .waterlogged = false, .west = true } },
     .{ .dark_oak_fence = .{ .east = false, .north = false, .south = false, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = true, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = true, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = true, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = true, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = false, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = false, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = false, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = true, .south = false, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = true, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = true, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = true, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = true, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = false, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = false, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = false, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = true, .north = false, .south = false, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = true, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = true, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = true, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = true, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = false, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = false, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = false, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = true, .south = false, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = true, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = true, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = true, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = true, .waterlogged = false, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = false, .waterlogged = true, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = false, .waterlogged = true, .west = false } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = false, .waterlogged = false, .west = true } },
+    .{ .mangrove_fence = .{ .east = false, .north = false, .south = false, .waterlogged = false, .west = false } },
     .{ .spruce_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = true } },
     .{ .spruce_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = false } },
     .{ .spruce_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = false, .powered = true } },
@@ -11873,6 +12576,70 @@ pub const block_states = [_]BlockState{
     .{ .dark_oak_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = true, .powered = false } },
     .{ .dark_oak_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = false, .powered = true } },
     .{ .dark_oak_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .upper, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .north, .half = .lower, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .upper, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .south, .half = .lower, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .upper, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .west, .half = .lower, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .upper, .hinge = .right, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .left, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .left, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .left, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .left, .open = false, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = true, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = true, .powered = false } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = false, .powered = true } },
+    .{ .mangrove_door = .{ .facing = .east, .half = .lower, .hinge = .right, .open = false, .powered = false } },
     .{ .end_rod = .{ .facing = .north } },
     .{ .end_rod = .{ .facing = .east } },
     .{ .end_rod = .{ .facing = .south } },
@@ -13604,84 +14371,84 @@ pub const block_states = [_]BlockState{
     .{ .diorite_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .diorite_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .diorite_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .polished_granite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_granite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_granite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_granite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_granite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_granite_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .smooth_red_sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .mossy_stone_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .polished_diorite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_diorite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_diorite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_diorite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_diorite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_diorite_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .mossy_cobblestone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .end_stone_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .smooth_sandstone_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .smooth_quartz_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .granite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .granite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .granite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .granite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .granite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .granite_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .andesite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .andesite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .andesite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .andesite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .andesite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .andesite_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .red_nether_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .polished_andesite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_andesite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_andesite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_andesite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_andesite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_andesite_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .diorite_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .diorite_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .diorite_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .diorite_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .diorite_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .diorite_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .polished_granite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_granite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_granite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_granite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_granite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_granite_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .smooth_red_sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .mossy_stone_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .mossy_stone_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .mossy_stone_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .mossy_stone_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .mossy_stone_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .mossy_stone_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .polished_diorite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_diorite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_diorite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_diorite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_diorite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_diorite_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .mossy_cobblestone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .mossy_cobblestone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .mossy_cobblestone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .mossy_cobblestone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .mossy_cobblestone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .mossy_cobblestone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .end_stone_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .end_stone_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .end_stone_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .end_stone_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .end_stone_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .end_stone_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .smooth_sandstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .smooth_sandstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .smooth_sandstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .smooth_sandstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .smooth_sandstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .smooth_sandstone_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .smooth_quartz_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .smooth_quartz_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .smooth_quartz_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .smooth_quartz_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .smooth_quartz_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .smooth_quartz_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .granite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .granite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .granite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .granite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .granite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .granite_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .andesite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .andesite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .andesite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .andesite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .andesite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .andesite_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .red_nether_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .red_nether_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .red_nether_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .red_nether_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .red_nether_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .red_nether_brick_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .polished_andesite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_andesite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_andesite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_andesite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_andesite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_andesite_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .diorite_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .diorite_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .diorite_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .diorite_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .diorite_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .diorite_slab = .{ .type = .double, .waterlogged = false } },
     .{ .brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -15626,6 +16393,330 @@ pub const block_states = [_]BlockState{
     .{ .stone_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
     .{ .stone_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
     .{ .stone_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .none, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .low, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .none, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .low, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .none, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .low, .up = false, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = true, .waterlogged = false, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = true, .west = .tall } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
+    .{ .mud_brick_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
     .{ .nether_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .nether_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .nether_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -17866,18 +18957,18 @@ pub const block_states = [_]BlockState{
     .{ .crimson_roots = {} },
     .{ .crimson_planks = {} },
     .{ .warped_planks = {} },
-    .{ .crimson_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .crimson_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .crimson_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .crimson_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .crimson_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .crimson_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .warped_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .warped_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .warped_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .warped_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .warped_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .warped_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .crimson_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .crimson_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .crimson_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .crimson_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .crimson_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .crimson_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .warped_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .warped_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .warped_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .warped_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .warped_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .warped_slab = .{ .type = .double, .waterlogged = false } },
     .{ .crimson_pressure_plate = .{ .powered = true } },
     .{ .crimson_pressure_plate = .{ .powered = false } },
     .{ .warped_pressure_plate = .{ .powered = true } },
@@ -19063,22 +20154,22 @@ pub const block_states = [_]BlockState{
     .{ .blackstone_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .none } },
     .{ .blackstone_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .low } },
     .{ .blackstone_wall = .{ .east = .tall, .north = .tall, .south = .tall, .up = false, .waterlogged = false, .west = .tall } },
-    .{ .blackstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .blackstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .blackstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .blackstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .blackstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .blackstone_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .blackstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .blackstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .blackstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .blackstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .blackstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .blackstone_slab = .{ .type = .double, .waterlogged = false } },
     .{ .polished_blackstone = {} },
     .{ .polished_blackstone_bricks = {} },
     .{ .cracked_polished_blackstone_bricks = {} },
     .{ .chiseled_polished_blackstone = {} },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_blackstone_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_blackstone_brick_slab = .{ .type = .double, .waterlogged = false } },
     .{ .polished_blackstone_brick_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = true } },
     .{ .polished_blackstone_brick_stairs = .{ .facing = .north, .half = .top, .shape = .straight, .waterlogged = false } },
     .{ .polished_blackstone_brick_stairs = .{ .facing = .north, .half = .top, .shape = .inner_left, .waterlogged = true } },
@@ -19564,12 +20655,12 @@ pub const block_states = [_]BlockState{
     .{ .polished_blackstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .polished_blackstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .polished_blackstone_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_blackstone_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .polished_blackstone_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_blackstone_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_blackstone_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_blackstone_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_blackstone_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_blackstone_slab = .{ .type = .double, .waterlogged = false } },
     .{ .polished_blackstone_pressure_plate = .{ .powered = true } },
     .{ .polished_blackstone_pressure_plate = .{ .powered = false } },
     .{ .polished_blackstone_button = .{ .face = .floor, .facing = .north, .powered = true } },
@@ -20379,6 +21470,145 @@ pub const block_states = [_]BlockState{
     .{ .sculk_sensor = .{ .power = 15, .sculk_sensor_phase = .active, .waterlogged = false } },
     .{ .sculk_sensor = .{ .power = 15, .sculk_sensor_phase = .cooldown, .waterlogged = true } },
     .{ .sculk_sensor = .{ .power = 15, .sculk_sensor_phase = .cooldown, .waterlogged = false } },
+    .{ .sculk = {} },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = true, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = true, .north = false, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = true, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = true, .east = false, .north = false, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = true, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = true, .north = false, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = true, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = true, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = true, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = true, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = true, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = true, .waterlogged = false, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = false, .waterlogged = true, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = false, .waterlogged = true, .west = false } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = false, .waterlogged = false, .west = true } },
+    .{ .sculk_vein = .{ .down = false, .east = false, .north = false, .south = false, .up = false, .waterlogged = false, .west = false } },
+    .{ .sculk_catalyst = .{ .bloom = true } },
+    .{ .sculk_catalyst = .{ .bloom = false } },
+    .{ .sculk_shrieker = .{ .can_summon = true, .shrieking = true, .waterlogged = true } },
+    .{ .sculk_shrieker = .{ .can_summon = true, .shrieking = true, .waterlogged = false } },
+    .{ .sculk_shrieker = .{ .can_summon = true, .shrieking = false, .waterlogged = true } },
+    .{ .sculk_shrieker = .{ .can_summon = true, .shrieking = false, .waterlogged = false } },
+    .{ .sculk_shrieker = .{ .can_summon = false, .shrieking = true, .waterlogged = true } },
+    .{ .sculk_shrieker = .{ .can_summon = false, .shrieking = true, .waterlogged = false } },
+    .{ .sculk_shrieker = .{ .can_summon = false, .shrieking = false, .waterlogged = true } },
+    .{ .sculk_shrieker = .{ .can_summon = false, .shrieking = false, .waterlogged = false } },
     .{ .oxidized_copper = {} },
     .{ .weathered_copper = {} },
     .{ .exposed_copper = {} },
@@ -20709,30 +21939,30 @@ pub const block_states = [_]BlockState{
     .{ .cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .oxidized_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .weathered_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .exposed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .oxidized_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .weathered_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .weathered_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .weathered_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .weathered_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .weathered_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .weathered_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .exposed_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .exposed_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .exposed_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .exposed_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .exposed_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .exposed_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .cut_copper_slab = .{ .type = .double, .waterlogged = false } },
     .{ .waxed_copper_block = {} },
     .{ .waxed_weathered_copper = {} },
     .{ .waxed_exposed_copper = {} },
@@ -21061,30 +22291,30 @@ pub const block_states = [_]BlockState{
     .{ .waxed_cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .waxed_cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .waxed_cut_copper_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .waxed_oxidized_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .waxed_weathered_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .waxed_exposed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .waxed_cut_copper_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .waxed_oxidized_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .waxed_weathered_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .waxed_exposed_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
+    .{ .waxed_cut_copper_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .waxed_cut_copper_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .waxed_cut_copper_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .waxed_cut_copper_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .waxed_cut_copper_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .waxed_cut_copper_slab = .{ .type = .double, .waterlogged = false } },
     .{ .lightning_rod = .{ .facing = .north, .powered = true, .waterlogged = true } },
     .{ .lightning_rod = .{ .facing = .north, .powered = true, .waterlogged = false } },
     .{ .lightning_rod = .{ .facing = .north, .powered = false, .waterlogged = true } },
@@ -21248,6 +22478,7 @@ pub const block_states = [_]BlockState{
     .{ .hanging_roots = .{ .waterlogged = true } },
     .{ .hanging_roots = .{ .waterlogged = false } },
     .{ .rooted_dirt = {} },
+    .{ .mud = {} },
     .{ .deepslate = .{ .axis = .x } },
     .{ .deepslate = .{ .axis = .y } },
     .{ .deepslate = .{ .axis = .z } },
@@ -21332,12 +22563,12 @@ pub const block_states = [_]BlockState{
     .{ .cobbled_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .cobbled_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .cobbled_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .cobbled_deepslate_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .cobbled_deepslate_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .cobbled_deepslate_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .cobbled_deepslate_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .cobbled_deepslate_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .cobbled_deepslate_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .cobbled_deepslate_slab = .{ .type = .double, .waterlogged = false } },
     .{ .cobbled_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .cobbled_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .cobbled_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -21743,12 +22974,12 @@ pub const block_states = [_]BlockState{
     .{ .polished_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .polished_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .polished_deepslate_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .polished_deepslate_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .polished_deepslate_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .polished_deepslate_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .polished_deepslate_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .polished_deepslate_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .polished_deepslate_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .polished_deepslate_slab = .{ .type = .double, .waterlogged = false } },
     .{ .polished_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .polished_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .polished_deepslate_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -22154,12 +23385,12 @@ pub const block_states = [_]BlockState{
     .{ .deepslate_tile_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .deepslate_tile_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .deepslate_tile_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .deepslate_tile_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .deepslate_tile_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .deepslate_tile_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .deepslate_tile_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .deepslate_tile_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .deepslate_tile_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .deepslate_tile_slab = .{ .type = .double, .waterlogged = false } },
     .{ .deepslate_tile_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .deepslate_tile_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .deepslate_tile_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -22565,12 +23796,12 @@ pub const block_states = [_]BlockState{
     .{ .deepslate_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_left, .waterlogged = false } },
     .{ .deepslate_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = true } },
     .{ .deepslate_brick_stairs = .{ .facing = .east, .half = .bottom, .shape = .outer_right, .waterlogged = false } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .top, .waterlogged = true } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .top, .waterlogged = false } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .bottom, .waterlogged = true } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .bottom, .waterlogged = false } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .double, .waterlogged = true } },
-    .{ .deepslate_brick_slab = .{ .@"type" = .double, .waterlogged = false } },
+    .{ .deepslate_brick_slab = .{ .type = .top, .waterlogged = true } },
+    .{ .deepslate_brick_slab = .{ .type = .top, .waterlogged = false } },
+    .{ .deepslate_brick_slab = .{ .type = .bottom, .waterlogged = true } },
+    .{ .deepslate_brick_slab = .{ .type = .bottom, .waterlogged = false } },
+    .{ .deepslate_brick_slab = .{ .type = .double, .waterlogged = true } },
+    .{ .deepslate_brick_slab = .{ .type = .double, .waterlogged = false } },
     .{ .deepslate_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .none } },
     .{ .deepslate_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .low } },
     .{ .deepslate_brick_wall = .{ .east = .none, .north = .none, .south = .none, .up = true, .waterlogged = true, .west = .tall } },
@@ -22907,6 +24138,17 @@ pub const block_states = [_]BlockState{
     .{ .raw_gold_block = {} },
     .{ .potted_azalea_bush = {} },
     .{ .potted_flowering_azalea_bush = {} },
+    .{ .ochre_froglight = .{ .axis = .x } },
+    .{ .ochre_froglight = .{ .axis = .y } },
+    .{ .ochre_froglight = .{ .axis = .z } },
+    .{ .verdant_froglight = .{ .axis = .x } },
+    .{ .verdant_froglight = .{ .axis = .y } },
+    .{ .verdant_froglight = .{ .axis = .z } },
+    .{ .pearlescent_froglight = .{ .axis = .x } },
+    .{ .pearlescent_froglight = .{ .axis = .y } },
+    .{ .pearlescent_froglight = .{ .axis = .z } },
+    .{ .frogspawn = {} },
+    .{ .reinforced_deepslate = {} },
 };
 
 pub const BlockStateInfo = struct { start: usize, end: usize, default: usize };
@@ -22931,1989 +24173,2075 @@ pub const block_states_info = [_]BlockStateInfo{
     .{ .start = 18, .end = 19, .default = 18 },
     .{ .start = 19, .end = 20, .default = 19 },
     .{ .start = 20, .end = 21, .default = 20 },
-    .{ .start = 21, .end = 23, .default = 21 },
-    .{ .start = 23, .end = 25, .default = 23 },
-    .{ .start = 25, .end = 27, .default = 25 },
-    .{ .start = 27, .end = 29, .default = 27 },
-    .{ .start = 29, .end = 31, .default = 29 },
-    .{ .start = 31, .end = 33, .default = 31 },
-    .{ .start = 33, .end = 34, .default = 33 },
-    .{ .start = 34, .end = 50, .default = 34 },
-    .{ .start = 50, .end = 66, .default = 50 },
-    .{ .start = 66, .end = 67, .default = 66 },
-    .{ .start = 67, .end = 68, .default = 67 },
-    .{ .start = 68, .end = 69, .default = 68 },
-    .{ .start = 69, .end = 70, .default = 69 },
-    .{ .start = 70, .end = 71, .default = 70 },
-    .{ .start = 71, .end = 72, .default = 71 },
-    .{ .start = 72, .end = 73, .default = 72 },
-    .{ .start = 73, .end = 74, .default = 73 },
+    .{ .start = 21, .end = 22, .default = 21 },
+    .{ .start = 22, .end = 24, .default = 22 },
+    .{ .start = 24, .end = 26, .default = 24 },
+    .{ .start = 26, .end = 28, .default = 26 },
+    .{ .start = 28, .end = 30, .default = 28 },
+    .{ .start = 30, .end = 32, .default = 30 },
+    .{ .start = 32, .end = 34, .default = 32 },
+    .{ .start = 34, .end = 74, .default = 39 },
     .{ .start = 74, .end = 75, .default = 74 },
-    .{ .start = 75, .end = 76, .default = 75 },
-    .{ .start = 76, .end = 79, .default = 77 },
-    .{ .start = 79, .end = 82, .default = 80 },
-    .{ .start = 82, .end = 85, .default = 83 },
-    .{ .start = 85, .end = 88, .default = 86 },
-    .{ .start = 88, .end = 91, .default = 89 },
-    .{ .start = 91, .end = 94, .default = 92 },
-    .{ .start = 94, .end = 97, .default = 95 },
-    .{ .start = 97, .end = 100, .default = 98 },
-    .{ .start = 100, .end = 103, .default = 101 },
-    .{ .start = 103, .end = 106, .default = 104 },
-    .{ .start = 106, .end = 109, .default = 107 },
-    .{ .start = 109, .end = 112, .default = 110 },
-    .{ .start = 112, .end = 115, .default = 113 },
-    .{ .start = 115, .end = 118, .default = 116 },
-    .{ .start = 118, .end = 121, .default = 119 },
-    .{ .start = 121, .end = 124, .default = 122 },
-    .{ .start = 124, .end = 127, .default = 125 },
-    .{ .start = 127, .end = 130, .default = 128 },
-    .{ .start = 130, .end = 133, .default = 131 },
-    .{ .start = 133, .end = 136, .default = 134 },
-    .{ .start = 136, .end = 139, .default = 137 },
-    .{ .start = 139, .end = 142, .default = 140 },
-    .{ .start = 142, .end = 145, .default = 143 },
-    .{ .start = 145, .end = 148, .default = 146 },
-    .{ .start = 148, .end = 162, .default = 161 },
-    .{ .start = 162, .end = 176, .default = 175 },
-    .{ .start = 176, .end = 190, .default = 189 },
-    .{ .start = 190, .end = 204, .default = 203 },
-    .{ .start = 204, .end = 218, .default = 217 },
-    .{ .start = 218, .end = 232, .default = 231 },
-    .{ .start = 232, .end = 246, .default = 245 },
-    .{ .start = 246, .end = 260, .default = 259 },
-    .{ .start = 260, .end = 261, .default = 260 },
-    .{ .start = 261, .end = 262, .default = 261 },
-    .{ .start = 262, .end = 263, .default = 262 },
-    .{ .start = 263, .end = 264, .default = 263 },
-    .{ .start = 264, .end = 265, .default = 264 },
-    .{ .start = 265, .end = 266, .default = 265 },
-    .{ .start = 266, .end = 278, .default = 267 },
-    .{ .start = 278, .end = 279, .default = 278 },
-    .{ .start = 279, .end = 280, .default = 279 },
-    .{ .start = 280, .end = 281, .default = 280 },
-    .{ .start = 281, .end = 1081, .default = 282 },
-    .{ .start = 1081, .end = 1097, .default = 1084 },
-    .{ .start = 1097, .end = 1113, .default = 1100 },
-    .{ .start = 1113, .end = 1129, .default = 1116 },
-    .{ .start = 1129, .end = 1145, .default = 1132 },
-    .{ .start = 1145, .end = 1161, .default = 1148 },
-    .{ .start = 1161, .end = 1177, .default = 1164 },
-    .{ .start = 1177, .end = 1193, .default = 1180 },
-    .{ .start = 1193, .end = 1209, .default = 1196 },
-    .{ .start = 1209, .end = 1225, .default = 1212 },
-    .{ .start = 1225, .end = 1241, .default = 1228 },
-    .{ .start = 1241, .end = 1257, .default = 1244 },
-    .{ .start = 1257, .end = 1273, .default = 1260 },
-    .{ .start = 1273, .end = 1289, .default = 1276 },
-    .{ .start = 1289, .end = 1305, .default = 1292 },
-    .{ .start = 1305, .end = 1321, .default = 1308 },
-    .{ .start = 1321, .end = 1337, .default = 1324 },
-    .{ .start = 1337, .end = 1361, .default = 1350 },
-    .{ .start = 1361, .end = 1385, .default = 1374 },
-    .{ .start = 1385, .end = 1397, .default = 1391 },
-    .{ .start = 1397, .end = 1398, .default = 1397 },
-    .{ .start = 1398, .end = 1399, .default = 1398 },
-    .{ .start = 1399, .end = 1400, .default = 1399 },
-    .{ .start = 1400, .end = 1401, .default = 1400 },
-    .{ .start = 1401, .end = 1402, .default = 1401 },
-    .{ .start = 1402, .end = 1404, .default = 1403 },
-    .{ .start = 1404, .end = 1416, .default = 1410 },
-    .{ .start = 1416, .end = 1440, .default = 1418 },
-    .{ .start = 1440, .end = 1441, .default = 1440 },
-    .{ .start = 1441, .end = 1442, .default = 1441 },
-    .{ .start = 1442, .end = 1443, .default = 1442 },
-    .{ .start = 1443, .end = 1444, .default = 1443 },
-    .{ .start = 1444, .end = 1445, .default = 1444 },
-    .{ .start = 1445, .end = 1446, .default = 1445 },
-    .{ .start = 1446, .end = 1447, .default = 1446 },
-    .{ .start = 1447, .end = 1448, .default = 1447 },
-    .{ .start = 1448, .end = 1449, .default = 1448 },
-    .{ .start = 1449, .end = 1450, .default = 1449 },
-    .{ .start = 1450, .end = 1451, .default = 1450 },
-    .{ .start = 1451, .end = 1452, .default = 1451 },
-    .{ .start = 1452, .end = 1453, .default = 1452 },
-    .{ .start = 1453, .end = 1454, .default = 1453 },
-    .{ .start = 1454, .end = 1455, .default = 1454 },
-    .{ .start = 1455, .end = 1456, .default = 1455 },
-    .{ .start = 1456, .end = 1468, .default = 1456 },
-    .{ .start = 1468, .end = 1469, .default = 1468 },
-    .{ .start = 1469, .end = 1470, .default = 1469 },
-    .{ .start = 1470, .end = 1471, .default = 1470 },
-    .{ .start = 1471, .end = 1472, .default = 1471 },
-    .{ .start = 1472, .end = 1473, .default = 1472 },
-    .{ .start = 1473, .end = 1474, .default = 1473 },
-    .{ .start = 1474, .end = 1475, .default = 1474 },
-    .{ .start = 1475, .end = 1476, .default = 1475 },
-    .{ .start = 1476, .end = 1477, .default = 1476 },
-    .{ .start = 1477, .end = 1478, .default = 1477 },
-    .{ .start = 1478, .end = 1479, .default = 1478 },
-    .{ .start = 1479, .end = 1480, .default = 1479 },
-    .{ .start = 1480, .end = 1481, .default = 1480 },
-    .{ .start = 1481, .end = 1482, .default = 1481 },
-    .{ .start = 1482, .end = 1483, .default = 1482 },
-    .{ .start = 1483, .end = 1484, .default = 1483 },
-    .{ .start = 1484, .end = 1485, .default = 1484 },
-    .{ .start = 1485, .end = 1486, .default = 1485 },
-    .{ .start = 1486, .end = 1488, .default = 1487 },
-    .{ .start = 1488, .end = 1489, .default = 1488 },
-    .{ .start = 1489, .end = 1490, .default = 1489 },
-    .{ .start = 1490, .end = 1491, .default = 1490 },
-    .{ .start = 1491, .end = 1492, .default = 1491 },
-    .{ .start = 1492, .end = 1496, .default = 1492 },
-    .{ .start = 1496, .end = 2008, .default = 1527 },
-    .{ .start = 2008, .end = 2009, .default = 2008 },
-    .{ .start = 2009, .end = 2010, .default = 2009 },
-    .{ .start = 2010, .end = 2090, .default = 2021 },
-    .{ .start = 2090, .end = 2114, .default = 2091 },
-    .{ .start = 2114, .end = 3410, .default = 3274 },
-    .{ .start = 3410, .end = 3411, .default = 3410 },
-    .{ .start = 3411, .end = 3412, .default = 3411 },
-    .{ .start = 3412, .end = 3413, .default = 3412 },
-    .{ .start = 3413, .end = 3414, .default = 3413 },
-    .{ .start = 3414, .end = 3422, .default = 3414 },
-    .{ .start = 3422, .end = 3430, .default = 3422 },
-    .{ .start = 3430, .end = 3438, .default = 3431 },
-    .{ .start = 3438, .end = 3470, .default = 3439 },
-    .{ .start = 3470, .end = 3502, .default = 3471 },
-    .{ .start = 3502, .end = 3534, .default = 3503 },
-    .{ .start = 3534, .end = 3566, .default = 3535 },
-    .{ .start = 3566, .end = 3598, .default = 3567 },
-    .{ .start = 3598, .end = 3630, .default = 3599 },
-    .{ .start = 3630, .end = 3694, .default = 3641 },
-    .{ .start = 3694, .end = 3702, .default = 3695 },
-    .{ .start = 3702, .end = 3722, .default = 3703 },
-    .{ .start = 3722, .end = 3802, .default = 3733 },
-    .{ .start = 3802, .end = 3810, .default = 3803 },
-    .{ .start = 3810, .end = 3818, .default = 3811 },
-    .{ .start = 3818, .end = 3826, .default = 3819 },
-    .{ .start = 3826, .end = 3834, .default = 3827 },
-    .{ .start = 3834, .end = 3842, .default = 3835 },
-    .{ .start = 3842, .end = 3850, .default = 3843 },
-    .{ .start = 3850, .end = 3874, .default = 3859 },
-    .{ .start = 3874, .end = 3876, .default = 3875 },
-    .{ .start = 3876, .end = 3940, .default = 3887 },
-    .{ .start = 3940, .end = 3942, .default = 3941 },
-    .{ .start = 3942, .end = 3944, .default = 3943 },
-    .{ .start = 3944, .end = 3946, .default = 3945 },
-    .{ .start = 3946, .end = 3948, .default = 3947 },
-    .{ .start = 3948, .end = 3950, .default = 3949 },
-    .{ .start = 3950, .end = 3952, .default = 3951 },
-    .{ .start = 3952, .end = 3954, .default = 3953 },
-    .{ .start = 3954, .end = 3956, .default = 3955 },
-    .{ .start = 3956, .end = 3958, .default = 3956 },
-    .{ .start = 3958, .end = 3966, .default = 3958 },
-    .{ .start = 3966, .end = 3990, .default = 3975 },
-    .{ .start = 3990, .end = 3998, .default = 3990 },
-    .{ .start = 3998, .end = 3999, .default = 3998 },
-    .{ .start = 3999, .end = 4000, .default = 3999 },
-    .{ .start = 4000, .end = 4016, .default = 4000 },
-    .{ .start = 4016, .end = 4017, .default = 4016 },
-    .{ .start = 4017, .end = 4033, .default = 4017 },
-    .{ .start = 4033, .end = 4035, .default = 4034 },
-    .{ .start = 4035, .end = 4067, .default = 4066 },
-    .{ .start = 4067, .end = 4068, .default = 4067 },
-    .{ .start = 4068, .end = 4069, .default = 4068 },
-    .{ .start = 4069, .end = 4070, .default = 4069 },
-    .{ .start = 4070, .end = 4071, .default = 4070 },
-    .{ .start = 4071, .end = 4074, .default = 4072 },
-    .{ .start = 4074, .end = 4077, .default = 4075 },
-    .{ .start = 4077, .end = 4078, .default = 4077 },
-    .{ .start = 4078, .end = 4082, .default = 4078 },
-    .{ .start = 4082, .end = 4083, .default = 4082 },
-    .{ .start = 4083, .end = 4085, .default = 4083 },
-    .{ .start = 4085, .end = 4089, .default = 4085 },
-    .{ .start = 4089, .end = 4093, .default = 4089 },
-    .{ .start = 4093, .end = 4100, .default = 4093 },
-    .{ .start = 4100, .end = 4164, .default = 4103 },
-    .{ .start = 4164, .end = 4165, .default = 4164 },
-    .{ .start = 4165, .end = 4166, .default = 4165 },
-    .{ .start = 4166, .end = 4167, .default = 4166 },
-    .{ .start = 4167, .end = 4168, .default = 4167 },
-    .{ .start = 4168, .end = 4169, .default = 4168 },
-    .{ .start = 4169, .end = 4170, .default = 4169 },
-    .{ .start = 4170, .end = 4171, .default = 4170 },
-    .{ .start = 4171, .end = 4172, .default = 4171 },
-    .{ .start = 4172, .end = 4173, .default = 4172 },
-    .{ .start = 4173, .end = 4174, .default = 4173 },
-    .{ .start = 4174, .end = 4175, .default = 4174 },
-    .{ .start = 4175, .end = 4176, .default = 4175 },
-    .{ .start = 4176, .end = 4177, .default = 4176 },
-    .{ .start = 4177, .end = 4178, .default = 4177 },
-    .{ .start = 4178, .end = 4179, .default = 4178 },
-    .{ .start = 4179, .end = 4180, .default = 4179 },
-    .{ .start = 4180, .end = 4244, .default = 4195 },
-    .{ .start = 4244, .end = 4308, .default = 4259 },
-    .{ .start = 4308, .end = 4372, .default = 4323 },
-    .{ .start = 4372, .end = 4436, .default = 4387 },
-    .{ .start = 4436, .end = 4500, .default = 4451 },
-    .{ .start = 4500, .end = 4564, .default = 4515 },
-    .{ .start = 4564, .end = 4565, .default = 4564 },
-    .{ .start = 4565, .end = 4566, .default = 4565 },
-    .{ .start = 4566, .end = 4567, .default = 4566 },
-    .{ .start = 4567, .end = 4568, .default = 4567 },
-    .{ .start = 4568, .end = 4569, .default = 4568 },
-    .{ .start = 4569, .end = 4570, .default = 4569 },
-    .{ .start = 4570, .end = 4571, .default = 4570 },
-    .{ .start = 4571, .end = 4572, .default = 4571 },
-    .{ .start = 4572, .end = 4573, .default = 4572 },
-    .{ .start = 4573, .end = 4574, .default = 4573 },
-    .{ .start = 4574, .end = 4638, .default = 4574 },
-    .{ .start = 4638, .end = 4702, .default = 4638 },
-    .{ .start = 4702, .end = 4766, .default = 4702 },
-    .{ .start = 4766, .end = 4798, .default = 4797 },
-    .{ .start = 4798, .end = 4804, .default = 4801 },
-    .{ .start = 4804, .end = 4836, .default = 4835 },
-    .{ .start = 4836, .end = 4837, .default = 4836 },
-    .{ .start = 4837, .end = 4841, .default = 4837 },
-    .{ .start = 4841, .end = 4845, .default = 4841 },
-    .{ .start = 4845, .end = 4853, .default = 4845 },
-    .{ .start = 4853, .end = 4861, .default = 4853 },
-    .{ .start = 4861, .end = 4893, .default = 4892 },
-    .{ .start = 4893, .end = 5021, .default = 5020 },
-    .{ .start = 5021, .end = 5053, .default = 5028 },
-    .{ .start = 5053, .end = 5133, .default = 5064 },
-    .{ .start = 5133, .end = 5213, .default = 5144 },
-    .{ .start = 5213, .end = 5215, .default = 5214 },
-    .{ .start = 5215, .end = 5216, .default = 5215 },
-    .{ .start = 5216, .end = 5217, .default = 5216 },
-    .{ .start = 5217, .end = 5249, .default = 5248 },
-    .{ .start = 5249, .end = 5329, .default = 5260 },
-    .{ .start = 5329, .end = 5333, .default = 5329 },
-    .{ .start = 5333, .end = 5334, .default = 5333 },
-    .{ .start = 5334, .end = 5342, .default = 5341 },
-    .{ .start = 5342, .end = 5343, .default = 5342 },
-    .{ .start = 5343, .end = 5346, .default = 5343 },
-    .{ .start = 5346, .end = 5347, .default = 5346 },
-    .{ .start = 5347, .end = 5350, .default = 5347 },
-    .{ .start = 5350, .end = 5351, .default = 5350 },
-    .{ .start = 5351, .end = 5359, .default = 5355 },
-    .{ .start = 5359, .end = 5360, .default = 5359 },
-    .{ .start = 5360, .end = 5361, .default = 5360 },
-    .{ .start = 5361, .end = 5363, .default = 5362 },
-    .{ .start = 5363, .end = 5375, .default = 5363 },
-    .{ .start = 5375, .end = 5455, .default = 5386 },
-    .{ .start = 5455, .end = 5456, .default = 5455 },
-    .{ .start = 5456, .end = 5457, .default = 5456 },
-    .{ .start = 5457, .end = 5465, .default = 5458 },
-    .{ .start = 5465, .end = 5481, .default = 5474 },
-    .{ .start = 5481, .end = 5609, .default = 5608 },
-    .{ .start = 5609, .end = 5610, .default = 5609 },
-    .{ .start = 5610, .end = 5690, .default = 5621 },
-    .{ .start = 5690, .end = 5770, .default = 5701 },
-    .{ .start = 5770, .end = 5850, .default = 5781 },
-    .{ .start = 5850, .end = 5862, .default = 5856 },
-    .{ .start = 5862, .end = 5863, .default = 5862 },
-    .{ .start = 5863, .end = 6187, .default = 5866 },
-    .{ .start = 6187, .end = 6511, .default = 6190 },
-    .{ .start = 6511, .end = 6512, .default = 6511 },
-    .{ .start = 6512, .end = 6513, .default = 6512 },
-    .{ .start = 6513, .end = 6514, .default = 6513 },
-    .{ .start = 6514, .end = 6515, .default = 6514 },
-    .{ .start = 6515, .end = 6516, .default = 6515 },
-    .{ .start = 6516, .end = 6517, .default = 6516 },
-    .{ .start = 6517, .end = 6518, .default = 6517 },
-    .{ .start = 6518, .end = 6519, .default = 6518 },
-    .{ .start = 6519, .end = 6520, .default = 6519 },
-    .{ .start = 6520, .end = 6521, .default = 6520 },
-    .{ .start = 6521, .end = 6522, .default = 6521 },
-    .{ .start = 6522, .end = 6523, .default = 6522 },
-    .{ .start = 6523, .end = 6524, .default = 6523 },
-    .{ .start = 6524, .end = 6525, .default = 6524 },
-    .{ .start = 6525, .end = 6526, .default = 6525 },
-    .{ .start = 6526, .end = 6527, .default = 6526 },
-    .{ .start = 6527, .end = 6528, .default = 6527 },
-    .{ .start = 6528, .end = 6529, .default = 6528 },
-    .{ .start = 6529, .end = 6530, .default = 6529 },
-    .{ .start = 6530, .end = 6531, .default = 6530 },
-    .{ .start = 6531, .end = 6532, .default = 6531 },
-    .{ .start = 6532, .end = 6533, .default = 6532 },
-    .{ .start = 6533, .end = 6534, .default = 6533 },
-    .{ .start = 6534, .end = 6535, .default = 6534 },
-    .{ .start = 6535, .end = 6536, .default = 6535 },
-    .{ .start = 6536, .end = 6544, .default = 6536 },
-    .{ .start = 6544, .end = 6552, .default = 6544 },
-    .{ .start = 6552, .end = 6576, .default = 6561 },
-    .{ .start = 6576, .end = 6600, .default = 6585 },
-    .{ .start = 6600, .end = 6624, .default = 6609 },
-    .{ .start = 6624, .end = 6648, .default = 6633 },
-    .{ .start = 6648, .end = 6672, .default = 6657 },
-    .{ .start = 6672, .end = 6696, .default = 6681 },
-    .{ .start = 6696, .end = 6712, .default = 6696 },
-    .{ .start = 6712, .end = 6716, .default = 6712 },
-    .{ .start = 6716, .end = 6732, .default = 6716 },
-    .{ .start = 6732, .end = 6736, .default = 6732 },
-    .{ .start = 6736, .end = 6752, .default = 6736 },
-    .{ .start = 6752, .end = 6756, .default = 6752 },
-    .{ .start = 6756, .end = 6772, .default = 6756 },
-    .{ .start = 6772, .end = 6776, .default = 6772 },
-    .{ .start = 6776, .end = 6792, .default = 6776 },
-    .{ .start = 6792, .end = 6796, .default = 6792 },
-    .{ .start = 6796, .end = 6812, .default = 6796 },
-    .{ .start = 6812, .end = 6816, .default = 6812 },
-    .{ .start = 6816, .end = 6820, .default = 6816 },
-    .{ .start = 6820, .end = 6824, .default = 6820 },
-    .{ .start = 6824, .end = 6828, .default = 6824 },
-    .{ .start = 6828, .end = 6852, .default = 6829 },
-    .{ .start = 6852, .end = 6868, .default = 6852 },
-    .{ .start = 6868, .end = 6884, .default = 6868 },
-    .{ .start = 6884, .end = 6900, .default = 6885 },
-    .{ .start = 6900, .end = 6932, .default = 6916 },
-    .{ .start = 6932, .end = 6933, .default = 6932 },
-    .{ .start = 6933, .end = 6934, .default = 6933 },
-    .{ .start = 6934, .end = 6944, .default = 6934 },
-    .{ .start = 6944, .end = 6945, .default = 6944 },
-    .{ .start = 6945, .end = 6946, .default = 6945 },
-    .{ .start = 6946, .end = 6949, .default = 6947 },
-    .{ .start = 6949, .end = 7029, .default = 6960 },
-    .{ .start = 7029, .end = 7053, .default = 7042 },
-    .{ .start = 7053, .end = 7065, .default = 7054 },
-    .{ .start = 7065, .end = 7066, .default = 7065 },
-    .{ .start = 7066, .end = 7067, .default = 7066 },
-    .{ .start = 7067, .end = 7068, .default = 7067 },
-    .{ .start = 7068, .end = 7069, .default = 7068 },
-    .{ .start = 7069, .end = 7070, .default = 7069 },
-    .{ .start = 7070, .end = 7071, .default = 7070 },
-    .{ .start = 7071, .end = 7072, .default = 7071 },
-    .{ .start = 7072, .end = 7073, .default = 7072 },
-    .{ .start = 7073, .end = 7074, .default = 7073 },
-    .{ .start = 7074, .end = 7075, .default = 7074 },
-    .{ .start = 7075, .end = 7076, .default = 7075 },
-    .{ .start = 7076, .end = 7077, .default = 7076 },
-    .{ .start = 7077, .end = 7078, .default = 7077 },
-    .{ .start = 7078, .end = 7079, .default = 7078 },
-    .{ .start = 7079, .end = 7080, .default = 7079 },
-    .{ .start = 7080, .end = 7081, .default = 7080 },
-    .{ .start = 7081, .end = 7113, .default = 7112 },
-    .{ .start = 7113, .end = 7145, .default = 7144 },
-    .{ .start = 7145, .end = 7177, .default = 7176 },
-    .{ .start = 7177, .end = 7209, .default = 7208 },
-    .{ .start = 7209, .end = 7241, .default = 7240 },
-    .{ .start = 7241, .end = 7273, .default = 7272 },
-    .{ .start = 7273, .end = 7305, .default = 7304 },
-    .{ .start = 7305, .end = 7337, .default = 7336 },
-    .{ .start = 7337, .end = 7369, .default = 7368 },
-    .{ .start = 7369, .end = 7401, .default = 7400 },
-    .{ .start = 7401, .end = 7433, .default = 7432 },
-    .{ .start = 7433, .end = 7465, .default = 7464 },
-    .{ .start = 7465, .end = 7497, .default = 7496 },
-    .{ .start = 7497, .end = 7529, .default = 7528 },
-    .{ .start = 7529, .end = 7561, .default = 7560 },
-    .{ .start = 7561, .end = 7593, .default = 7592 },
-    .{ .start = 7593, .end = 7673, .default = 7604 },
-    .{ .start = 7673, .end = 7753, .default = 7684 },
-    .{ .start = 7753, .end = 7754, .default = 7753 },
-    .{ .start = 7754, .end = 7755, .default = 7754 },
-    .{ .start = 7755, .end = 7787, .default = 7786 },
-    .{ .start = 7787, .end = 7851, .default = 7802 },
-    .{ .start = 7851, .end = 7852, .default = 7851 },
-    .{ .start = 7852, .end = 7853, .default = 7852 },
-    .{ .start = 7853, .end = 7854, .default = 7853 },
-    .{ .start = 7854, .end = 7934, .default = 7865 },
-    .{ .start = 7934, .end = 8014, .default = 7945 },
-    .{ .start = 8014, .end = 8094, .default = 8025 },
-    .{ .start = 8094, .end = 8100, .default = 8097 },
-    .{ .start = 8100, .end = 8106, .default = 8103 },
-    .{ .start = 8106, .end = 8112, .default = 8109 },
-    .{ .start = 8112, .end = 8113, .default = 8112 },
-    .{ .start = 8113, .end = 8116, .default = 8114 },
-    .{ .start = 8116, .end = 8117, .default = 8116 },
-    .{ .start = 8117, .end = 8118, .default = 8117 },
-    .{ .start = 8118, .end = 8119, .default = 8118 },
-    .{ .start = 8119, .end = 8120, .default = 8119 },
-    .{ .start = 8120, .end = 8121, .default = 8120 },
-    .{ .start = 8121, .end = 8122, .default = 8121 },
-    .{ .start = 8122, .end = 8123, .default = 8122 },
-    .{ .start = 8123, .end = 8124, .default = 8123 },
-    .{ .start = 8124, .end = 8125, .default = 8124 },
-    .{ .start = 8125, .end = 8126, .default = 8125 },
-    .{ .start = 8126, .end = 8127, .default = 8126 },
-    .{ .start = 8127, .end = 8128, .default = 8127 },
-    .{ .start = 8128, .end = 8129, .default = 8128 },
-    .{ .start = 8129, .end = 8130, .default = 8129 },
-    .{ .start = 8130, .end = 8131, .default = 8130 },
-    .{ .start = 8131, .end = 8132, .default = 8131 },
-    .{ .start = 8132, .end = 8133, .default = 8132 },
-    .{ .start = 8133, .end = 8134, .default = 8133 },
-    .{ .start = 8134, .end = 8135, .default = 8134 },
-    .{ .start = 8135, .end = 8137, .default = 8136 },
-    .{ .start = 8137, .end = 8139, .default = 8138 },
-    .{ .start = 8139, .end = 8141, .default = 8140 },
-    .{ .start = 8141, .end = 8143, .default = 8142 },
-    .{ .start = 8143, .end = 8145, .default = 8144 },
-    .{ .start = 8145, .end = 8147, .default = 8146 },
-    .{ .start = 8147, .end = 8163, .default = 8147 },
-    .{ .start = 8163, .end = 8179, .default = 8163 },
-    .{ .start = 8179, .end = 8195, .default = 8179 },
-    .{ .start = 8195, .end = 8211, .default = 8195 },
-    .{ .start = 8211, .end = 8227, .default = 8211 },
-    .{ .start = 8227, .end = 8243, .default = 8227 },
-    .{ .start = 8243, .end = 8259, .default = 8243 },
-    .{ .start = 8259, .end = 8275, .default = 8259 },
-    .{ .start = 8275, .end = 8291, .default = 8275 },
-    .{ .start = 8291, .end = 8307, .default = 8291 },
-    .{ .start = 8307, .end = 8323, .default = 8307 },
-    .{ .start = 8323, .end = 8339, .default = 8323 },
-    .{ .start = 8339, .end = 8355, .default = 8339 },
-    .{ .start = 8355, .end = 8371, .default = 8355 },
-    .{ .start = 8371, .end = 8387, .default = 8371 },
-    .{ .start = 8387, .end = 8403, .default = 8387 },
-    .{ .start = 8403, .end = 8407, .default = 8403 },
-    .{ .start = 8407, .end = 8411, .default = 8407 },
-    .{ .start = 8411, .end = 8415, .default = 8411 },
-    .{ .start = 8415, .end = 8419, .default = 8415 },
-    .{ .start = 8419, .end = 8423, .default = 8419 },
-    .{ .start = 8423, .end = 8427, .default = 8423 },
-    .{ .start = 8427, .end = 8431, .default = 8427 },
-    .{ .start = 8431, .end = 8435, .default = 8431 },
-    .{ .start = 8435, .end = 8439, .default = 8435 },
-    .{ .start = 8439, .end = 8443, .default = 8439 },
-    .{ .start = 8443, .end = 8447, .default = 8443 },
-    .{ .start = 8447, .end = 8451, .default = 8447 },
-    .{ .start = 8451, .end = 8455, .default = 8451 },
-    .{ .start = 8455, .end = 8459, .default = 8455 },
-    .{ .start = 8459, .end = 8463, .default = 8459 },
-    .{ .start = 8463, .end = 8467, .default = 8463 },
-    .{ .start = 8467, .end = 8468, .default = 8467 },
-    .{ .start = 8468, .end = 8469, .default = 8468 },
-    .{ .start = 8469, .end = 8470, .default = 8469 },
-    .{ .start = 8470, .end = 8550, .default = 8481 },
-    .{ .start = 8550, .end = 8556, .default = 8553 },
-    .{ .start = 8556, .end = 8562, .default = 8559 },
-    .{ .start = 8562, .end = 8568, .default = 8565 },
-    .{ .start = 8568, .end = 8574, .default = 8571 },
-    .{ .start = 8574, .end = 8580, .default = 8577 },
-    .{ .start = 8580, .end = 8586, .default = 8583 },
-    .{ .start = 8586, .end = 8592, .default = 8589 },
-    .{ .start = 8592, .end = 8598, .default = 8595 },
-    .{ .start = 8598, .end = 8604, .default = 8601 },
-    .{ .start = 8604, .end = 8610, .default = 8607 },
-    .{ .start = 8610, .end = 8616, .default = 8613 },
-    .{ .start = 8616, .end = 8622, .default = 8619 },
-    .{ .start = 8622, .end = 8628, .default = 8625 },
-    .{ .start = 8628, .end = 8634, .default = 8631 },
-    .{ .start = 8634, .end = 8640, .default = 8637 },
-    .{ .start = 8640, .end = 8646, .default = 8643 },
-    .{ .start = 8646, .end = 8652, .default = 8649 },
-    .{ .start = 8652, .end = 8658, .default = 8655 },
-    .{ .start = 8658, .end = 8664, .default = 8661 },
-    .{ .start = 8664, .end = 8665, .default = 8664 },
-    .{ .start = 8665, .end = 8666, .default = 8665 },
-    .{ .start = 8666, .end = 8667, .default = 8666 },
-    .{ .start = 8667, .end = 8668, .default = 8667 },
-    .{ .start = 8668, .end = 8700, .default = 8675 },
-    .{ .start = 8700, .end = 8732, .default = 8707 },
-    .{ .start = 8732, .end = 8764, .default = 8739 },
-    .{ .start = 8764, .end = 8796, .default = 8771 },
-    .{ .start = 8796, .end = 8828, .default = 8803 },
-    .{ .start = 8828, .end = 8860, .default = 8859 },
-    .{ .start = 8860, .end = 8892, .default = 8891 },
-    .{ .start = 8892, .end = 8924, .default = 8923 },
-    .{ .start = 8924, .end = 8956, .default = 8955 },
-    .{ .start = 8956, .end = 8988, .default = 8987 },
-    .{ .start = 8988, .end = 9052, .default = 8999 },
-    .{ .start = 9052, .end = 9116, .default = 9063 },
-    .{ .start = 9116, .end = 9180, .default = 9127 },
-    .{ .start = 9180, .end = 9244, .default = 9191 },
-    .{ .start = 9244, .end = 9308, .default = 9255 },
-    .{ .start = 9308, .end = 9314, .default = 9312 },
-    .{ .start = 9314, .end = 9378, .default = 9377 },
-    .{ .start = 9378, .end = 9384, .default = 9378 },
-    .{ .start = 9384, .end = 9385, .default = 9384 },
-    .{ .start = 9385, .end = 9388, .default = 9386 },
-    .{ .start = 9388, .end = 9468, .default = 9399 },
-    .{ .start = 9468, .end = 9469, .default = 9468 },
-    .{ .start = 9469, .end = 9473, .default = 9469 },
-    .{ .start = 9473, .end = 9474, .default = 9473 },
-    .{ .start = 9474, .end = 9475, .default = 9474 },
-    .{ .start = 9475, .end = 9487, .default = 9481 },
-    .{ .start = 9487, .end = 9499, .default = 9493 },
-    .{ .start = 9499, .end = 9503, .default = 9499 },
-    .{ .start = 9503, .end = 9504, .default = 9503 },
-    .{ .start = 9504, .end = 9505, .default = 9504 },
-    .{ .start = 9505, .end = 9506, .default = 9505 },
-    .{ .start = 9506, .end = 9509, .default = 9507 },
-    .{ .start = 9509, .end = 9510, .default = 9509 },
-    .{ .start = 9510, .end = 9522, .default = 9515 },
-    .{ .start = 9522, .end = 9528, .default = 9526 },
-    .{ .start = 9528, .end = 9534, .default = 9532 },
-    .{ .start = 9534, .end = 9540, .default = 9538 },
-    .{ .start = 9540, .end = 9546, .default = 9544 },
-    .{ .start = 9546, .end = 9552, .default = 9550 },
-    .{ .start = 9552, .end = 9558, .default = 9556 },
-    .{ .start = 9558, .end = 9564, .default = 9562 },
-    .{ .start = 9564, .end = 9570, .default = 9568 },
-    .{ .start = 9570, .end = 9576, .default = 9574 },
-    .{ .start = 9576, .end = 9582, .default = 9580 },
-    .{ .start = 9582, .end = 9588, .default = 9586 },
-    .{ .start = 9588, .end = 9594, .default = 9592 },
-    .{ .start = 9594, .end = 9600, .default = 9598 },
-    .{ .start = 9600, .end = 9606, .default = 9604 },
-    .{ .start = 9606, .end = 9612, .default = 9610 },
-    .{ .start = 9612, .end = 9618, .default = 9616 },
-    .{ .start = 9618, .end = 9624, .default = 9622 },
-    .{ .start = 9624, .end = 9628, .default = 9624 },
-    .{ .start = 9628, .end = 9632, .default = 9628 },
-    .{ .start = 9632, .end = 9636, .default = 9632 },
-    .{ .start = 9636, .end = 9640, .default = 9636 },
-    .{ .start = 9640, .end = 9644, .default = 9640 },
-    .{ .start = 9644, .end = 9648, .default = 9644 },
-    .{ .start = 9648, .end = 9652, .default = 9648 },
-    .{ .start = 9652, .end = 9656, .default = 9652 },
-    .{ .start = 9656, .end = 9660, .default = 9656 },
-    .{ .start = 9660, .end = 9664, .default = 9660 },
-    .{ .start = 9664, .end = 9668, .default = 9664 },
-    .{ .start = 9668, .end = 9672, .default = 9668 },
-    .{ .start = 9672, .end = 9676, .default = 9672 },
-    .{ .start = 9676, .end = 9680, .default = 9676 },
-    .{ .start = 9680, .end = 9684, .default = 9680 },
-    .{ .start = 9684, .end = 9688, .default = 9684 },
-    .{ .start = 9688, .end = 9689, .default = 9688 },
-    .{ .start = 9689, .end = 9690, .default = 9689 },
-    .{ .start = 9690, .end = 9691, .default = 9690 },
-    .{ .start = 9691, .end = 9692, .default = 9691 },
-    .{ .start = 9692, .end = 9693, .default = 9692 },
-    .{ .start = 9693, .end = 9694, .default = 9693 },
-    .{ .start = 9694, .end = 9695, .default = 9694 },
-    .{ .start = 9695, .end = 9696, .default = 9695 },
-    .{ .start = 9696, .end = 9697, .default = 9696 },
-    .{ .start = 9697, .end = 9698, .default = 9697 },
-    .{ .start = 9698, .end = 9699, .default = 9698 },
-    .{ .start = 9699, .end = 9700, .default = 9699 },
-    .{ .start = 9700, .end = 9701, .default = 9700 },
-    .{ .start = 9701, .end = 9702, .default = 9701 },
-    .{ .start = 9702, .end = 9703, .default = 9702 },
-    .{ .start = 9703, .end = 9704, .default = 9703 },
-    .{ .start = 9704, .end = 9705, .default = 9704 },
-    .{ .start = 9705, .end = 9706, .default = 9705 },
-    .{ .start = 9706, .end = 9707, .default = 9706 },
-    .{ .start = 9707, .end = 9708, .default = 9707 },
-    .{ .start = 9708, .end = 9709, .default = 9708 },
-    .{ .start = 9709, .end = 9710, .default = 9709 },
-    .{ .start = 9710, .end = 9711, .default = 9710 },
-    .{ .start = 9711, .end = 9712, .default = 9711 },
-    .{ .start = 9712, .end = 9713, .default = 9712 },
-    .{ .start = 9713, .end = 9714, .default = 9713 },
-    .{ .start = 9714, .end = 9715, .default = 9714 },
-    .{ .start = 9715, .end = 9716, .default = 9715 },
-    .{ .start = 9716, .end = 9717, .default = 9716 },
-    .{ .start = 9717, .end = 9718, .default = 9717 },
-    .{ .start = 9718, .end = 9719, .default = 9718 },
-    .{ .start = 9719, .end = 9720, .default = 9719 },
-    .{ .start = 9720, .end = 9746, .default = 9720 },
-    .{ .start = 9746, .end = 9747, .default = 9746 },
-    .{ .start = 9747, .end = 9748, .default = 9747 },
-    .{ .start = 9748, .end = 9760, .default = 9748 },
-    .{ .start = 9760, .end = 9761, .default = 9760 },
-    .{ .start = 9761, .end = 9762, .default = 9761 },
-    .{ .start = 9762, .end = 9763, .default = 9762 },
-    .{ .start = 9763, .end = 9764, .default = 9763 },
-    .{ .start = 9764, .end = 9765, .default = 9764 },
-    .{ .start = 9765, .end = 9766, .default = 9765 },
-    .{ .start = 9766, .end = 9767, .default = 9766 },
-    .{ .start = 9767, .end = 9768, .default = 9767 },
-    .{ .start = 9768, .end = 9769, .default = 9768 },
-    .{ .start = 9769, .end = 9770, .default = 9769 },
-    .{ .start = 9770, .end = 9772, .default = 9770 },
-    .{ .start = 9772, .end = 9774, .default = 9772 },
-    .{ .start = 9774, .end = 9776, .default = 9774 },
-    .{ .start = 9776, .end = 9778, .default = 9776 },
-    .{ .start = 9778, .end = 9780, .default = 9778 },
-    .{ .start = 9780, .end = 9782, .default = 9780 },
-    .{ .start = 9782, .end = 9784, .default = 9782 },
-    .{ .start = 9784, .end = 9786, .default = 9784 },
-    .{ .start = 9786, .end = 9788, .default = 9786 },
-    .{ .start = 9788, .end = 9790, .default = 9788 },
-    .{ .start = 9790, .end = 9792, .default = 9790 },
-    .{ .start = 9792, .end = 9794, .default = 9792 },
-    .{ .start = 9794, .end = 9796, .default = 9794 },
-    .{ .start = 9796, .end = 9798, .default = 9796 },
-    .{ .start = 9798, .end = 9800, .default = 9798 },
-    .{ .start = 9800, .end = 9802, .default = 9800 },
-    .{ .start = 9802, .end = 9804, .default = 9802 },
-    .{ .start = 9804, .end = 9806, .default = 9804 },
-    .{ .start = 9806, .end = 9808, .default = 9806 },
-    .{ .start = 9808, .end = 9810, .default = 9808 },
-    .{ .start = 9810, .end = 9818, .default = 9810 },
-    .{ .start = 9818, .end = 9826, .default = 9818 },
-    .{ .start = 9826, .end = 9834, .default = 9826 },
-    .{ .start = 9834, .end = 9842, .default = 9834 },
-    .{ .start = 9842, .end = 9850, .default = 9842 },
-    .{ .start = 9850, .end = 9858, .default = 9850 },
-    .{ .start = 9858, .end = 9866, .default = 9858 },
-    .{ .start = 9866, .end = 9874, .default = 9866 },
-    .{ .start = 9874, .end = 9882, .default = 9874 },
-    .{ .start = 9882, .end = 9890, .default = 9882 },
-    .{ .start = 9890, .end = 9898, .default = 9890 },
-    .{ .start = 9898, .end = 9899, .default = 9898 },
-    .{ .start = 9899, .end = 9901, .default = 9899 },
-    .{ .start = 9901, .end = 9902, .default = 9901 },
-    .{ .start = 9902, .end = 9914, .default = 9902 },
-    .{ .start = 9914, .end = 9915, .default = 9914 },
-    .{ .start = 9915, .end = 9916, .default = 9915 },
-    .{ .start = 9916, .end = 9917, .default = 9916 },
-    .{ .start = 9917, .end = 9919, .default = 9917 },
-    .{ .start = 9919, .end = 9999, .default = 9930 },
-    .{ .start = 9999, .end = 10079, .default = 10010 },
-    .{ .start = 10079, .end = 10159, .default = 10090 },
-    .{ .start = 10159, .end = 10239, .default = 10170 },
-    .{ .start = 10239, .end = 10319, .default = 10250 },
-    .{ .start = 10319, .end = 10399, .default = 10330 },
-    .{ .start = 10399, .end = 10479, .default = 10410 },
-    .{ .start = 10479, .end = 10559, .default = 10490 },
-    .{ .start = 10559, .end = 10639, .default = 10570 },
-    .{ .start = 10639, .end = 10719, .default = 10650 },
-    .{ .start = 10719, .end = 10799, .default = 10730 },
-    .{ .start = 10799, .end = 10879, .default = 10810 },
-    .{ .start = 10879, .end = 10959, .default = 10890 },
-    .{ .start = 10959, .end = 11039, .default = 10970 },
-    .{ .start = 11039, .end = 11045, .default = 11042 },
-    .{ .start = 11045, .end = 11051, .default = 11048 },
-    .{ .start = 11051, .end = 11057, .default = 11054 },
-    .{ .start = 11057, .end = 11063, .default = 11060 },
-    .{ .start = 11063, .end = 11069, .default = 11066 },
-    .{ .start = 11069, .end = 11075, .default = 11072 },
-    .{ .start = 11075, .end = 11081, .default = 11078 },
-    .{ .start = 11081, .end = 11087, .default = 11084 },
-    .{ .start = 11087, .end = 11093, .default = 11090 },
-    .{ .start = 11093, .end = 11099, .default = 11096 },
-    .{ .start = 11099, .end = 11105, .default = 11102 },
-    .{ .start = 11105, .end = 11111, .default = 11108 },
-    .{ .start = 11111, .end = 11117, .default = 11114 },
-    .{ .start = 11117, .end = 11441, .default = 11120 },
-    .{ .start = 11441, .end = 11765, .default = 11444 },
-    .{ .start = 11765, .end = 12089, .default = 11768 },
-    .{ .start = 12089, .end = 12413, .default = 12092 },
-    .{ .start = 12413, .end = 12737, .default = 12416 },
-    .{ .start = 12737, .end = 13061, .default = 12740 },
-    .{ .start = 13061, .end = 13385, .default = 13064 },
-    .{ .start = 13385, .end = 13709, .default = 13388 },
-    .{ .start = 13709, .end = 14033, .default = 13712 },
-    .{ .start = 14033, .end = 14357, .default = 14036 },
-    .{ .start = 14357, .end = 14681, .default = 14360 },
-    .{ .start = 14681, .end = 15005, .default = 14684 },
-    .{ .start = 15005, .end = 15037, .default = 15036 },
-    .{ .start = 15037, .end = 15041, .default = 15037 },
-    .{ .start = 15041, .end = 15053, .default = 15042 },
-    .{ .start = 15053, .end = 15061, .default = 15054 },
-    .{ .start = 15061, .end = 15069, .default = 15062 },
-    .{ .start = 15069, .end = 15070, .default = 15069 },
-    .{ .start = 15070, .end = 15071, .default = 15070 },
-    .{ .start = 15071, .end = 15083, .default = 15075 },
-    .{ .start = 15083, .end = 15099, .default = 15086 },
-    .{ .start = 15099, .end = 15100, .default = 15099 },
-    .{ .start = 15100, .end = 15104, .default = 15100 },
-    .{ .start = 15104, .end = 15136, .default = 15105 },
-    .{ .start = 15136, .end = 15140, .default = 15139 },
-    .{ .start = 15140, .end = 15144, .default = 15143 },
-    .{ .start = 15144, .end = 15176, .default = 15147 },
-    .{ .start = 15176, .end = 15208, .default = 15179 },
-    .{ .start = 15208, .end = 15212, .default = 15208 },
-    .{ .start = 15212, .end = 15215, .default = 15213 },
-    .{ .start = 15215, .end = 15218, .default = 15216 },
-    .{ .start = 15218, .end = 15221, .default = 15219 },
-    .{ .start = 15221, .end = 15224, .default = 15222 },
-    .{ .start = 15224, .end = 15225, .default = 15224 },
-    .{ .start = 15225, .end = 15226, .default = 15225 },
-    .{ .start = 15226, .end = 15227, .default = 15226 },
-    .{ .start = 15227, .end = 15228, .default = 15227 },
-    .{ .start = 15228, .end = 15229, .default = 15228 },
-    .{ .start = 15229, .end = 15232, .default = 15230 },
-    .{ .start = 15232, .end = 15235, .default = 15233 },
-    .{ .start = 15235, .end = 15238, .default = 15236 },
-    .{ .start = 15238, .end = 15241, .default = 15239 },
-    .{ .start = 15241, .end = 15242, .default = 15241 },
-    .{ .start = 15242, .end = 15243, .default = 15242 },
-    .{ .start = 15243, .end = 15244, .default = 15243 },
-    .{ .start = 15244, .end = 15270, .default = 15244 },
-    .{ .start = 15270, .end = 15271, .default = 15270 },
-    .{ .start = 15271, .end = 15297, .default = 15271 },
-    .{ .start = 15297, .end = 15298, .default = 15297 },
-    .{ .start = 15298, .end = 15299, .default = 15298 },
-    .{ .start = 15299, .end = 15300, .default = 15299 },
-    .{ .start = 15300, .end = 15301, .default = 15300 },
-    .{ .start = 15301, .end = 15307, .default = 15304 },
-    .{ .start = 15307, .end = 15313, .default = 15310 },
-    .{ .start = 15313, .end = 15315, .default = 15314 },
-    .{ .start = 15315, .end = 15317, .default = 15316 },
-    .{ .start = 15317, .end = 15349, .default = 15348 },
-    .{ .start = 15349, .end = 15381, .default = 15380 },
-    .{ .start = 15381, .end = 15445, .default = 15396 },
-    .{ .start = 15445, .end = 15509, .default = 15460 },
-    .{ .start = 15509, .end = 15541, .default = 15516 },
-    .{ .start = 15541, .end = 15573, .default = 15548 },
-    .{ .start = 15573, .end = 15653, .default = 15584 },
-    .{ .start = 15653, .end = 15733, .default = 15664 },
-    .{ .start = 15733, .end = 15757, .default = 15742 },
-    .{ .start = 15757, .end = 15781, .default = 15766 },
-    .{ .start = 15781, .end = 15845, .default = 15792 },
-    .{ .start = 15845, .end = 15909, .default = 15856 },
-    .{ .start = 15909, .end = 15941, .default = 15910 },
-    .{ .start = 15941, .end = 15973, .default = 15942 },
-    .{ .start = 15973, .end = 15981, .default = 15974 },
-    .{ .start = 15981, .end = 15989, .default = 15982 },
-    .{ .start = 15989, .end = 15993, .default = 15990 },
-    .{ .start = 15993, .end = 16005, .default = 16003 },
-    .{ .start = 16005, .end = 16014, .default = 16005 },
-    .{ .start = 16014, .end = 16030, .default = 16014 },
-    .{ .start = 16030, .end = 16054, .default = 16030 },
-    .{ .start = 16054, .end = 16078, .default = 16054 },
-    .{ .start = 16078, .end = 16079, .default = 16078 },
-    .{ .start = 16079, .end = 16080, .default = 16079 },
-    .{ .start = 16080, .end = 16081, .default = 16080 },
-    .{ .start = 16081, .end = 16082, .default = 16081 },
-    .{ .start = 16082, .end = 16083, .default = 16082 },
-    .{ .start = 16083, .end = 16088, .default = 16083 },
-    .{ .start = 16088, .end = 16089, .default = 16088 },
-    .{ .start = 16089, .end = 16090, .default = 16089 },
-    .{ .start = 16090, .end = 16091, .default = 16090 },
-    .{ .start = 16091, .end = 16092, .default = 16091 },
-    .{ .start = 16092, .end = 16093, .default = 16092 },
-    .{ .start = 16093, .end = 16094, .default = 16093 },
-    .{ .start = 16094, .end = 16174, .default = 16105 },
-    .{ .start = 16174, .end = 16498, .default = 16177 },
-    .{ .start = 16498, .end = 16504, .default = 16501 },
-    .{ .start = 16504, .end = 16505, .default = 16504 },
-    .{ .start = 16505, .end = 16506, .default = 16505 },
-    .{ .start = 16506, .end = 16507, .default = 16506 },
-    .{ .start = 16507, .end = 16508, .default = 16507 },
-    .{ .start = 16508, .end = 16514, .default = 16511 },
-    .{ .start = 16514, .end = 16594, .default = 16525 },
-    .{ .start = 16594, .end = 16918, .default = 16597 },
-    .{ .start = 16918, .end = 16919, .default = 16918 },
-    .{ .start = 16919, .end = 16999, .default = 16930 },
-    .{ .start = 16999, .end = 17005, .default = 17002 },
-    .{ .start = 17005, .end = 17007, .default = 17006 },
-    .{ .start = 17007, .end = 17031, .default = 17016 },
-    .{ .start = 17031, .end = 17355, .default = 17034 },
-    .{ .start = 17355, .end = 17356, .default = 17355 },
-    .{ .start = 17356, .end = 17357, .default = 17356 },
-    .{ .start = 17357, .end = 17358, .default = 17357 },
-    .{ .start = 17358, .end = 17374, .default = 17361 },
-    .{ .start = 17374, .end = 17390, .default = 17377 },
-    .{ .start = 17390, .end = 17406, .default = 17393 },
-    .{ .start = 17406, .end = 17422, .default = 17409 },
-    .{ .start = 17422, .end = 17438, .default = 17425 },
-    .{ .start = 17438, .end = 17454, .default = 17441 },
-    .{ .start = 17454, .end = 17470, .default = 17457 },
-    .{ .start = 17470, .end = 17486, .default = 17473 },
-    .{ .start = 17486, .end = 17502, .default = 17489 },
-    .{ .start = 17502, .end = 17518, .default = 17505 },
-    .{ .start = 17518, .end = 17534, .default = 17521 },
-    .{ .start = 17534, .end = 17550, .default = 17537 },
-    .{ .start = 17550, .end = 17566, .default = 17553 },
-    .{ .start = 17566, .end = 17582, .default = 17569 },
-    .{ .start = 17582, .end = 17598, .default = 17585 },
-    .{ .start = 17598, .end = 17614, .default = 17601 },
-    .{ .start = 17614, .end = 17630, .default = 17617 },
-    .{ .start = 17630, .end = 17632, .default = 17631 },
-    .{ .start = 17632, .end = 17634, .default = 17633 },
-    .{ .start = 17634, .end = 17636, .default = 17635 },
-    .{ .start = 17636, .end = 17638, .default = 17637 },
-    .{ .start = 17638, .end = 17640, .default = 17639 },
-    .{ .start = 17640, .end = 17642, .default = 17641 },
-    .{ .start = 17642, .end = 17644, .default = 17643 },
-    .{ .start = 17644, .end = 17646, .default = 17645 },
-    .{ .start = 17646, .end = 17648, .default = 17647 },
-    .{ .start = 17648, .end = 17650, .default = 17649 },
-    .{ .start = 17650, .end = 17652, .default = 17651 },
-    .{ .start = 17652, .end = 17654, .default = 17653 },
-    .{ .start = 17654, .end = 17656, .default = 17655 },
-    .{ .start = 17656, .end = 17658, .default = 17657 },
-    .{ .start = 17658, .end = 17660, .default = 17659 },
-    .{ .start = 17660, .end = 17662, .default = 17661 },
-    .{ .start = 17662, .end = 17664, .default = 17663 },
-    .{ .start = 17664, .end = 17665, .default = 17664 },
-    .{ .start = 17665, .end = 17666, .default = 17665 },
-    .{ .start = 17666, .end = 17678, .default = 17675 },
-    .{ .start = 17678, .end = 17690, .default = 17687 },
-    .{ .start = 17690, .end = 17702, .default = 17699 },
-    .{ .start = 17702, .end = 17714, .default = 17711 },
-    .{ .start = 17714, .end = 17715, .default = 17714 },
-    .{ .start = 17715, .end = 17716, .default = 17715 },
-    .{ .start = 17716, .end = 17717, .default = 17716 },
-    .{ .start = 17717, .end = 17718, .default = 17717 },
-    .{ .start = 17718, .end = 17814, .default = 17719 },
-    .{ .start = 17814, .end = 17815, .default = 17814 },
-    .{ .start = 17815, .end = 17816, .default = 17815 },
-    .{ .start = 17816, .end = 17817, .default = 17816 },
-    .{ .start = 17817, .end = 17818, .default = 17817 },
-    .{ .start = 17818, .end = 17819, .default = 17818 },
-    .{ .start = 17819, .end = 17820, .default = 17819 },
-    .{ .start = 17820, .end = 17821, .default = 17820 },
-    .{ .start = 17821, .end = 17822, .default = 17821 },
-    .{ .start = 17822, .end = 17823, .default = 17822 },
-    .{ .start = 17823, .end = 17824, .default = 17823 },
-    .{ .start = 17824, .end = 17904, .default = 17835 },
-    .{ .start = 17904, .end = 17984, .default = 17915 },
-    .{ .start = 17984, .end = 18064, .default = 17995 },
-    .{ .start = 18064, .end = 18144, .default = 18075 },
-    .{ .start = 18144, .end = 18150, .default = 18147 },
-    .{ .start = 18150, .end = 18156, .default = 18153 },
-    .{ .start = 18156, .end = 18162, .default = 18159 },
-    .{ .start = 18162, .end = 18168, .default = 18165 },
-    .{ .start = 18168, .end = 18169, .default = 18168 },
-    .{ .start = 18169, .end = 18170, .default = 18169 },
-    .{ .start = 18170, .end = 18171, .default = 18170 },
-    .{ .start = 18171, .end = 18172, .default = 18171 },
-    .{ .start = 18172, .end = 18173, .default = 18172 },
-    .{ .start = 18173, .end = 18174, .default = 18173 },
-    .{ .start = 18174, .end = 18175, .default = 18174 },
-    .{ .start = 18175, .end = 18176, .default = 18175 },
-    .{ .start = 18176, .end = 18256, .default = 18187 },
-    .{ .start = 18256, .end = 18336, .default = 18267 },
-    .{ .start = 18336, .end = 18416, .default = 18347 },
-    .{ .start = 18416, .end = 18496, .default = 18427 },
-    .{ .start = 18496, .end = 18502, .default = 18499 },
-    .{ .start = 18502, .end = 18508, .default = 18505 },
-    .{ .start = 18508, .end = 18514, .default = 18511 },
-    .{ .start = 18514, .end = 18520, .default = 18517 },
-    .{ .start = 18520, .end = 18544, .default = 18539 },
-    .{ .start = 18544, .end = 18564, .default = 18549 },
-    .{ .start = 18564, .end = 18565, .default = 18564 },
-    .{ .start = 18565, .end = 18617, .default = 18566 },
+    .{ .start = 75, .end = 91, .default = 75 },
+    .{ .start = 91, .end = 107, .default = 91 },
+    .{ .start = 107, .end = 108, .default = 107 },
+    .{ .start = 108, .end = 109, .default = 108 },
+    .{ .start = 109, .end = 110, .default = 109 },
+    .{ .start = 110, .end = 111, .default = 110 },
+    .{ .start = 111, .end = 112, .default = 111 },
+    .{ .start = 112, .end = 113, .default = 112 },
+    .{ .start = 113, .end = 114, .default = 113 },
+    .{ .start = 114, .end = 115, .default = 114 },
+    .{ .start = 115, .end = 116, .default = 115 },
+    .{ .start = 116, .end = 117, .default = 116 },
+    .{ .start = 117, .end = 120, .default = 118 },
+    .{ .start = 120, .end = 123, .default = 121 },
+    .{ .start = 123, .end = 126, .default = 124 },
+    .{ .start = 126, .end = 129, .default = 127 },
+    .{ .start = 129, .end = 132, .default = 130 },
+    .{ .start = 132, .end = 135, .default = 133 },
+    .{ .start = 135, .end = 138, .default = 136 },
+    .{ .start = 138, .end = 140, .default = 139 },
+    .{ .start = 140, .end = 143, .default = 141 },
+    .{ .start = 143, .end = 146, .default = 144 },
+    .{ .start = 146, .end = 149, .default = 147 },
+    .{ .start = 149, .end = 152, .default = 150 },
+    .{ .start = 152, .end = 155, .default = 153 },
+    .{ .start = 155, .end = 158, .default = 156 },
+    .{ .start = 158, .end = 161, .default = 159 },
+    .{ .start = 161, .end = 164, .default = 162 },
+    .{ .start = 164, .end = 167, .default = 165 },
+    .{ .start = 167, .end = 170, .default = 168 },
+    .{ .start = 170, .end = 173, .default = 171 },
+    .{ .start = 173, .end = 176, .default = 174 },
+    .{ .start = 176, .end = 179, .default = 177 },
+    .{ .start = 179, .end = 182, .default = 180 },
+    .{ .start = 182, .end = 185, .default = 183 },
+    .{ .start = 185, .end = 188, .default = 186 },
+    .{ .start = 188, .end = 191, .default = 189 },
+    .{ .start = 191, .end = 194, .default = 192 },
+    .{ .start = 194, .end = 197, .default = 195 },
+    .{ .start = 197, .end = 200, .default = 198 },
+    .{ .start = 200, .end = 203, .default = 201 },
+    .{ .start = 203, .end = 206, .default = 204 },
+    .{ .start = 206, .end = 234, .default = 233 },
+    .{ .start = 234, .end = 262, .default = 261 },
+    .{ .start = 262, .end = 290, .default = 289 },
+    .{ .start = 290, .end = 318, .default = 317 },
+    .{ .start = 318, .end = 346, .default = 345 },
+    .{ .start = 346, .end = 374, .default = 373 },
+    .{ .start = 374, .end = 402, .default = 401 },
+    .{ .start = 402, .end = 430, .default = 429 },
+    .{ .start = 430, .end = 458, .default = 457 },
+    .{ .start = 458, .end = 459, .default = 458 },
+    .{ .start = 459, .end = 460, .default = 459 },
+    .{ .start = 460, .end = 461, .default = 460 },
+    .{ .start = 461, .end = 462, .default = 461 },
+    .{ .start = 462, .end = 463, .default = 462 },
+    .{ .start = 463, .end = 464, .default = 463 },
+    .{ .start = 464, .end = 476, .default = 465 },
+    .{ .start = 476, .end = 477, .default = 476 },
+    .{ .start = 477, .end = 478, .default = 477 },
+    .{ .start = 478, .end = 479, .default = 478 },
+    .{ .start = 479, .end = 1279, .default = 480 },
+    .{ .start = 1279, .end = 1295, .default = 1282 },
+    .{ .start = 1295, .end = 1311, .default = 1298 },
+    .{ .start = 1311, .end = 1327, .default = 1314 },
+    .{ .start = 1327, .end = 1343, .default = 1330 },
+    .{ .start = 1343, .end = 1359, .default = 1346 },
+    .{ .start = 1359, .end = 1375, .default = 1362 },
+    .{ .start = 1375, .end = 1391, .default = 1378 },
+    .{ .start = 1391, .end = 1407, .default = 1394 },
+    .{ .start = 1407, .end = 1423, .default = 1410 },
+    .{ .start = 1423, .end = 1439, .default = 1426 },
+    .{ .start = 1439, .end = 1455, .default = 1442 },
+    .{ .start = 1455, .end = 1471, .default = 1458 },
+    .{ .start = 1471, .end = 1487, .default = 1474 },
+    .{ .start = 1487, .end = 1503, .default = 1490 },
+    .{ .start = 1503, .end = 1519, .default = 1506 },
+    .{ .start = 1519, .end = 1535, .default = 1522 },
+    .{ .start = 1535, .end = 1559, .default = 1548 },
+    .{ .start = 1559, .end = 1583, .default = 1572 },
+    .{ .start = 1583, .end = 1595, .default = 1589 },
+    .{ .start = 1595, .end = 1596, .default = 1595 },
+    .{ .start = 1596, .end = 1597, .default = 1596 },
+    .{ .start = 1597, .end = 1598, .default = 1597 },
+    .{ .start = 1598, .end = 1599, .default = 1598 },
+    .{ .start = 1599, .end = 1600, .default = 1599 },
+    .{ .start = 1600, .end = 1602, .default = 1601 },
+    .{ .start = 1602, .end = 1614, .default = 1608 },
+    .{ .start = 1614, .end = 1638, .default = 1616 },
+    .{ .start = 1638, .end = 1639, .default = 1638 },
+    .{ .start = 1639, .end = 1640, .default = 1639 },
+    .{ .start = 1640, .end = 1641, .default = 1640 },
+    .{ .start = 1641, .end = 1642, .default = 1641 },
+    .{ .start = 1642, .end = 1643, .default = 1642 },
+    .{ .start = 1643, .end = 1644, .default = 1643 },
+    .{ .start = 1644, .end = 1645, .default = 1644 },
+    .{ .start = 1645, .end = 1646, .default = 1645 },
+    .{ .start = 1646, .end = 1647, .default = 1646 },
+    .{ .start = 1647, .end = 1648, .default = 1647 },
+    .{ .start = 1648, .end = 1649, .default = 1648 },
+    .{ .start = 1649, .end = 1650, .default = 1649 },
+    .{ .start = 1650, .end = 1651, .default = 1650 },
+    .{ .start = 1651, .end = 1652, .default = 1651 },
+    .{ .start = 1652, .end = 1653, .default = 1652 },
+    .{ .start = 1653, .end = 1654, .default = 1653 },
+    .{ .start = 1654, .end = 1666, .default = 1654 },
+    .{ .start = 1666, .end = 1667, .default = 1666 },
+    .{ .start = 1667, .end = 1668, .default = 1667 },
+    .{ .start = 1668, .end = 1669, .default = 1668 },
+    .{ .start = 1669, .end = 1670, .default = 1669 },
+    .{ .start = 1670, .end = 1671, .default = 1670 },
+    .{ .start = 1671, .end = 1672, .default = 1671 },
+    .{ .start = 1672, .end = 1673, .default = 1672 },
+    .{ .start = 1673, .end = 1674, .default = 1673 },
+    .{ .start = 1674, .end = 1675, .default = 1674 },
+    .{ .start = 1675, .end = 1676, .default = 1675 },
+    .{ .start = 1676, .end = 1677, .default = 1676 },
+    .{ .start = 1677, .end = 1678, .default = 1677 },
+    .{ .start = 1678, .end = 1679, .default = 1678 },
+    .{ .start = 1679, .end = 1680, .default = 1679 },
+    .{ .start = 1680, .end = 1681, .default = 1680 },
+    .{ .start = 1681, .end = 1682, .default = 1681 },
+    .{ .start = 1682, .end = 1683, .default = 1682 },
+    .{ .start = 1683, .end = 1684, .default = 1683 },
+    .{ .start = 1684, .end = 1686, .default = 1685 },
+    .{ .start = 1686, .end = 1687, .default = 1686 },
+    .{ .start = 1687, .end = 1688, .default = 1687 },
+    .{ .start = 1688, .end = 1689, .default = 1688 },
+    .{ .start = 1689, .end = 1690, .default = 1689 },
+    .{ .start = 1690, .end = 1694, .default = 1690 },
+    .{ .start = 1694, .end = 2206, .default = 1725 },
+    .{ .start = 2206, .end = 2207, .default = 2206 },
+    .{ .start = 2207, .end = 2208, .default = 2207 },
+    .{ .start = 2208, .end = 2288, .default = 2219 },
+    .{ .start = 2288, .end = 2312, .default = 2289 },
+    .{ .start = 2312, .end = 3608, .default = 3472 },
+    .{ .start = 3608, .end = 3609, .default = 3608 },
+    .{ .start = 3609, .end = 3610, .default = 3609 },
+    .{ .start = 3610, .end = 3611, .default = 3610 },
+    .{ .start = 3611, .end = 3612, .default = 3611 },
+    .{ .start = 3612, .end = 3620, .default = 3612 },
+    .{ .start = 3620, .end = 3628, .default = 3620 },
+    .{ .start = 3628, .end = 3636, .default = 3629 },
+    .{ .start = 3636, .end = 3668, .default = 3637 },
+    .{ .start = 3668, .end = 3700, .default = 3669 },
+    .{ .start = 3700, .end = 3732, .default = 3701 },
+    .{ .start = 3732, .end = 3764, .default = 3733 },
+    .{ .start = 3764, .end = 3796, .default = 3765 },
+    .{ .start = 3796, .end = 3828, .default = 3797 },
+    .{ .start = 3828, .end = 3860, .default = 3829 },
+    .{ .start = 3860, .end = 3924, .default = 3871 },
+    .{ .start = 3924, .end = 3932, .default = 3925 },
+    .{ .start = 3932, .end = 3952, .default = 3933 },
+    .{ .start = 3952, .end = 4032, .default = 3963 },
+    .{ .start = 4032, .end = 4040, .default = 4033 },
+    .{ .start = 4040, .end = 4048, .default = 4041 },
+    .{ .start = 4048, .end = 4056, .default = 4049 },
+    .{ .start = 4056, .end = 4064, .default = 4057 },
+    .{ .start = 4064, .end = 4072, .default = 4065 },
+    .{ .start = 4072, .end = 4080, .default = 4073 },
+    .{ .start = 4080, .end = 4088, .default = 4081 },
+    .{ .start = 4088, .end = 4112, .default = 4097 },
+    .{ .start = 4112, .end = 4114, .default = 4113 },
+    .{ .start = 4114, .end = 4178, .default = 4125 },
+    .{ .start = 4178, .end = 4180, .default = 4179 },
+    .{ .start = 4180, .end = 4182, .default = 4181 },
+    .{ .start = 4182, .end = 4184, .default = 4183 },
+    .{ .start = 4184, .end = 4186, .default = 4185 },
+    .{ .start = 4186, .end = 4188, .default = 4187 },
+    .{ .start = 4188, .end = 4190, .default = 4189 },
+    .{ .start = 4190, .end = 4192, .default = 4191 },
+    .{ .start = 4192, .end = 4194, .default = 4193 },
+    .{ .start = 4194, .end = 4196, .default = 4195 },
+    .{ .start = 4196, .end = 4198, .default = 4196 },
+    .{ .start = 4198, .end = 4206, .default = 4198 },
+    .{ .start = 4206, .end = 4230, .default = 4215 },
+    .{ .start = 4230, .end = 4238, .default = 4230 },
+    .{ .start = 4238, .end = 4239, .default = 4238 },
+    .{ .start = 4239, .end = 4240, .default = 4239 },
+    .{ .start = 4240, .end = 4256, .default = 4240 },
+    .{ .start = 4256, .end = 4257, .default = 4256 },
+    .{ .start = 4257, .end = 4273, .default = 4257 },
+    .{ .start = 4273, .end = 4275, .default = 4274 },
+    .{ .start = 4275, .end = 4307, .default = 4306 },
+    .{ .start = 4307, .end = 4308, .default = 4307 },
+    .{ .start = 4308, .end = 4309, .default = 4308 },
+    .{ .start = 4309, .end = 4310, .default = 4309 },
+    .{ .start = 4310, .end = 4311, .default = 4310 },
+    .{ .start = 4311, .end = 4314, .default = 4312 },
+    .{ .start = 4314, .end = 4317, .default = 4315 },
+    .{ .start = 4317, .end = 4318, .default = 4317 },
+    .{ .start = 4318, .end = 4322, .default = 4318 },
+    .{ .start = 4322, .end = 4323, .default = 4322 },
+    .{ .start = 4323, .end = 4325, .default = 4323 },
+    .{ .start = 4325, .end = 4329, .default = 4325 },
+    .{ .start = 4329, .end = 4333, .default = 4329 },
+    .{ .start = 4333, .end = 4340, .default = 4333 },
+    .{ .start = 4340, .end = 4404, .default = 4343 },
+    .{ .start = 4404, .end = 4405, .default = 4404 },
+    .{ .start = 4405, .end = 4406, .default = 4405 },
+    .{ .start = 4406, .end = 4407, .default = 4406 },
+    .{ .start = 4407, .end = 4408, .default = 4407 },
+    .{ .start = 4408, .end = 4409, .default = 4408 },
+    .{ .start = 4409, .end = 4410, .default = 4409 },
+    .{ .start = 4410, .end = 4411, .default = 4410 },
+    .{ .start = 4411, .end = 4412, .default = 4411 },
+    .{ .start = 4412, .end = 4413, .default = 4412 },
+    .{ .start = 4413, .end = 4414, .default = 4413 },
+    .{ .start = 4414, .end = 4415, .default = 4414 },
+    .{ .start = 4415, .end = 4416, .default = 4415 },
+    .{ .start = 4416, .end = 4417, .default = 4416 },
+    .{ .start = 4417, .end = 4418, .default = 4417 },
+    .{ .start = 4418, .end = 4419, .default = 4418 },
+    .{ .start = 4419, .end = 4420, .default = 4419 },
+    .{ .start = 4420, .end = 4484, .default = 4435 },
+    .{ .start = 4484, .end = 4548, .default = 4499 },
+    .{ .start = 4548, .end = 4612, .default = 4563 },
+    .{ .start = 4612, .end = 4676, .default = 4627 },
+    .{ .start = 4676, .end = 4740, .default = 4691 },
+    .{ .start = 4740, .end = 4804, .default = 4755 },
+    .{ .start = 4804, .end = 4868, .default = 4819 },
+    .{ .start = 4868, .end = 4869, .default = 4868 },
+    .{ .start = 4869, .end = 4870, .default = 4869 },
+    .{ .start = 4870, .end = 4871, .default = 4870 },
+    .{ .start = 4871, .end = 4872, .default = 4871 },
+    .{ .start = 4872, .end = 4873, .default = 4872 },
+    .{ .start = 4873, .end = 4874, .default = 4873 },
+    .{ .start = 4874, .end = 4875, .default = 4874 },
+    .{ .start = 4875, .end = 4876, .default = 4875 },
+    .{ .start = 4876, .end = 4877, .default = 4876 },
+    .{ .start = 4877, .end = 4878, .default = 4877 },
+    .{ .start = 4878, .end = 4879, .default = 4878 },
+    .{ .start = 4879, .end = 4880, .default = 4879 },
+    .{ .start = 4880, .end = 4944, .default = 4880 },
+    .{ .start = 4944, .end = 5008, .default = 4944 },
+    .{ .start = 5008, .end = 5072, .default = 5008 },
+    .{ .start = 5072, .end = 5104, .default = 5103 },
+    .{ .start = 5104, .end = 5110, .default = 5107 },
+    .{ .start = 5110, .end = 5142, .default = 5141 },
+    .{ .start = 5142, .end = 5143, .default = 5142 },
+    .{ .start = 5143, .end = 5147, .default = 5143 },
+    .{ .start = 5147, .end = 5151, .default = 5147 },
+    .{ .start = 5151, .end = 5159, .default = 5151 },
+    .{ .start = 5159, .end = 5167, .default = 5159 },
+    .{ .start = 5167, .end = 5199, .default = 5198 },
+    .{ .start = 5199, .end = 5327, .default = 5326 },
+    .{ .start = 5327, .end = 5359, .default = 5334 },
+    .{ .start = 5359, .end = 5439, .default = 5370 },
+    .{ .start = 5439, .end = 5519, .default = 5450 },
+    .{ .start = 5519, .end = 5599, .default = 5530 },
+    .{ .start = 5599, .end = 5601, .default = 5600 },
+    .{ .start = 5601, .end = 5602, .default = 5601 },
+    .{ .start = 5602, .end = 5603, .default = 5602 },
+    .{ .start = 5603, .end = 5635, .default = 5634 },
+    .{ .start = 5635, .end = 5715, .default = 5646 },
+    .{ .start = 5715, .end = 5719, .default = 5715 },
+    .{ .start = 5719, .end = 5720, .default = 5719 },
+    .{ .start = 5720, .end = 5728, .default = 5727 },
+    .{ .start = 5728, .end = 5729, .default = 5728 },
+    .{ .start = 5729, .end = 5732, .default = 5729 },
+    .{ .start = 5732, .end = 5733, .default = 5732 },
+    .{ .start = 5733, .end = 5736, .default = 5733 },
+    .{ .start = 5736, .end = 5737, .default = 5736 },
+    .{ .start = 5737, .end = 5745, .default = 5741 },
+    .{ .start = 5745, .end = 5746, .default = 5745 },
+    .{ .start = 5746, .end = 5747, .default = 5746 },
+    .{ .start = 5747, .end = 5749, .default = 5748 },
+    .{ .start = 5749, .end = 5761, .default = 5749 },
+    .{ .start = 5761, .end = 5841, .default = 5772 },
+    .{ .start = 5841, .end = 5842, .default = 5841 },
+    .{ .start = 5842, .end = 5843, .default = 5842 },
+    .{ .start = 5843, .end = 5851, .default = 5844 },
+    .{ .start = 5851, .end = 5867, .default = 5860 },
+    .{ .start = 5867, .end = 5995, .default = 5994 },
+    .{ .start = 5995, .end = 5996, .default = 5995 },
+    .{ .start = 5996, .end = 6076, .default = 6007 },
+    .{ .start = 6076, .end = 6156, .default = 6087 },
+    .{ .start = 6156, .end = 6236, .default = 6167 },
+    .{ .start = 6236, .end = 6248, .default = 6242 },
+    .{ .start = 6248, .end = 6249, .default = 6248 },
+    .{ .start = 6249, .end = 6573, .default = 6252 },
+    .{ .start = 6573, .end = 6897, .default = 6576 },
+    .{ .start = 6897, .end = 6898, .default = 6897 },
+    .{ .start = 6898, .end = 6899, .default = 6898 },
+    .{ .start = 6899, .end = 6900, .default = 6899 },
+    .{ .start = 6900, .end = 6901, .default = 6900 },
+    .{ .start = 6901, .end = 6902, .default = 6901 },
+    .{ .start = 6902, .end = 6903, .default = 6902 },
+    .{ .start = 6903, .end = 6904, .default = 6903 },
+    .{ .start = 6904, .end = 6905, .default = 6904 },
+    .{ .start = 6905, .end = 6906, .default = 6905 },
+    .{ .start = 6906, .end = 6907, .default = 6906 },
+    .{ .start = 6907, .end = 6908, .default = 6907 },
+    .{ .start = 6908, .end = 6909, .default = 6908 },
+    .{ .start = 6909, .end = 6910, .default = 6909 },
+    .{ .start = 6910, .end = 6911, .default = 6910 },
+    .{ .start = 6911, .end = 6912, .default = 6911 },
+    .{ .start = 6912, .end = 6913, .default = 6912 },
+    .{ .start = 6913, .end = 6914, .default = 6913 },
+    .{ .start = 6914, .end = 6915, .default = 6914 },
+    .{ .start = 6915, .end = 6916, .default = 6915 },
+    .{ .start = 6916, .end = 6917, .default = 6916 },
+    .{ .start = 6917, .end = 6918, .default = 6917 },
+    .{ .start = 6918, .end = 6919, .default = 6918 },
+    .{ .start = 6919, .end = 6920, .default = 6919 },
+    .{ .start = 6920, .end = 6921, .default = 6920 },
+    .{ .start = 6921, .end = 6922, .default = 6921 },
+    .{ .start = 6922, .end = 6923, .default = 6922 },
+    .{ .start = 6923, .end = 6931, .default = 6923 },
+    .{ .start = 6931, .end = 6939, .default = 6931 },
+    .{ .start = 6939, .end = 6963, .default = 6948 },
+    .{ .start = 6963, .end = 6987, .default = 6972 },
+    .{ .start = 6987, .end = 7011, .default = 6996 },
+    .{ .start = 7011, .end = 7035, .default = 7020 },
+    .{ .start = 7035, .end = 7059, .default = 7044 },
+    .{ .start = 7059, .end = 7083, .default = 7068 },
+    .{ .start = 7083, .end = 7107, .default = 7092 },
+    .{ .start = 7107, .end = 7123, .default = 7107 },
+    .{ .start = 7123, .end = 7127, .default = 7123 },
+    .{ .start = 7127, .end = 7143, .default = 7127 },
+    .{ .start = 7143, .end = 7147, .default = 7143 },
+    .{ .start = 7147, .end = 7163, .default = 7147 },
+    .{ .start = 7163, .end = 7167, .default = 7163 },
+    .{ .start = 7167, .end = 7183, .default = 7167 },
+    .{ .start = 7183, .end = 7187, .default = 7183 },
+    .{ .start = 7187, .end = 7203, .default = 7187 },
+    .{ .start = 7203, .end = 7207, .default = 7203 },
+    .{ .start = 7207, .end = 7223, .default = 7207 },
+    .{ .start = 7223, .end = 7227, .default = 7223 },
+    .{ .start = 7227, .end = 7231, .default = 7227 },
+    .{ .start = 7231, .end = 7235, .default = 7231 },
+    .{ .start = 7235, .end = 7239, .default = 7235 },
+    .{ .start = 7239, .end = 7263, .default = 7240 },
+    .{ .start = 7263, .end = 7279, .default = 7263 },
+    .{ .start = 7279, .end = 7295, .default = 7279 },
+    .{ .start = 7295, .end = 7311, .default = 7296 },
+    .{ .start = 7311, .end = 7343, .default = 7327 },
+    .{ .start = 7343, .end = 7344, .default = 7343 },
+    .{ .start = 7344, .end = 7345, .default = 7344 },
+    .{ .start = 7345, .end = 7355, .default = 7345 },
+    .{ .start = 7355, .end = 7356, .default = 7355 },
+    .{ .start = 7356, .end = 7357, .default = 7356 },
+    .{ .start = 7357, .end = 7360, .default = 7358 },
+    .{ .start = 7360, .end = 7440, .default = 7371 },
+    .{ .start = 7440, .end = 7464, .default = 7453 },
+    .{ .start = 7464, .end = 7476, .default = 7465 },
+    .{ .start = 7476, .end = 7477, .default = 7476 },
+    .{ .start = 7477, .end = 7478, .default = 7477 },
+    .{ .start = 7478, .end = 7479, .default = 7478 },
+    .{ .start = 7479, .end = 7480, .default = 7479 },
+    .{ .start = 7480, .end = 7481, .default = 7480 },
+    .{ .start = 7481, .end = 7482, .default = 7481 },
+    .{ .start = 7482, .end = 7483, .default = 7482 },
+    .{ .start = 7483, .end = 7484, .default = 7483 },
+    .{ .start = 7484, .end = 7485, .default = 7484 },
+    .{ .start = 7485, .end = 7486, .default = 7485 },
+    .{ .start = 7486, .end = 7487, .default = 7486 },
+    .{ .start = 7487, .end = 7488, .default = 7487 },
+    .{ .start = 7488, .end = 7489, .default = 7488 },
+    .{ .start = 7489, .end = 7490, .default = 7489 },
+    .{ .start = 7490, .end = 7491, .default = 7490 },
+    .{ .start = 7491, .end = 7492, .default = 7491 },
+    .{ .start = 7492, .end = 7524, .default = 7523 },
+    .{ .start = 7524, .end = 7556, .default = 7555 },
+    .{ .start = 7556, .end = 7588, .default = 7587 },
+    .{ .start = 7588, .end = 7620, .default = 7619 },
+    .{ .start = 7620, .end = 7652, .default = 7651 },
+    .{ .start = 7652, .end = 7684, .default = 7683 },
+    .{ .start = 7684, .end = 7716, .default = 7715 },
+    .{ .start = 7716, .end = 7748, .default = 7747 },
+    .{ .start = 7748, .end = 7780, .default = 7779 },
+    .{ .start = 7780, .end = 7812, .default = 7811 },
+    .{ .start = 7812, .end = 7844, .default = 7843 },
+    .{ .start = 7844, .end = 7876, .default = 7875 },
+    .{ .start = 7876, .end = 7908, .default = 7907 },
+    .{ .start = 7908, .end = 7940, .default = 7939 },
+    .{ .start = 7940, .end = 7972, .default = 7971 },
+    .{ .start = 7972, .end = 8004, .default = 8003 },
+    .{ .start = 8004, .end = 8084, .default = 8015 },
+    .{ .start = 8084, .end = 8164, .default = 8095 },
+    .{ .start = 8164, .end = 8244, .default = 8175 },
+    .{ .start = 8244, .end = 8245, .default = 8244 },
+    .{ .start = 8245, .end = 8246, .default = 8245 },
+    .{ .start = 8246, .end = 8278, .default = 8277 },
+    .{ .start = 8278, .end = 8342, .default = 8293 },
+    .{ .start = 8342, .end = 8343, .default = 8342 },
+    .{ .start = 8343, .end = 8344, .default = 8343 },
+    .{ .start = 8344, .end = 8345, .default = 8344 },
+    .{ .start = 8345, .end = 8425, .default = 8356 },
+    .{ .start = 8425, .end = 8505, .default = 8436 },
+    .{ .start = 8505, .end = 8585, .default = 8516 },
+    .{ .start = 8585, .end = 8591, .default = 8588 },
+    .{ .start = 8591, .end = 8597, .default = 8594 },
+    .{ .start = 8597, .end = 8603, .default = 8600 },
+    .{ .start = 8603, .end = 8604, .default = 8603 },
+    .{ .start = 8604, .end = 8607, .default = 8605 },
+    .{ .start = 8607, .end = 8608, .default = 8607 },
+    .{ .start = 8608, .end = 8609, .default = 8608 },
+    .{ .start = 8609, .end = 8610, .default = 8609 },
+    .{ .start = 8610, .end = 8611, .default = 8610 },
+    .{ .start = 8611, .end = 8612, .default = 8611 },
+    .{ .start = 8612, .end = 8613, .default = 8612 },
+    .{ .start = 8613, .end = 8614, .default = 8613 },
+    .{ .start = 8614, .end = 8615, .default = 8614 },
+    .{ .start = 8615, .end = 8616, .default = 8615 },
+    .{ .start = 8616, .end = 8617, .default = 8616 },
+    .{ .start = 8617, .end = 8618, .default = 8617 },
+    .{ .start = 8618, .end = 8619, .default = 8618 },
+    .{ .start = 8619, .end = 8620, .default = 8619 },
+    .{ .start = 8620, .end = 8621, .default = 8620 },
+    .{ .start = 8621, .end = 8622, .default = 8621 },
+    .{ .start = 8622, .end = 8623, .default = 8622 },
+    .{ .start = 8623, .end = 8624, .default = 8623 },
+    .{ .start = 8624, .end = 8625, .default = 8624 },
+    .{ .start = 8625, .end = 8626, .default = 8625 },
+    .{ .start = 8626, .end = 8628, .default = 8627 },
+    .{ .start = 8628, .end = 8630, .default = 8629 },
+    .{ .start = 8630, .end = 8632, .default = 8631 },
+    .{ .start = 8632, .end = 8634, .default = 8633 },
+    .{ .start = 8634, .end = 8636, .default = 8635 },
+    .{ .start = 8636, .end = 8638, .default = 8637 },
+    .{ .start = 8638, .end = 8654, .default = 8638 },
+    .{ .start = 8654, .end = 8670, .default = 8654 },
+    .{ .start = 8670, .end = 8686, .default = 8670 },
+    .{ .start = 8686, .end = 8702, .default = 8686 },
+    .{ .start = 8702, .end = 8718, .default = 8702 },
+    .{ .start = 8718, .end = 8734, .default = 8718 },
+    .{ .start = 8734, .end = 8750, .default = 8734 },
+    .{ .start = 8750, .end = 8766, .default = 8750 },
+    .{ .start = 8766, .end = 8782, .default = 8766 },
+    .{ .start = 8782, .end = 8798, .default = 8782 },
+    .{ .start = 8798, .end = 8814, .default = 8798 },
+    .{ .start = 8814, .end = 8830, .default = 8814 },
+    .{ .start = 8830, .end = 8846, .default = 8830 },
+    .{ .start = 8846, .end = 8862, .default = 8846 },
+    .{ .start = 8862, .end = 8878, .default = 8862 },
+    .{ .start = 8878, .end = 8894, .default = 8878 },
+    .{ .start = 8894, .end = 8898, .default = 8894 },
+    .{ .start = 8898, .end = 8902, .default = 8898 },
+    .{ .start = 8902, .end = 8906, .default = 8902 },
+    .{ .start = 8906, .end = 8910, .default = 8906 },
+    .{ .start = 8910, .end = 8914, .default = 8910 },
+    .{ .start = 8914, .end = 8918, .default = 8914 },
+    .{ .start = 8918, .end = 8922, .default = 8918 },
+    .{ .start = 8922, .end = 8926, .default = 8922 },
+    .{ .start = 8926, .end = 8930, .default = 8926 },
+    .{ .start = 8930, .end = 8934, .default = 8930 },
+    .{ .start = 8934, .end = 8938, .default = 8934 },
+    .{ .start = 8938, .end = 8942, .default = 8938 },
+    .{ .start = 8942, .end = 8946, .default = 8942 },
+    .{ .start = 8946, .end = 8950, .default = 8946 },
+    .{ .start = 8950, .end = 8954, .default = 8950 },
+    .{ .start = 8954, .end = 8958, .default = 8954 },
+    .{ .start = 8958, .end = 8959, .default = 8958 },
+    .{ .start = 8959, .end = 8960, .default = 8959 },
+    .{ .start = 8960, .end = 8961, .default = 8960 },
+    .{ .start = 8961, .end = 9041, .default = 8972 },
+    .{ .start = 9041, .end = 9047, .default = 9044 },
+    .{ .start = 9047, .end = 9053, .default = 9050 },
+    .{ .start = 9053, .end = 9059, .default = 9056 },
+    .{ .start = 9059, .end = 9065, .default = 9062 },
+    .{ .start = 9065, .end = 9071, .default = 9068 },
+    .{ .start = 9071, .end = 9077, .default = 9074 },
+    .{ .start = 9077, .end = 9083, .default = 9080 },
+    .{ .start = 9083, .end = 9089, .default = 9086 },
+    .{ .start = 9089, .end = 9095, .default = 9092 },
+    .{ .start = 9095, .end = 9101, .default = 9098 },
+    .{ .start = 9101, .end = 9107, .default = 9104 },
+    .{ .start = 9107, .end = 9113, .default = 9110 },
+    .{ .start = 9113, .end = 9119, .default = 9116 },
+    .{ .start = 9119, .end = 9125, .default = 9122 },
+    .{ .start = 9125, .end = 9131, .default = 9128 },
+    .{ .start = 9131, .end = 9137, .default = 9134 },
+    .{ .start = 9137, .end = 9143, .default = 9140 },
+    .{ .start = 9143, .end = 9149, .default = 9146 },
+    .{ .start = 9149, .end = 9155, .default = 9152 },
+    .{ .start = 9155, .end = 9161, .default = 9158 },
+    .{ .start = 9161, .end = 9167, .default = 9164 },
+    .{ .start = 9167, .end = 9168, .default = 9167 },
+    .{ .start = 9168, .end = 9169, .default = 9168 },
+    .{ .start = 9169, .end = 9170, .default = 9169 },
+    .{ .start = 9170, .end = 9171, .default = 9170 },
+    .{ .start = 9171, .end = 9203, .default = 9178 },
+    .{ .start = 9203, .end = 9235, .default = 9210 },
+    .{ .start = 9235, .end = 9267, .default = 9242 },
+    .{ .start = 9267, .end = 9299, .default = 9274 },
+    .{ .start = 9299, .end = 9331, .default = 9306 },
+    .{ .start = 9331, .end = 9363, .default = 9338 },
+    .{ .start = 9363, .end = 9395, .default = 9394 },
+    .{ .start = 9395, .end = 9427, .default = 9426 },
+    .{ .start = 9427, .end = 9459, .default = 9458 },
+    .{ .start = 9459, .end = 9491, .default = 9490 },
+    .{ .start = 9491, .end = 9523, .default = 9522 },
+    .{ .start = 9523, .end = 9555, .default = 9554 },
+    .{ .start = 9555, .end = 9619, .default = 9566 },
+    .{ .start = 9619, .end = 9683, .default = 9630 },
+    .{ .start = 9683, .end = 9747, .default = 9694 },
+    .{ .start = 9747, .end = 9811, .default = 9758 },
+    .{ .start = 9811, .end = 9875, .default = 9822 },
+    .{ .start = 9875, .end = 9939, .default = 9886 },
+    .{ .start = 9939, .end = 9945, .default = 9943 },
+    .{ .start = 9945, .end = 10009, .default = 10008 },
+    .{ .start = 10009, .end = 10015, .default = 10009 },
+    .{ .start = 10015, .end = 10016, .default = 10015 },
+    .{ .start = 10016, .end = 10019, .default = 10017 },
+    .{ .start = 10019, .end = 10099, .default = 10030 },
+    .{ .start = 10099, .end = 10100, .default = 10099 },
+    .{ .start = 10100, .end = 10104, .default = 10100 },
+    .{ .start = 10104, .end = 10105, .default = 10104 },
+    .{ .start = 10105, .end = 10106, .default = 10105 },
+    .{ .start = 10106, .end = 10118, .default = 10112 },
+    .{ .start = 10118, .end = 10130, .default = 10124 },
+    .{ .start = 10130, .end = 10134, .default = 10130 },
+    .{ .start = 10134, .end = 10135, .default = 10134 },
+    .{ .start = 10135, .end = 10136, .default = 10135 },
+    .{ .start = 10136, .end = 10137, .default = 10136 },
+    .{ .start = 10137, .end = 10140, .default = 10138 },
+    .{ .start = 10140, .end = 10141, .default = 10140 },
+    .{ .start = 10141, .end = 10153, .default = 10146 },
+    .{ .start = 10153, .end = 10159, .default = 10157 },
+    .{ .start = 10159, .end = 10165, .default = 10163 },
+    .{ .start = 10165, .end = 10171, .default = 10169 },
+    .{ .start = 10171, .end = 10177, .default = 10175 },
+    .{ .start = 10177, .end = 10183, .default = 10181 },
+    .{ .start = 10183, .end = 10189, .default = 10187 },
+    .{ .start = 10189, .end = 10195, .default = 10193 },
+    .{ .start = 10195, .end = 10201, .default = 10199 },
+    .{ .start = 10201, .end = 10207, .default = 10205 },
+    .{ .start = 10207, .end = 10213, .default = 10211 },
+    .{ .start = 10213, .end = 10219, .default = 10217 },
+    .{ .start = 10219, .end = 10225, .default = 10223 },
+    .{ .start = 10225, .end = 10231, .default = 10229 },
+    .{ .start = 10231, .end = 10237, .default = 10235 },
+    .{ .start = 10237, .end = 10243, .default = 10241 },
+    .{ .start = 10243, .end = 10249, .default = 10247 },
+    .{ .start = 10249, .end = 10255, .default = 10253 },
+    .{ .start = 10255, .end = 10259, .default = 10255 },
+    .{ .start = 10259, .end = 10263, .default = 10259 },
+    .{ .start = 10263, .end = 10267, .default = 10263 },
+    .{ .start = 10267, .end = 10271, .default = 10267 },
+    .{ .start = 10271, .end = 10275, .default = 10271 },
+    .{ .start = 10275, .end = 10279, .default = 10275 },
+    .{ .start = 10279, .end = 10283, .default = 10279 },
+    .{ .start = 10283, .end = 10287, .default = 10283 },
+    .{ .start = 10287, .end = 10291, .default = 10287 },
+    .{ .start = 10291, .end = 10295, .default = 10291 },
+    .{ .start = 10295, .end = 10299, .default = 10295 },
+    .{ .start = 10299, .end = 10303, .default = 10299 },
+    .{ .start = 10303, .end = 10307, .default = 10303 },
+    .{ .start = 10307, .end = 10311, .default = 10307 },
+    .{ .start = 10311, .end = 10315, .default = 10311 },
+    .{ .start = 10315, .end = 10319, .default = 10315 },
+    .{ .start = 10319, .end = 10320, .default = 10319 },
+    .{ .start = 10320, .end = 10321, .default = 10320 },
+    .{ .start = 10321, .end = 10322, .default = 10321 },
+    .{ .start = 10322, .end = 10323, .default = 10322 },
+    .{ .start = 10323, .end = 10324, .default = 10323 },
+    .{ .start = 10324, .end = 10325, .default = 10324 },
+    .{ .start = 10325, .end = 10326, .default = 10325 },
+    .{ .start = 10326, .end = 10327, .default = 10326 },
+    .{ .start = 10327, .end = 10328, .default = 10327 },
+    .{ .start = 10328, .end = 10329, .default = 10328 },
+    .{ .start = 10329, .end = 10330, .default = 10329 },
+    .{ .start = 10330, .end = 10331, .default = 10330 },
+    .{ .start = 10331, .end = 10332, .default = 10331 },
+    .{ .start = 10332, .end = 10333, .default = 10332 },
+    .{ .start = 10333, .end = 10334, .default = 10333 },
+    .{ .start = 10334, .end = 10335, .default = 10334 },
+    .{ .start = 10335, .end = 10336, .default = 10335 },
+    .{ .start = 10336, .end = 10337, .default = 10336 },
+    .{ .start = 10337, .end = 10338, .default = 10337 },
+    .{ .start = 10338, .end = 10339, .default = 10338 },
+    .{ .start = 10339, .end = 10340, .default = 10339 },
+    .{ .start = 10340, .end = 10341, .default = 10340 },
+    .{ .start = 10341, .end = 10342, .default = 10341 },
+    .{ .start = 10342, .end = 10343, .default = 10342 },
+    .{ .start = 10343, .end = 10344, .default = 10343 },
+    .{ .start = 10344, .end = 10345, .default = 10344 },
+    .{ .start = 10345, .end = 10346, .default = 10345 },
+    .{ .start = 10346, .end = 10347, .default = 10346 },
+    .{ .start = 10347, .end = 10348, .default = 10347 },
+    .{ .start = 10348, .end = 10349, .default = 10348 },
+    .{ .start = 10349, .end = 10350, .default = 10349 },
+    .{ .start = 10350, .end = 10351, .default = 10350 },
+    .{ .start = 10351, .end = 10377, .default = 10351 },
+    .{ .start = 10377, .end = 10378, .default = 10377 },
+    .{ .start = 10378, .end = 10379, .default = 10378 },
+    .{ .start = 10379, .end = 10391, .default = 10379 },
+    .{ .start = 10391, .end = 10392, .default = 10391 },
+    .{ .start = 10392, .end = 10393, .default = 10392 },
+    .{ .start = 10393, .end = 10394, .default = 10393 },
+    .{ .start = 10394, .end = 10395, .default = 10394 },
+    .{ .start = 10395, .end = 10396, .default = 10395 },
+    .{ .start = 10396, .end = 10397, .default = 10396 },
+    .{ .start = 10397, .end = 10398, .default = 10397 },
+    .{ .start = 10398, .end = 10399, .default = 10398 },
+    .{ .start = 10399, .end = 10400, .default = 10399 },
+    .{ .start = 10400, .end = 10401, .default = 10400 },
+    .{ .start = 10401, .end = 10403, .default = 10401 },
+    .{ .start = 10403, .end = 10405, .default = 10403 },
+    .{ .start = 10405, .end = 10407, .default = 10405 },
+    .{ .start = 10407, .end = 10409, .default = 10407 },
+    .{ .start = 10409, .end = 10411, .default = 10409 },
+    .{ .start = 10411, .end = 10413, .default = 10411 },
+    .{ .start = 10413, .end = 10415, .default = 10413 },
+    .{ .start = 10415, .end = 10417, .default = 10415 },
+    .{ .start = 10417, .end = 10419, .default = 10417 },
+    .{ .start = 10419, .end = 10421, .default = 10419 },
+    .{ .start = 10421, .end = 10423, .default = 10421 },
+    .{ .start = 10423, .end = 10425, .default = 10423 },
+    .{ .start = 10425, .end = 10427, .default = 10425 },
+    .{ .start = 10427, .end = 10429, .default = 10427 },
+    .{ .start = 10429, .end = 10431, .default = 10429 },
+    .{ .start = 10431, .end = 10433, .default = 10431 },
+    .{ .start = 10433, .end = 10435, .default = 10433 },
+    .{ .start = 10435, .end = 10437, .default = 10435 },
+    .{ .start = 10437, .end = 10439, .default = 10437 },
+    .{ .start = 10439, .end = 10441, .default = 10439 },
+    .{ .start = 10441, .end = 10449, .default = 10441 },
+    .{ .start = 10449, .end = 10457, .default = 10449 },
+    .{ .start = 10457, .end = 10465, .default = 10457 },
+    .{ .start = 10465, .end = 10473, .default = 10465 },
+    .{ .start = 10473, .end = 10481, .default = 10473 },
+    .{ .start = 10481, .end = 10489, .default = 10481 },
+    .{ .start = 10489, .end = 10497, .default = 10489 },
+    .{ .start = 10497, .end = 10505, .default = 10497 },
+    .{ .start = 10505, .end = 10513, .default = 10505 },
+    .{ .start = 10513, .end = 10521, .default = 10513 },
+    .{ .start = 10521, .end = 10529, .default = 10521 },
+    .{ .start = 10529, .end = 10530, .default = 10529 },
+    .{ .start = 10530, .end = 10532, .default = 10530 },
+    .{ .start = 10532, .end = 10533, .default = 10532 },
+    .{ .start = 10533, .end = 10545, .default = 10533 },
+    .{ .start = 10545, .end = 10546, .default = 10545 },
+    .{ .start = 10546, .end = 10547, .default = 10546 },
+    .{ .start = 10547, .end = 10548, .default = 10547 },
+    .{ .start = 10548, .end = 10550, .default = 10548 },
+    .{ .start = 10550, .end = 10630, .default = 10561 },
+    .{ .start = 10630, .end = 10710, .default = 10641 },
+    .{ .start = 10710, .end = 10790, .default = 10721 },
+    .{ .start = 10790, .end = 10870, .default = 10801 },
+    .{ .start = 10870, .end = 10950, .default = 10881 },
+    .{ .start = 10950, .end = 11030, .default = 10961 },
+    .{ .start = 11030, .end = 11110, .default = 11041 },
+    .{ .start = 11110, .end = 11190, .default = 11121 },
+    .{ .start = 11190, .end = 11270, .default = 11201 },
+    .{ .start = 11270, .end = 11350, .default = 11281 },
+    .{ .start = 11350, .end = 11430, .default = 11361 },
+    .{ .start = 11430, .end = 11510, .default = 11441 },
+    .{ .start = 11510, .end = 11590, .default = 11521 },
+    .{ .start = 11590, .end = 11670, .default = 11601 },
+    .{ .start = 11670, .end = 11676, .default = 11673 },
+    .{ .start = 11676, .end = 11682, .default = 11679 },
+    .{ .start = 11682, .end = 11688, .default = 11685 },
+    .{ .start = 11688, .end = 11694, .default = 11691 },
+    .{ .start = 11694, .end = 11700, .default = 11697 },
+    .{ .start = 11700, .end = 11706, .default = 11703 },
+    .{ .start = 11706, .end = 11712, .default = 11709 },
+    .{ .start = 11712, .end = 11718, .default = 11715 },
+    .{ .start = 11718, .end = 11724, .default = 11721 },
+    .{ .start = 11724, .end = 11730, .default = 11727 },
+    .{ .start = 11730, .end = 11736, .default = 11733 },
+    .{ .start = 11736, .end = 11742, .default = 11739 },
+    .{ .start = 11742, .end = 11748, .default = 11745 },
+    .{ .start = 11748, .end = 12072, .default = 11751 },
+    .{ .start = 12072, .end = 12396, .default = 12075 },
+    .{ .start = 12396, .end = 12720, .default = 12399 },
+    .{ .start = 12720, .end = 13044, .default = 12723 },
+    .{ .start = 13044, .end = 13368, .default = 13047 },
+    .{ .start = 13368, .end = 13692, .default = 13371 },
+    .{ .start = 13692, .end = 14016, .default = 13695 },
+    .{ .start = 14016, .end = 14340, .default = 14019 },
+    .{ .start = 14340, .end = 14664, .default = 14343 },
+    .{ .start = 14664, .end = 14988, .default = 14667 },
+    .{ .start = 14988, .end = 15312, .default = 14991 },
+    .{ .start = 15312, .end = 15636, .default = 15315 },
+    .{ .start = 15636, .end = 15960, .default = 15639 },
+    .{ .start = 15960, .end = 15992, .default = 15991 },
+    .{ .start = 15992, .end = 15996, .default = 15992 },
+    .{ .start = 15996, .end = 16008, .default = 15997 },
+    .{ .start = 16008, .end = 16016, .default = 16009 },
+    .{ .start = 16016, .end = 16024, .default = 16017 },
+    .{ .start = 16024, .end = 16025, .default = 16024 },
+    .{ .start = 16025, .end = 16026, .default = 16025 },
+    .{ .start = 16026, .end = 16038, .default = 16030 },
+    .{ .start = 16038, .end = 16054, .default = 16041 },
+    .{ .start = 16054, .end = 16055, .default = 16054 },
+    .{ .start = 16055, .end = 16059, .default = 16055 },
+    .{ .start = 16059, .end = 16091, .default = 16060 },
+    .{ .start = 16091, .end = 16095, .default = 16094 },
+    .{ .start = 16095, .end = 16099, .default = 16098 },
+    .{ .start = 16099, .end = 16131, .default = 16102 },
+    .{ .start = 16131, .end = 16163, .default = 16134 },
+    .{ .start = 16163, .end = 16167, .default = 16163 },
+    .{ .start = 16167, .end = 16170, .default = 16168 },
+    .{ .start = 16170, .end = 16173, .default = 16171 },
+    .{ .start = 16173, .end = 16176, .default = 16174 },
+    .{ .start = 16176, .end = 16179, .default = 16177 },
+    .{ .start = 16179, .end = 16180, .default = 16179 },
+    .{ .start = 16180, .end = 16181, .default = 16180 },
+    .{ .start = 16181, .end = 16182, .default = 16181 },
+    .{ .start = 16182, .end = 16183, .default = 16182 },
+    .{ .start = 16183, .end = 16184, .default = 16183 },
+    .{ .start = 16184, .end = 16187, .default = 16185 },
+    .{ .start = 16187, .end = 16190, .default = 16188 },
+    .{ .start = 16190, .end = 16193, .default = 16191 },
+    .{ .start = 16193, .end = 16196, .default = 16194 },
+    .{ .start = 16196, .end = 16197, .default = 16196 },
+    .{ .start = 16197, .end = 16198, .default = 16197 },
+    .{ .start = 16198, .end = 16199, .default = 16198 },
+    .{ .start = 16199, .end = 16225, .default = 16199 },
+    .{ .start = 16225, .end = 16226, .default = 16225 },
+    .{ .start = 16226, .end = 16252, .default = 16226 },
+    .{ .start = 16252, .end = 16253, .default = 16252 },
+    .{ .start = 16253, .end = 16254, .default = 16253 },
+    .{ .start = 16254, .end = 16255, .default = 16254 },
+    .{ .start = 16255, .end = 16256, .default = 16255 },
+    .{ .start = 16256, .end = 16262, .default = 16259 },
+    .{ .start = 16262, .end = 16268, .default = 16265 },
+    .{ .start = 16268, .end = 16270, .default = 16269 },
+    .{ .start = 16270, .end = 16272, .default = 16271 },
+    .{ .start = 16272, .end = 16304, .default = 16303 },
+    .{ .start = 16304, .end = 16336, .default = 16335 },
+    .{ .start = 16336, .end = 16400, .default = 16351 },
+    .{ .start = 16400, .end = 16464, .default = 16415 },
+    .{ .start = 16464, .end = 16496, .default = 16471 },
+    .{ .start = 16496, .end = 16528, .default = 16503 },
+    .{ .start = 16528, .end = 16608, .default = 16539 },
+    .{ .start = 16608, .end = 16688, .default = 16619 },
+    .{ .start = 16688, .end = 16712, .default = 16697 },
+    .{ .start = 16712, .end = 16736, .default = 16721 },
+    .{ .start = 16736, .end = 16800, .default = 16747 },
+    .{ .start = 16800, .end = 16864, .default = 16811 },
+    .{ .start = 16864, .end = 16896, .default = 16865 },
+    .{ .start = 16896, .end = 16928, .default = 16897 },
+    .{ .start = 16928, .end = 16936, .default = 16929 },
+    .{ .start = 16936, .end = 16944, .default = 16937 },
+    .{ .start = 16944, .end = 16948, .default = 16945 },
+    .{ .start = 16948, .end = 16960, .default = 16958 },
+    .{ .start = 16960, .end = 16969, .default = 16960 },
+    .{ .start = 16969, .end = 16985, .default = 16969 },
+    .{ .start = 16985, .end = 17009, .default = 16985 },
+    .{ .start = 17009, .end = 17033, .default = 17009 },
+    .{ .start = 17033, .end = 17034, .default = 17033 },
+    .{ .start = 17034, .end = 17035, .default = 17034 },
+    .{ .start = 17035, .end = 17036, .default = 17035 },
+    .{ .start = 17036, .end = 17037, .default = 17036 },
+    .{ .start = 17037, .end = 17038, .default = 17037 },
+    .{ .start = 17038, .end = 17043, .default = 17038 },
+    .{ .start = 17043, .end = 17044, .default = 17043 },
+    .{ .start = 17044, .end = 17045, .default = 17044 },
+    .{ .start = 17045, .end = 17046, .default = 17045 },
+    .{ .start = 17046, .end = 17047, .default = 17046 },
+    .{ .start = 17047, .end = 17048, .default = 17047 },
+    .{ .start = 17048, .end = 17049, .default = 17048 },
+    .{ .start = 17049, .end = 17129, .default = 17060 },
+    .{ .start = 17129, .end = 17453, .default = 17132 },
+    .{ .start = 17453, .end = 17459, .default = 17456 },
+    .{ .start = 17459, .end = 17460, .default = 17459 },
+    .{ .start = 17460, .end = 17461, .default = 17460 },
+    .{ .start = 17461, .end = 17462, .default = 17461 },
+    .{ .start = 17462, .end = 17463, .default = 17462 },
+    .{ .start = 17463, .end = 17469, .default = 17466 },
+    .{ .start = 17469, .end = 17549, .default = 17480 },
+    .{ .start = 17549, .end = 17873, .default = 17552 },
+    .{ .start = 17873, .end = 17874, .default = 17873 },
+    .{ .start = 17874, .end = 17954, .default = 17885 },
+    .{ .start = 17954, .end = 17960, .default = 17957 },
+    .{ .start = 17960, .end = 17962, .default = 17961 },
+    .{ .start = 17962, .end = 17986, .default = 17971 },
+    .{ .start = 17986, .end = 18310, .default = 17989 },
+    .{ .start = 18310, .end = 18311, .default = 18310 },
+    .{ .start = 18311, .end = 18312, .default = 18311 },
+    .{ .start = 18312, .end = 18313, .default = 18312 },
+    .{ .start = 18313, .end = 18329, .default = 18316 },
+    .{ .start = 18329, .end = 18345, .default = 18332 },
+    .{ .start = 18345, .end = 18361, .default = 18348 },
+    .{ .start = 18361, .end = 18377, .default = 18364 },
+    .{ .start = 18377, .end = 18393, .default = 18380 },
+    .{ .start = 18393, .end = 18409, .default = 18396 },
+    .{ .start = 18409, .end = 18425, .default = 18412 },
+    .{ .start = 18425, .end = 18441, .default = 18428 },
+    .{ .start = 18441, .end = 18457, .default = 18444 },
+    .{ .start = 18457, .end = 18473, .default = 18460 },
+    .{ .start = 18473, .end = 18489, .default = 18476 },
+    .{ .start = 18489, .end = 18505, .default = 18492 },
+    .{ .start = 18505, .end = 18521, .default = 18508 },
+    .{ .start = 18521, .end = 18537, .default = 18524 },
+    .{ .start = 18537, .end = 18553, .default = 18540 },
+    .{ .start = 18553, .end = 18569, .default = 18556 },
+    .{ .start = 18569, .end = 18585, .default = 18572 },
+    .{ .start = 18585, .end = 18587, .default = 18586 },
+    .{ .start = 18587, .end = 18589, .default = 18588 },
+    .{ .start = 18589, .end = 18591, .default = 18590 },
+    .{ .start = 18591, .end = 18593, .default = 18592 },
+    .{ .start = 18593, .end = 18595, .default = 18594 },
+    .{ .start = 18595, .end = 18597, .default = 18596 },
+    .{ .start = 18597, .end = 18599, .default = 18598 },
+    .{ .start = 18599, .end = 18601, .default = 18600 },
+    .{ .start = 18601, .end = 18603, .default = 18602 },
+    .{ .start = 18603, .end = 18605, .default = 18604 },
+    .{ .start = 18605, .end = 18607, .default = 18606 },
+    .{ .start = 18607, .end = 18609, .default = 18608 },
+    .{ .start = 18609, .end = 18611, .default = 18610 },
+    .{ .start = 18611, .end = 18613, .default = 18612 },
+    .{ .start = 18613, .end = 18615, .default = 18614 },
+    .{ .start = 18615, .end = 18617, .default = 18616 },
     .{ .start = 18617, .end = 18619, .default = 18618 },
     .{ .start = 18619, .end = 18620, .default = 18619 },
     .{ .start = 18620, .end = 18621, .default = 18620 },
-    .{ .start = 18621, .end = 18622, .default = 18621 },
-    .{ .start = 18622, .end = 18623, .default = 18622 },
-    .{ .start = 18623, .end = 18624, .default = 18623 },
-    .{ .start = 18624, .end = 18656, .default = 18625 },
-    .{ .start = 18656, .end = 18664, .default = 18657 },
-    .{ .start = 18664, .end = 18680, .default = 18667 },
-    .{ .start = 18680, .end = 18682, .default = 18681 },
-    .{ .start = 18682, .end = 18683, .default = 18682 },
-    .{ .start = 18683, .end = 18686, .default = 18684 },
-    .{ .start = 18686, .end = 18687, .default = 18686 },
-    .{ .start = 18687, .end = 18767, .default = 18698 },
-    .{ .start = 18767, .end = 18773, .default = 18770 },
-    .{ .start = 18773, .end = 19097, .default = 18776 },
-    .{ .start = 19097, .end = 19098, .default = 19097 },
-    .{ .start = 19098, .end = 19178, .default = 19109 },
-    .{ .start = 19178, .end = 19184, .default = 19181 },
-    .{ .start = 19184, .end = 19508, .default = 19187 },
-    .{ .start = 19508, .end = 19509, .default = 19508 },
-    .{ .start = 19509, .end = 19589, .default = 19520 },
-    .{ .start = 19589, .end = 19595, .default = 19592 },
-    .{ .start = 19595, .end = 19919, .default = 19598 },
-    .{ .start = 19919, .end = 19920, .default = 19919 },
-    .{ .start = 19920, .end = 20000, .default = 19931 },
-    .{ .start = 20000, .end = 20006, .default = 20003 },
-    .{ .start = 20006, .end = 20330, .default = 20009 },
-    .{ .start = 20330, .end = 20331, .default = 20330 },
-    .{ .start = 20331, .end = 20332, .default = 20331 },
-    .{ .start = 20332, .end = 20333, .default = 20332 },
-    .{ .start = 20333, .end = 20336, .default = 20334 },
-    .{ .start = 20336, .end = 20337, .default = 20336 },
-    .{ .start = 20337, .end = 20338, .default = 20337 },
-    .{ .start = 20338, .end = 20339, .default = 20338 },
-    .{ .start = 20339, .end = 20340, .default = 20339 },
-    .{ .start = 20340, .end = 20341, .default = 20340 },
-    .{ .start = 20341, .end = 20342, .default = 20341 },
+    .{ .start = 18621, .end = 18633, .default = 18630 },
+    .{ .start = 18633, .end = 18645, .default = 18642 },
+    .{ .start = 18645, .end = 18657, .default = 18654 },
+    .{ .start = 18657, .end = 18669, .default = 18666 },
+    .{ .start = 18669, .end = 18670, .default = 18669 },
+    .{ .start = 18670, .end = 18671, .default = 18670 },
+    .{ .start = 18671, .end = 18672, .default = 18671 },
+    .{ .start = 18672, .end = 18673, .default = 18672 },
+    .{ .start = 18673, .end = 18769, .default = 18674 },
+    .{ .start = 18769, .end = 18770, .default = 18769 },
+    .{ .start = 18770, .end = 18898, .default = 18897 },
+    .{ .start = 18898, .end = 18900, .default = 18899 },
+    .{ .start = 18900, .end = 18908, .default = 18907 },
+    .{ .start = 18908, .end = 18909, .default = 18908 },
+    .{ .start = 18909, .end = 18910, .default = 18909 },
+    .{ .start = 18910, .end = 18911, .default = 18910 },
+    .{ .start = 18911, .end = 18912, .default = 18911 },
+    .{ .start = 18912, .end = 18913, .default = 18912 },
+    .{ .start = 18913, .end = 18914, .default = 18913 },
+    .{ .start = 18914, .end = 18915, .default = 18914 },
+    .{ .start = 18915, .end = 18916, .default = 18915 },
+    .{ .start = 18916, .end = 18917, .default = 18916 },
+    .{ .start = 18917, .end = 18918, .default = 18917 },
+    .{ .start = 18918, .end = 18998, .default = 18929 },
+    .{ .start = 18998, .end = 19078, .default = 19009 },
+    .{ .start = 19078, .end = 19158, .default = 19089 },
+    .{ .start = 19158, .end = 19238, .default = 19169 },
+    .{ .start = 19238, .end = 19244, .default = 19241 },
+    .{ .start = 19244, .end = 19250, .default = 19247 },
+    .{ .start = 19250, .end = 19256, .default = 19253 },
+    .{ .start = 19256, .end = 19262, .default = 19259 },
+    .{ .start = 19262, .end = 19263, .default = 19262 },
+    .{ .start = 19263, .end = 19264, .default = 19263 },
+    .{ .start = 19264, .end = 19265, .default = 19264 },
+    .{ .start = 19265, .end = 19266, .default = 19265 },
+    .{ .start = 19266, .end = 19267, .default = 19266 },
+    .{ .start = 19267, .end = 19268, .default = 19267 },
+    .{ .start = 19268, .end = 19269, .default = 19268 },
+    .{ .start = 19269, .end = 19270, .default = 19269 },
+    .{ .start = 19270, .end = 19350, .default = 19281 },
+    .{ .start = 19350, .end = 19430, .default = 19361 },
+    .{ .start = 19430, .end = 19510, .default = 19441 },
+    .{ .start = 19510, .end = 19590, .default = 19521 },
+    .{ .start = 19590, .end = 19596, .default = 19593 },
+    .{ .start = 19596, .end = 19602, .default = 19599 },
+    .{ .start = 19602, .end = 19608, .default = 19605 },
+    .{ .start = 19608, .end = 19614, .default = 19611 },
+    .{ .start = 19614, .end = 19638, .default = 19633 },
+    .{ .start = 19638, .end = 19658, .default = 19643 },
+    .{ .start = 19658, .end = 19659, .default = 19658 },
+    .{ .start = 19659, .end = 19711, .default = 19660 },
+    .{ .start = 19711, .end = 19713, .default = 19712 },
+    .{ .start = 19713, .end = 19714, .default = 19713 },
+    .{ .start = 19714, .end = 19715, .default = 19714 },
+    .{ .start = 19715, .end = 19716, .default = 19715 },
+    .{ .start = 19716, .end = 19717, .default = 19716 },
+    .{ .start = 19717, .end = 19718, .default = 19717 },
+    .{ .start = 19718, .end = 19750, .default = 19719 },
+    .{ .start = 19750, .end = 19758, .default = 19751 },
+    .{ .start = 19758, .end = 19774, .default = 19761 },
+    .{ .start = 19774, .end = 19776, .default = 19775 },
+    .{ .start = 19776, .end = 19777, .default = 19776 },
+    .{ .start = 19777, .end = 19778, .default = 19777 },
+    .{ .start = 19778, .end = 19781, .default = 19779 },
+    .{ .start = 19781, .end = 19782, .default = 19781 },
+    .{ .start = 19782, .end = 19862, .default = 19793 },
+    .{ .start = 19862, .end = 19868, .default = 19865 },
+    .{ .start = 19868, .end = 20192, .default = 19871 },
+    .{ .start = 20192, .end = 20193, .default = 20192 },
+    .{ .start = 20193, .end = 20273, .default = 20204 },
+    .{ .start = 20273, .end = 20279, .default = 20276 },
+    .{ .start = 20279, .end = 20603, .default = 20282 },
+    .{ .start = 20603, .end = 20604, .default = 20603 },
+    .{ .start = 20604, .end = 20684, .default = 20615 },
+    .{ .start = 20684, .end = 20690, .default = 20687 },
+    .{ .start = 20690, .end = 21014, .default = 20693 },
+    .{ .start = 21014, .end = 21015, .default = 21014 },
+    .{ .start = 21015, .end = 21095, .default = 21026 },
+    .{ .start = 21095, .end = 21101, .default = 21098 },
+    .{ .start = 21101, .end = 21425, .default = 21104 },
+    .{ .start = 21425, .end = 21426, .default = 21425 },
+    .{ .start = 21426, .end = 21427, .default = 21426 },
+    .{ .start = 21427, .end = 21428, .default = 21427 },
+    .{ .start = 21428, .end = 21431, .default = 21429 },
+    .{ .start = 21431, .end = 21432, .default = 21431 },
+    .{ .start = 21432, .end = 21433, .default = 21432 },
+    .{ .start = 21433, .end = 21434, .default = 21433 },
+    .{ .start = 21434, .end = 21435, .default = 21434 },
+    .{ .start = 21435, .end = 21436, .default = 21435 },
+    .{ .start = 21436, .end = 21437, .default = 21436 },
+    .{ .start = 21437, .end = 21440, .default = 21438 },
+    .{ .start = 21440, .end = 21443, .default = 21441 },
+    .{ .start = 21443, .end = 21446, .default = 21444 },
+    .{ .start = 21446, .end = 21447, .default = 21446 },
+    .{ .start = 21447, .end = 21448, .default = 21447 },
 };
 
 pub const item_block_ids = [_]?BlockTag{
-    .air,
-    .stone,
-    .granite,
-    .polished_granite,
-    .diorite,
-    .polished_diorite,
-    .andesite,
-    .polished_andesite,
-    .deepslate,
-    .cobbled_deepslate,
-    .polished_deepslate,
-    .calcite,
-    .tuff,
-    .dripstone_block,
-    .grass_block,
-    .dirt,
-    .coarse_dirt,
-    .podzol,
-    .rooted_dirt,
-    .crimson_nylium,
-    .warped_nylium,
-    .cobblestone,
-    .oak_planks,
-    .spruce_planks,
-    .birch_planks,
-    .jungle_planks,
-    .acacia_planks,
-    .dark_oak_planks,
-    .crimson_planks,
-    .warped_planks,
-    .oak_sapling,
-    .spruce_sapling,
-    .birch_sapling,
-    .jungle_sapling,
-    .acacia_sapling,
-    .dark_oak_sapling,
-    .bedrock,
-    .sand,
-    .red_sand,
-    .gravel,
-    .coal_ore,
-    .deepslate_coal_ore,
-    .iron_ore,
-    .deepslate_iron_ore,
-    .copper_ore,
-    .deepslate_copper_ore,
-    .gold_ore,
-    .deepslate_gold_ore,
-    .redstone_ore,
-    .deepslate_redstone_ore,
-    .emerald_ore,
-    .deepslate_emerald_ore,
-    .lapis_ore,
-    .deepslate_lapis_ore,
-    .diamond_ore,
-    .deepslate_diamond_ore,
-    .nether_gold_ore,
-    .nether_quartz_ore,
-    .ancient_debris,
-    .coal_block,
-    .raw_iron_block,
-    .raw_copper_block,
-    .raw_gold_block,
-    .amethyst_block,
-    .budding_amethyst,
-    .iron_block,
-    .copper_block,
-    .gold_block,
-    .diamond_block,
-    .netherite_block,
-    .exposed_copper,
-    .weathered_copper,
-    .oxidized_copper,
-    .cut_copper,
-    .exposed_cut_copper,
-    .weathered_cut_copper,
-    .oxidized_cut_copper,
-    .cut_copper_stairs,
-    .exposed_cut_copper_stairs,
-    .weathered_cut_copper_stairs,
-    .oxidized_cut_copper_stairs,
-    .cut_copper_slab,
-    .exposed_cut_copper_slab,
-    .weathered_cut_copper_slab,
-    .oxidized_cut_copper_slab,
-    .waxed_copper_block,
-    .waxed_exposed_copper,
-    .waxed_weathered_copper,
-    .waxed_oxidized_copper,
-    .waxed_cut_copper,
-    .waxed_exposed_cut_copper,
-    .waxed_weathered_cut_copper,
-    .waxed_oxidized_cut_copper,
-    .waxed_cut_copper_stairs,
-    .waxed_exposed_cut_copper_stairs,
-    .waxed_weathered_cut_copper_stairs,
-    .waxed_oxidized_cut_copper_stairs,
-    .waxed_cut_copper_slab,
-    .waxed_exposed_cut_copper_slab,
-    .waxed_weathered_cut_copper_slab,
-    .waxed_oxidized_cut_copper_slab,
-    .oak_log,
-    .spruce_log,
-    .birch_log,
-    .jungle_log,
-    .acacia_log,
-    .dark_oak_log,
-    .crimson_stem,
-    .warped_stem,
-    .stripped_oak_log,
-    .stripped_spruce_log,
-    .stripped_birch_log,
-    .stripped_jungle_log,
-    .stripped_acacia_log,
-    .stripped_dark_oak_log,
-    .stripped_crimson_stem,
-    .stripped_warped_stem,
-    .stripped_oak_wood,
-    .stripped_spruce_wood,
-    .stripped_birch_wood,
-    .stripped_jungle_wood,
-    .stripped_acacia_wood,
-    .stripped_dark_oak_wood,
-    .stripped_crimson_hyphae,
-    .stripped_warped_hyphae,
-    .oak_wood,
-    .spruce_wood,
-    .birch_wood,
-    .jungle_wood,
-    .acacia_wood,
-    .dark_oak_wood,
-    .crimson_hyphae,
-    .warped_hyphae,
-    .oak_leaves,
-    .spruce_leaves,
-    .birch_leaves,
-    .jungle_leaves,
-    .acacia_leaves,
-    .dark_oak_leaves,
-    .azalea_leaves,
-    .flowering_azalea_leaves,
-    .sponge,
-    .wet_sponge,
-    .glass,
-    .tinted_glass,
-    .lapis_block,
-    .sandstone,
-    .chiseled_sandstone,
-    .cut_sandstone,
-    .cobweb,
-    .grass,
-    .fern,
-    .azalea,
-    .flowering_azalea,
-    .dead_bush,
-    .seagrass,
-    .sea_pickle,
-    .white_wool,
-    .orange_wool,
-    .magenta_wool,
-    .light_blue_wool,
-    .yellow_wool,
-    .lime_wool,
-    .pink_wool,
-    .gray_wool,
-    .light_gray_wool,
-    .cyan_wool,
-    .purple_wool,
-    .blue_wool,
-    .brown_wool,
-    .green_wool,
-    .red_wool,
-    .black_wool,
-    .dandelion,
-    .poppy,
-    .blue_orchid,
-    .allium,
-    .azure_bluet,
-    .red_tulip,
-    .orange_tulip,
-    .white_tulip,
-    .pink_tulip,
-    .oxeye_daisy,
-    .cornflower,
-    .lily_of_the_valley,
-    .wither_rose,
-    .spore_blossom,
-    .brown_mushroom,
-    .red_mushroom,
-    .crimson_fungus,
-    .warped_fungus,
-    .crimson_roots,
-    .warped_roots,
-    .nether_sprouts,
-    .weeping_vines,
-    .twisting_vines,
-    .sugar_cane,
-    .kelp,
-    .moss_carpet,
-    .moss_block,
-    .hanging_roots,
-    .big_dripleaf,
-    .small_dripleaf,
-    .bamboo,
-    .oak_slab,
-    .spruce_slab,
-    .birch_slab,
-    .jungle_slab,
-    .acacia_slab,
-    .dark_oak_slab,
-    .crimson_slab,
-    .warped_slab,
-    .stone_slab,
-    .smooth_stone_slab,
-    .sandstone_slab,
-    .cut_sandstone_slab,
-    .petrified_oak_slab,
-    .cobblestone_slab,
-    .brick_slab,
-    .stone_brick_slab,
-    .nether_brick_slab,
-    .quartz_slab,
-    .red_sandstone_slab,
-    .cut_red_sandstone_slab,
-    .purpur_slab,
-    .prismarine_slab,
-    .prismarine_brick_slab,
-    .dark_prismarine_slab,
-    .smooth_quartz,
-    .smooth_red_sandstone,
-    .smooth_sandstone,
-    .smooth_stone,
-    .bricks,
-    .bookshelf,
-    .mossy_cobblestone,
-    .obsidian,
-    .torch,
-    .end_rod,
-    .chorus_plant,
-    .chorus_flower,
-    .purpur_block,
-    .purpur_pillar,
-    .purpur_stairs,
-    .spawner,
-    .oak_stairs,
-    .chest,
-    .crafting_table,
-    .farmland,
-    .furnace,
-    .ladder,
-    .cobblestone_stairs,
-    .snow,
-    .ice,
-    .snow_block,
-    .cactus,
-    .clay,
-    .jukebox,
-    .oak_fence,
-    .spruce_fence,
-    .birch_fence,
-    .jungle_fence,
-    .acacia_fence,
-    .dark_oak_fence,
-    .crimson_fence,
-    .warped_fence,
-    .pumpkin,
-    .carved_pumpkin,
-    .jack_o_lantern,
-    .netherrack,
-    .soul_sand,
-    .soul_soil,
-    .basalt,
-    .polished_basalt,
-    .smooth_basalt,
-    .soul_torch,
-    .glowstone,
-    .infested_stone,
-    .infested_cobblestone,
-    .infested_stone_bricks,
-    .infested_mossy_stone_bricks,
-    .infested_cracked_stone_bricks,
-    .infested_chiseled_stone_bricks,
-    .infested_deepslate,
-    .stone_bricks,
-    .mossy_stone_bricks,
-    .cracked_stone_bricks,
-    .chiseled_stone_bricks,
-    .deepslate_bricks,
-    .cracked_deepslate_bricks,
-    .deepslate_tiles,
-    .cracked_deepslate_tiles,
-    .chiseled_deepslate,
-    .brown_mushroom_block,
-    .red_mushroom_block,
-    .mushroom_stem,
-    .iron_bars,
-    .chain,
-    .glass_pane,
-    .melon,
-    .vine,
-    .glow_lichen,
-    .brick_stairs,
-    .stone_brick_stairs,
-    .mycelium,
-    .lily_pad,
-    .nether_bricks,
-    .cracked_nether_bricks,
-    .chiseled_nether_bricks,
-    .nether_brick_fence,
-    .nether_brick_stairs,
-    .enchanting_table,
-    .end_portal_frame,
-    .end_stone,
-    .end_stone_bricks,
-    .dragon_egg,
-    .sandstone_stairs,
-    .ender_chest,
-    .emerald_block,
-    .spruce_stairs,
-    .birch_stairs,
-    .jungle_stairs,
-    .crimson_stairs,
-    .warped_stairs,
-    .command_block,
-    .beacon,
-    .cobblestone_wall,
-    .mossy_cobblestone_wall,
-    .brick_wall,
-    .prismarine_wall,
-    .red_sandstone_wall,
-    .mossy_stone_brick_wall,
-    .granite_wall,
-    .stone_brick_wall,
-    .nether_brick_wall,
-    .andesite_wall,
-    .red_nether_brick_wall,
-    .sandstone_wall,
-    .end_stone_brick_wall,
-    .diorite_wall,
-    .blackstone_wall,
-    .polished_blackstone_wall,
-    .polished_blackstone_brick_wall,
-    .cobbled_deepslate_wall,
-    .polished_deepslate_wall,
-    .deepslate_brick_wall,
-    .deepslate_tile_wall,
-    .anvil,
-    .chipped_anvil,
-    .damaged_anvil,
-    .chiseled_quartz_block,
-    .quartz_block,
-    .quartz_bricks,
-    .quartz_pillar,
-    .quartz_stairs,
-    .white_terracotta,
-    .orange_terracotta,
-    .magenta_terracotta,
-    .light_blue_terracotta,
-    .yellow_terracotta,
-    .lime_terracotta,
-    .pink_terracotta,
-    .gray_terracotta,
-    .light_gray_terracotta,
-    .cyan_terracotta,
-    .purple_terracotta,
-    .blue_terracotta,
-    .brown_terracotta,
-    .green_terracotta,
-    .red_terracotta,
-    .black_terracotta,
-    .barrier,
-    .light,
-    .hay_block,
-    .white_carpet,
-    .orange_carpet,
-    .magenta_carpet,
-    .light_blue_carpet,
-    .yellow_carpet,
-    .lime_carpet,
-    .pink_carpet,
-    .gray_carpet,
-    .light_gray_carpet,
-    .cyan_carpet,
-    .purple_carpet,
-    .blue_carpet,
-    .brown_carpet,
-    .green_carpet,
-    .red_carpet,
-    .black_carpet,
-    .terracotta,
-    .packed_ice,
-    .acacia_stairs,
-    .dark_oak_stairs,
-    .dirt_path,
-    .sunflower,
-    .lilac,
-    .rose_bush,
-    .peony,
-    .tall_grass,
-    .large_fern,
-    .white_stained_glass,
-    .orange_stained_glass,
-    .magenta_stained_glass,
-    .light_blue_stained_glass,
-    .yellow_stained_glass,
-    .lime_stained_glass,
-    .pink_stained_glass,
-    .gray_stained_glass,
-    .light_gray_stained_glass,
-    .cyan_stained_glass,
-    .purple_stained_glass,
-    .blue_stained_glass,
-    .brown_stained_glass,
-    .green_stained_glass,
-    .red_stained_glass,
-    .black_stained_glass,
-    .white_stained_glass_pane,
-    .orange_stained_glass_pane,
-    .magenta_stained_glass_pane,
-    .light_blue_stained_glass_pane,
-    .yellow_stained_glass_pane,
-    .lime_stained_glass_pane,
-    .pink_stained_glass_pane,
-    .gray_stained_glass_pane,
-    .light_gray_stained_glass_pane,
-    .cyan_stained_glass_pane,
-    .purple_stained_glass_pane,
-    .blue_stained_glass_pane,
-    .brown_stained_glass_pane,
-    .green_stained_glass_pane,
-    .red_stained_glass_pane,
-    .black_stained_glass_pane,
-    .prismarine,
-    .prismarine_bricks,
-    .dark_prismarine,
-    .prismarine_stairs,
-    .prismarine_brick_stairs,
-    .dark_prismarine_stairs,
-    .sea_lantern,
-    .red_sandstone,
-    .chiseled_red_sandstone,
-    .cut_red_sandstone,
-    .red_sandstone_stairs,
-    .repeating_command_block,
-    .chain_command_block,
-    .magma_block,
-    .nether_wart_block,
-    .warped_wart_block,
-    .red_nether_bricks,
-    .bone_block,
-    .structure_void,
-    .shulker_box,
-    .white_shulker_box,
-    .orange_shulker_box,
-    .magenta_shulker_box,
-    .light_blue_shulker_box,
-    .yellow_shulker_box,
-    .lime_shulker_box,
-    .pink_shulker_box,
-    .gray_shulker_box,
-    .light_gray_shulker_box,
-    .cyan_shulker_box,
-    .purple_shulker_box,
-    .blue_shulker_box,
-    .brown_shulker_box,
-    .green_shulker_box,
-    .red_shulker_box,
-    .black_shulker_box,
-    .white_glazed_terracotta,
-    .orange_glazed_terracotta,
-    .magenta_glazed_terracotta,
-    .light_blue_glazed_terracotta,
-    .yellow_glazed_terracotta,
-    .lime_glazed_terracotta,
-    .pink_glazed_terracotta,
-    .gray_glazed_terracotta,
-    .light_gray_glazed_terracotta,
-    .cyan_glazed_terracotta,
-    .purple_glazed_terracotta,
-    .blue_glazed_terracotta,
-    .brown_glazed_terracotta,
-    .green_glazed_terracotta,
-    .red_glazed_terracotta,
-    .black_glazed_terracotta,
-    .white_concrete,
-    .orange_concrete,
-    .magenta_concrete,
-    .light_blue_concrete,
-    .yellow_concrete,
-    .lime_concrete,
-    .pink_concrete,
-    .gray_concrete,
-    .light_gray_concrete,
-    .cyan_concrete,
-    .purple_concrete,
-    .blue_concrete,
-    .brown_concrete,
-    .green_concrete,
-    .red_concrete,
-    .black_concrete,
-    .white_concrete_powder,
-    .orange_concrete_powder,
-    .magenta_concrete_powder,
-    .light_blue_concrete_powder,
-    .yellow_concrete_powder,
-    .lime_concrete_powder,
-    .pink_concrete_powder,
-    .gray_concrete_powder,
-    .light_gray_concrete_powder,
-    .cyan_concrete_powder,
-    .purple_concrete_powder,
-    .blue_concrete_powder,
-    .brown_concrete_powder,
-    .green_concrete_powder,
-    .red_concrete_powder,
-    .black_concrete_powder,
-    .turtle_egg,
-    .dead_tube_coral_block,
-    .dead_brain_coral_block,
-    .dead_bubble_coral_block,
-    .dead_fire_coral_block,
-    .dead_horn_coral_block,
-    .tube_coral_block,
-    .brain_coral_block,
-    .bubble_coral_block,
-    .fire_coral_block,
-    .horn_coral_block,
-    .tube_coral,
-    .brain_coral,
-    .bubble_coral,
-    .fire_coral,
-    .horn_coral,
-    .dead_brain_coral,
-    .dead_bubble_coral,
-    .dead_fire_coral,
-    .dead_horn_coral,
-    .dead_tube_coral,
-    .tube_coral_fan,
-    .brain_coral_fan,
-    .bubble_coral_fan,
-    .fire_coral_fan,
-    .horn_coral_fan,
-    .dead_tube_coral_fan,
-    .dead_brain_coral_fan,
-    .dead_bubble_coral_fan,
-    .dead_fire_coral_fan,
-    .dead_horn_coral_fan,
-    .blue_ice,
-    .conduit,
-    .polished_granite_stairs,
-    .smooth_red_sandstone_stairs,
-    .mossy_stone_brick_stairs,
-    .polished_diorite_stairs,
-    .mossy_cobblestone_stairs,
-    .end_stone_brick_stairs,
-    .stone_stairs,
-    .smooth_sandstone_stairs,
-    .smooth_quartz_stairs,
-    .granite_stairs,
-    .andesite_stairs,
-    .red_nether_brick_stairs,
-    .polished_andesite_stairs,
-    .diorite_stairs,
-    .cobbled_deepslate_stairs,
-    .polished_deepslate_stairs,
-    .deepslate_brick_stairs,
-    .deepslate_tile_stairs,
-    .polished_granite_slab,
-    .smooth_red_sandstone_slab,
-    .mossy_stone_brick_slab,
-    .polished_diorite_slab,
-    .mossy_cobblestone_slab,
-    .end_stone_brick_slab,
-    .smooth_sandstone_slab,
-    .smooth_quartz_slab,
-    .granite_slab,
-    .andesite_slab,
-    .red_nether_brick_slab,
-    .polished_andesite_slab,
-    .diorite_slab,
-    .cobbled_deepslate_slab,
-    .polished_deepslate_slab,
-    .deepslate_brick_slab,
-    .deepslate_tile_slab,
-    .scaffolding,
-    null, // redstone
-    .redstone_torch,
-    .redstone_block,
-    .repeater,
-    .comparator,
-    .piston,
-    .sticky_piston,
-    .slime_block,
-    .honey_block,
-    .observer,
-    .hopper,
-    .dispenser,
-    .dropper,
-    .lectern,
-    .target,
-    .lever,
-    .lightning_rod,
-    .daylight_detector,
-    .sculk_sensor,
-    .tripwire_hook,
-    .trapped_chest,
-    .tnt,
-    .redstone_lamp,
-    .note_block,
-    .stone_button,
-    .polished_blackstone_button,
-    .oak_button,
-    .spruce_button,
-    .birch_button,
-    .jungle_button,
-    .acacia_button,
-    .dark_oak_button,
-    .crimson_button,
-    .warped_button,
-    .stone_pressure_plate,
-    .polished_blackstone_pressure_plate,
-    .light_weighted_pressure_plate,
-    .heavy_weighted_pressure_plate,
-    .oak_pressure_plate,
-    .spruce_pressure_plate,
-    .birch_pressure_plate,
-    .jungle_pressure_plate,
-    .acacia_pressure_plate,
-    .dark_oak_pressure_plate,
-    .crimson_pressure_plate,
-    .warped_pressure_plate,
-    .iron_door,
-    .oak_door,
-    .spruce_door,
-    .birch_door,
-    .jungle_door,
-    .acacia_door,
-    .dark_oak_door,
-    .crimson_door,
-    .warped_door,
-    .iron_trapdoor,
-    .oak_trapdoor,
-    .spruce_trapdoor,
-    .birch_trapdoor,
-    .jungle_trapdoor,
-    .acacia_trapdoor,
-    .dark_oak_trapdoor,
-    .crimson_trapdoor,
-    .warped_trapdoor,
-    .oak_fence_gate,
-    .spruce_fence_gate,
-    .birch_fence_gate,
-    .jungle_fence_gate,
-    .acacia_fence_gate,
-    .dark_oak_fence_gate,
-    .crimson_fence_gate,
-    .warped_fence_gate,
-    .powered_rail,
-    .detector_rail,
-    .rail,
-    .activator_rail,
-    null, // saddle
-    null, // minecart
-    null, // chest_minecart
-    null, // furnace_minecart
-    null, // tnt_minecart
-    null, // hopper_minecart
-    null, // carrot_on_a_stick
-    null, // warped_fungus_on_a_stick
-    null, // elytra
-    null, // oak_boat
-    null, // spruce_boat
-    null, // birch_boat
-    null, // jungle_boat
     null, // acacia_boat
-    null, // dark_oak_boat
-    .structure_block,
-    .jigsaw,
-    null, // turtle_helmet
-    null, // scute
-    null, // flint_and_steel
-    null, // apple
-    null, // bow
-    null, // arrow
-    null, // coal
-    null, // charcoal
-    null, // diamond
-    null, // emerald
-    null, // lapis_lazuli
-    null, // quartz
-    null, // amethyst_shard
-    null, // raw_iron
-    null, // iron_ingot
-    null, // raw_copper
-    null, // copper_ingot
-    null, // raw_gold
-    null, // gold_ingot
-    null, // netherite_ingot
-    null, // netherite_scrap
-    null, // wooden_sword
-    null, // wooden_shovel
-    null, // wooden_pickaxe
-    null, // wooden_axe
-    null, // wooden_hoe
-    null, // stone_sword
-    null, // stone_shovel
-    null, // stone_pickaxe
-    null, // stone_axe
-    null, // stone_hoe
-    null, // golden_sword
-    null, // golden_shovel
-    null, // golden_pickaxe
-    null, // golden_axe
-    null, // golden_hoe
-    null, // iron_sword
-    null, // iron_shovel
-    null, // iron_pickaxe
-    null, // iron_axe
-    null, // iron_hoe
-    null, // diamond_sword
-    null, // diamond_shovel
-    null, // diamond_pickaxe
-    null, // diamond_axe
-    null, // diamond_hoe
-    null, // netherite_sword
-    null, // netherite_shovel
-    null, // netherite_pickaxe
-    null, // netherite_axe
-    null, // netherite_hoe
-    null, // stick
-    null, // bowl
-    null, // mushroom_stew
-    null, // string
-    null, // feather
-    null, // gunpowder
-    null, // wheat_seeds
-    .wheat,
-    null, // bread
-    null, // leather_helmet
-    null, // leather_chestplate
-    null, // leather_leggings
-    null, // leather_boots
-    null, // chainmail_helmet
-    null, // chainmail_chestplate
-    null, // chainmail_leggings
-    null, // chainmail_boots
-    null, // iron_helmet
-    null, // iron_chestplate
-    null, // iron_leggings
-    null, // iron_boots
-    null, // diamond_helmet
-    null, // diamond_chestplate
-    null, // diamond_leggings
-    null, // diamond_boots
-    null, // golden_helmet
-    null, // golden_chestplate
-    null, // golden_leggings
-    null, // golden_boots
-    null, // netherite_helmet
-    null, // netherite_chestplate
-    null, // netherite_leggings
-    null, // netherite_boots
-    null, // flint
-    null, // porkchop
-    null, // cooked_porkchop
-    null, // painting
-    null, // golden_apple
-    null, // enchanted_golden_apple
-    .oak_sign,
-    .spruce_sign,
-    .birch_sign,
-    .jungle_sign,
+    .acacia_button,
+    null, // acacia_chest_boat
+    .acacia_door,
+    .acacia_fence,
+    .acacia_fence_gate,
+    .acacia_leaves,
+    .acacia_log,
+    .acacia_planks,
+    .acacia_pressure_plate,
+    .acacia_sapling,
     .acacia_sign,
-    .dark_oak_sign,
-    .crimson_sign,
-    .warped_sign,
-    null, // bucket
-    null, // water_bucket
-    null, // lava_bucket
-    null, // powder_snow_bucket
-    null, // snowball
-    null, // leather
-    null, // milk_bucket
-    null, // pufferfish_bucket
-    null, // salmon_bucket
-    null, // cod_bucket
-    null, // tropical_fish_bucket
-    null, // axolotl_bucket
-    null, // brick
-    null, // clay_ball
-    .dried_kelp_block,
-    null, // paper
-    null, // book
-    null, // slime_ball
-    null, // egg
-    null, // compass
-    null, // bundle
-    null, // fishing_rod
-    null, // clock
-    null, // spyglass
-    null, // glowstone_dust
-    null, // cod
-    null, // salmon
-    null, // tropical_fish
-    null, // pufferfish
-    null, // cooked_cod
-    null, // cooked_salmon
-    null, // ink_sac
-    null, // glow_ink_sac
-    null, // cocoa_beans
-    null, // white_dye
-    null, // orange_dye
-    null, // magenta_dye
-    null, // light_blue_dye
-    null, // yellow_dye
-    null, // lime_dye
-    null, // pink_dye
-    null, // gray_dye
-    null, // light_gray_dye
-    null, // cyan_dye
-    null, // purple_dye
-    null, // blue_dye
-    null, // brown_dye
-    null, // green_dye
-    null, // red_dye
-    null, // black_dye
-    null, // bone_meal
-    null, // bone
-    null, // sugar
-    .cake,
-    .white_bed,
-    .orange_bed,
-    .magenta_bed,
-    .light_blue_bed,
-    .yellow_bed,
-    .lime_bed,
-    .pink_bed,
-    .gray_bed,
-    .light_gray_bed,
-    .cyan_bed,
-    .purple_bed,
-    .blue_bed,
-    .brown_bed,
-    .green_bed,
-    .red_bed,
-    .black_bed,
-    null, // cookie
-    null, // filled_map
-    null, // shears
-    null, // melon_slice
-    null, // dried_kelp
-    null, // pumpkin_seeds
-    null, // melon_seeds
-    null, // beef
-    null, // cooked_beef
-    null, // chicken
-    null, // cooked_chicken
-    null, // rotten_flesh
-    null, // ender_pearl
-    null, // blaze_rod
-    null, // ghast_tear
-    null, // gold_nugget
-    .nether_wart,
-    null, // potion
-    null, // glass_bottle
-    null, // spider_eye
-    null, // fermented_spider_eye
-    null, // blaze_powder
-    null, // magma_cream
-    .brewing_stand,
-    .cauldron,
-    null, // ender_eye
-    null, // glistering_melon_slice
-    null, // axolotl_spawn_egg
-    null, // bat_spawn_egg
-    null, // bee_spawn_egg
-    null, // blaze_spawn_egg
-    null, // cat_spawn_egg
-    null, // cave_spider_spawn_egg
-    null, // chicken_spawn_egg
-    null, // cod_spawn_egg
-    null, // cow_spawn_egg
-    null, // creeper_spawn_egg
-    null, // dolphin_spawn_egg
-    null, // donkey_spawn_egg
-    null, // drowned_spawn_egg
-    null, // elder_guardian_spawn_egg
-    null, // enderman_spawn_egg
-    null, // endermite_spawn_egg
-    null, // evoker_spawn_egg
-    null, // fox_spawn_egg
-    null, // ghast_spawn_egg
-    null, // glow_squid_spawn_egg
-    null, // goat_spawn_egg
-    null, // guardian_spawn_egg
-    null, // hoglin_spawn_egg
-    null, // horse_spawn_egg
-    null, // husk_spawn_egg
-    null, // llama_spawn_egg
-    null, // magma_cube_spawn_egg
-    null, // mooshroom_spawn_egg
-    null, // mule_spawn_egg
-    null, // ocelot_spawn_egg
-    null, // panda_spawn_egg
-    null, // parrot_spawn_egg
-    null, // phantom_spawn_egg
-    null, // pig_spawn_egg
-    null, // piglin_spawn_egg
-    null, // piglin_brute_spawn_egg
-    null, // pillager_spawn_egg
-    null, // polar_bear_spawn_egg
-    null, // pufferfish_spawn_egg
-    null, // rabbit_spawn_egg
-    null, // ravager_spawn_egg
-    null, // salmon_spawn_egg
-    null, // sheep_spawn_egg
-    null, // shulker_spawn_egg
-    null, // silverfish_spawn_egg
-    null, // skeleton_spawn_egg
-    null, // skeleton_horse_spawn_egg
-    null, // slime_spawn_egg
-    null, // spider_spawn_egg
-    null, // squid_spawn_egg
-    null, // stray_spawn_egg
-    null, // strider_spawn_egg
-    null, // trader_llama_spawn_egg
-    null, // tropical_fish_spawn_egg
-    null, // turtle_spawn_egg
-    null, // vex_spawn_egg
-    null, // villager_spawn_egg
-    null, // vindicator_spawn_egg
-    null, // wandering_trader_spawn_egg
-    null, // witch_spawn_egg
-    null, // wither_skeleton_spawn_egg
-    null, // wolf_spawn_egg
-    null, // zoglin_spawn_egg
-    null, // zombie_spawn_egg
-    null, // zombie_horse_spawn_egg
-    null, // zombie_villager_spawn_egg
-    null, // zombified_piglin_spawn_egg
-    null, // experience_bottle
-    null, // fire_charge
-    null, // writable_book
-    null, // written_book
-    null, // item_frame
-    null, // glow_item_frame
-    .flower_pot,
-    null, // carrot
-    null, // potato
-    null, // baked_potato
-    null, // poisonous_potato
-    null, // map
-    null, // golden_carrot
-    .skeleton_skull,
-    .wither_skeleton_skull,
-    .player_head,
-    .zombie_head,
-    .creeper_head,
-    .dragon_head,
-    null, // nether_star
-    null, // pumpkin_pie
-    null, // firework_rocket
-    null, // firework_star
-    null, // enchanted_book
-    null, // nether_brick
-    null, // prismarine_shard
-    null, // prismarine_crystals
-    null, // rabbit
-    null, // cooked_rabbit
-    null, // rabbit_stew
-    null, // rabbit_foot
-    null, // rabbit_hide
+    .acacia_slab,
+    .acacia_stairs,
+    .acacia_trapdoor,
+    .acacia_wood,
+    .activator_rail,
+    .air,
+    null, // allay_spawn_egg
+    .allium,
+    .amethyst_block,
+    .amethyst_cluster,
+    null, // amethyst_shard
+    .ancient_debris,
+    .andesite,
+    .andesite_slab,
+    .andesite_stairs,
+    .andesite_wall,
+    .anvil,
+    null, // apple
     null, // armor_stand
-    null, // iron_horse_armor
-    null, // golden_horse_armor
-    null, // diamond_horse_armor
-    null, // leather_horse_armor
-    null, // lead
-    null, // name_tag
-    null, // command_block_minecart
-    null, // mutton
-    null, // cooked_mutton
-    .white_banner,
-    .orange_banner,
-    .magenta_banner,
-    .light_blue_banner,
-    .yellow_banner,
-    .lime_banner,
-    .pink_banner,
-    .gray_banner,
-    .light_gray_banner,
-    .cyan_banner,
-    .purple_banner,
-    .blue_banner,
-    .brown_banner,
-    .green_banner,
-    .red_banner,
-    .black_banner,
-    null, // end_crystal
-    null, // chorus_fruit
-    null, // popped_chorus_fruit
+    null, // arrow
+    null, // axolotl_bucket
+    null, // axolotl_spawn_egg
+    .azalea,
+    .azalea_leaves,
+    .azure_bluet,
+    null, // baked_potato
+    .bamboo,
+    .barrel,
+    .barrier,
+    .basalt,
+    null, // bat_spawn_egg
+    .beacon,
+    .bedrock,
+    .bee_nest,
+    null, // bee_spawn_egg
+    null, // beef
+    .beehive,
     null, // beetroot
     null, // beetroot_seeds
     null, // beetroot_soup
-    null, // dragon_breath
-    null, // splash_potion
-    null, // spectral_arrow
-    null, // tipped_arrow
-    null, // lingering_potion
-    null, // shield
-    null, // totem_of_undying
-    null, // shulker_shell
-    null, // iron_nugget
-    null, // knowledge_book
+    .bell,
+    .big_dripleaf,
+    null, // birch_boat
+    .birch_button,
+    null, // birch_chest_boat
+    .birch_door,
+    .birch_fence,
+    .birch_fence_gate,
+    .birch_leaves,
+    .birch_log,
+    .birch_planks,
+    .birch_pressure_plate,
+    .birch_sapling,
+    .birch_sign,
+    .birch_slab,
+    .birch_stairs,
+    .birch_trapdoor,
+    .birch_wood,
+    .black_banner,
+    .black_bed,
+    .black_candle,
+    .black_carpet,
+    .black_concrete,
+    .black_concrete_powder,
+    null, // black_dye
+    .black_glazed_terracotta,
+    .black_shulker_box,
+    .black_stained_glass,
+    .black_stained_glass_pane,
+    .black_terracotta,
+    .black_wool,
+    .blackstone,
+    .blackstone_slab,
+    .blackstone_stairs,
+    .blackstone_wall,
+    .blast_furnace,
+    null, // blaze_powder
+    null, // blaze_rod
+    null, // blaze_spawn_egg
+    .blue_banner,
+    .blue_bed,
+    .blue_candle,
+    .blue_carpet,
+    .blue_concrete,
+    .blue_concrete_powder,
+    null, // blue_dye
+    .blue_glazed_terracotta,
+    .blue_ice,
+    .blue_orchid,
+    .blue_shulker_box,
+    .blue_stained_glass,
+    .blue_stained_glass_pane,
+    .blue_terracotta,
+    .blue_wool,
+    null, // bone
+    .bone_block,
+    null, // bone_meal
+    null, // book
+    .bookshelf,
+    null, // bow
+    null, // bowl
+    .brain_coral,
+    .brain_coral_block,
+    .brain_coral_fan,
+    null, // bread
+    .brewing_stand,
+    null, // brick
+    .brick_slab,
+    .brick_stairs,
+    .brick_wall,
+    .bricks,
+    .brown_banner,
+    .brown_bed,
+    .brown_candle,
+    .brown_carpet,
+    .brown_concrete,
+    .brown_concrete_powder,
+    null, // brown_dye
+    .brown_glazed_terracotta,
+    .brown_mushroom,
+    .brown_mushroom_block,
+    .brown_shulker_box,
+    .brown_stained_glass,
+    .brown_stained_glass_pane,
+    .brown_terracotta,
+    .brown_wool,
+    .bubble_coral,
+    .bubble_coral_block,
+    .bubble_coral_fan,
+    null, // bucket
+    .budding_amethyst,
+    null, // bundle
+    .cactus,
+    .cake,
+    .calcite,
+    .campfire,
+    .candle,
+    null, // carrot
+    null, // carrot_on_a_stick
+    .cartography_table,
+    .carved_pumpkin,
+    null, // cat_spawn_egg
+    .cauldron,
+    null, // cave_spider_spawn_egg
+    .chain,
+    .chain_command_block,
+    null, // chainmail_boots
+    null, // chainmail_chestplate
+    null, // chainmail_helmet
+    null, // chainmail_leggings
+    null, // charcoal
+    .chest,
+    null, // chest_minecart
+    null, // chicken
+    null, // chicken_spawn_egg
+    .chipped_anvil,
+    .chiseled_deepslate,
+    .chiseled_nether_bricks,
+    .chiseled_polished_blackstone,
+    .chiseled_quartz_block,
+    .chiseled_red_sandstone,
+    .chiseled_sandstone,
+    .chiseled_stone_bricks,
+    .chorus_flower,
+    null, // chorus_fruit
+    .chorus_plant,
+    .clay,
+    null, // clay_ball
+    null, // clock
+    null, // coal
+    .coal_block,
+    .coal_ore,
+    .coarse_dirt,
+    .cobbled_deepslate,
+    .cobbled_deepslate_slab,
+    .cobbled_deepslate_stairs,
+    .cobbled_deepslate_wall,
+    .cobblestone,
+    .cobblestone_slab,
+    .cobblestone_stairs,
+    .cobblestone_wall,
+    .cobweb,
+    null, // cocoa_beans
+    null, // cod
+    null, // cod_bucket
+    null, // cod_spawn_egg
+    .command_block,
+    null, // command_block_minecart
+    .comparator,
+    null, // compass
+    .composter,
+    .conduit,
+    null, // cooked_beef
+    null, // cooked_chicken
+    null, // cooked_cod
+    null, // cooked_mutton
+    null, // cooked_porkchop
+    null, // cooked_rabbit
+    null, // cooked_salmon
+    null, // cookie
+    .copper_block,
+    null, // copper_ingot
+    .copper_ore,
+    .cornflower,
+    null, // cow_spawn_egg
+    .cracked_deepslate_bricks,
+    .cracked_deepslate_tiles,
+    .cracked_nether_bricks,
+    .cracked_polished_blackstone_bricks,
+    .cracked_stone_bricks,
+    .crafting_table,
+    null, // creeper_banner_pattern
+    .creeper_head,
+    null, // creeper_spawn_egg
+    .crimson_button,
+    .crimson_door,
+    .crimson_fence,
+    .crimson_fence_gate,
+    .crimson_fungus,
+    .crimson_hyphae,
+    .crimson_nylium,
+    .crimson_planks,
+    .crimson_pressure_plate,
+    .crimson_roots,
+    .crimson_sign,
+    .crimson_slab,
+    .crimson_stairs,
+    .crimson_stem,
+    .crimson_trapdoor,
+    null, // crossbow
+    .crying_obsidian,
+    .cut_copper,
+    .cut_copper_slab,
+    .cut_copper_stairs,
+    .cut_red_sandstone,
+    .cut_red_sandstone_slab,
+    .cut_sandstone,
+    .cut_sandstone_slab,
+    .cyan_banner,
+    .cyan_bed,
+    .cyan_candle,
+    .cyan_carpet,
+    .cyan_concrete,
+    .cyan_concrete_powder,
+    null, // cyan_dye
+    .cyan_glazed_terracotta,
+    .cyan_shulker_box,
+    .cyan_stained_glass,
+    .cyan_stained_glass_pane,
+    .cyan_terracotta,
+    .cyan_wool,
+    .damaged_anvil,
+    .dandelion,
+    null, // dark_oak_boat
+    .dark_oak_button,
+    null, // dark_oak_chest_boat
+    .dark_oak_door,
+    .dark_oak_fence,
+    .dark_oak_fence_gate,
+    .dark_oak_leaves,
+    .dark_oak_log,
+    .dark_oak_planks,
+    .dark_oak_pressure_plate,
+    .dark_oak_sapling,
+    .dark_oak_sign,
+    .dark_oak_slab,
+    .dark_oak_stairs,
+    .dark_oak_trapdoor,
+    .dark_oak_wood,
+    .dark_prismarine,
+    .dark_prismarine_slab,
+    .dark_prismarine_stairs,
+    .daylight_detector,
+    .dead_brain_coral,
+    .dead_brain_coral_block,
+    .dead_brain_coral_fan,
+    .dead_bubble_coral,
+    .dead_bubble_coral_block,
+    .dead_bubble_coral_fan,
+    .dead_bush,
+    .dead_fire_coral,
+    .dead_fire_coral_block,
+    .dead_fire_coral_fan,
+    .dead_horn_coral,
+    .dead_horn_coral_block,
+    .dead_horn_coral_fan,
+    .dead_tube_coral,
+    .dead_tube_coral_block,
+    .dead_tube_coral_fan,
     null, // debug_stick
+    .deepslate,
+    .deepslate_brick_slab,
+    .deepslate_brick_stairs,
+    .deepslate_brick_wall,
+    .deepslate_bricks,
+    .deepslate_coal_ore,
+    .deepslate_copper_ore,
+    .deepslate_diamond_ore,
+    .deepslate_emerald_ore,
+    .deepslate_gold_ore,
+    .deepslate_iron_ore,
+    .deepslate_lapis_ore,
+    .deepslate_redstone_ore,
+    .deepslate_tile_slab,
+    .deepslate_tile_stairs,
+    .deepslate_tile_wall,
+    .deepslate_tiles,
+    .detector_rail,
+    null, // diamond
+    null, // diamond_axe
+    .diamond_block,
+    null, // diamond_boots
+    null, // diamond_chestplate
+    null, // diamond_helmet
+    null, // diamond_hoe
+    null, // diamond_horse_armor
+    null, // diamond_leggings
+    .diamond_ore,
+    null, // diamond_pickaxe
+    null, // diamond_shovel
+    null, // diamond_sword
+    .diorite,
+    .diorite_slab,
+    .diorite_stairs,
+    .diorite_wall,
+    .dirt,
+    .dirt_path,
+    null, // disc_fragment_5
+    .dispenser,
+    null, // dolphin_spawn_egg
+    null, // donkey_spawn_egg
+    null, // dragon_breath
+    .dragon_egg,
+    .dragon_head,
+    null, // dried_kelp
+    .dried_kelp_block,
+    .dripstone_block,
+    .dropper,
+    null, // drowned_spawn_egg
+    null, // echo_shard
+    null, // egg
+    null, // elder_guardian_spawn_egg
+    null, // elytra
+    null, // emerald
+    .emerald_block,
+    .emerald_ore,
+    null, // enchanted_book
+    null, // enchanted_golden_apple
+    .enchanting_table,
+    null, // end_crystal
+    .end_portal_frame,
+    .end_rod,
+    .end_stone,
+    .end_stone_brick_slab,
+    .end_stone_brick_stairs,
+    .end_stone_brick_wall,
+    .end_stone_bricks,
+    .ender_chest,
+    null, // ender_eye
+    null, // ender_pearl
+    null, // enderman_spawn_egg
+    null, // endermite_spawn_egg
+    null, // evoker_spawn_egg
+    null, // experience_bottle
+    .exposed_copper,
+    .exposed_cut_copper,
+    .exposed_cut_copper_slab,
+    .exposed_cut_copper_stairs,
+    .farmland,
+    null, // feather
+    null, // fermented_spider_eye
+    .fern,
+    null, // filled_map
+    null, // fire_charge
+    .fire_coral,
+    .fire_coral_block,
+    .fire_coral_fan,
+    null, // firework_rocket
+    null, // firework_star
+    null, // fishing_rod
+    .fletching_table,
+    null, // flint
+    null, // flint_and_steel
+    null, // flower_banner_pattern
+    .flower_pot,
+    .flowering_azalea,
+    .flowering_azalea_leaves,
+    null, // fox_spawn_egg
+    null, // frog_spawn_egg
+    .frogspawn,
+    .furnace,
+    null, // furnace_minecart
+    null, // ghast_spawn_egg
+    null, // ghast_tear
+    .gilded_blackstone,
+    .glass,
+    null, // glass_bottle
+    .glass_pane,
+    null, // glistering_melon_slice
+    null, // globe_banner_pattern
+    null, // glow_berries
+    null, // glow_ink_sac
+    null, // glow_item_frame
+    .glow_lichen,
+    null, // glow_squid_spawn_egg
+    .glowstone,
+    null, // glowstone_dust
+    null, // goat_horn
+    null, // goat_spawn_egg
+    .gold_block,
+    null, // gold_ingot
+    null, // gold_nugget
+    .gold_ore,
+    null, // golden_apple
+    null, // golden_axe
+    null, // golden_boots
+    null, // golden_carrot
+    null, // golden_chestplate
+    null, // golden_helmet
+    null, // golden_hoe
+    null, // golden_horse_armor
+    null, // golden_leggings
+    null, // golden_pickaxe
+    null, // golden_shovel
+    null, // golden_sword
+    .granite,
+    .granite_slab,
+    .granite_stairs,
+    .granite_wall,
+    .grass,
+    .grass_block,
+    .gravel,
+    .gray_banner,
+    .gray_bed,
+    .gray_candle,
+    .gray_carpet,
+    .gray_concrete,
+    .gray_concrete_powder,
+    null, // gray_dye
+    .gray_glazed_terracotta,
+    .gray_shulker_box,
+    .gray_stained_glass,
+    .gray_stained_glass_pane,
+    .gray_terracotta,
+    .gray_wool,
+    .green_banner,
+    .green_bed,
+    .green_candle,
+    .green_carpet,
+    .green_concrete,
+    .green_concrete_powder,
+    null, // green_dye
+    .green_glazed_terracotta,
+    .green_shulker_box,
+    .green_stained_glass,
+    .green_stained_glass_pane,
+    .green_terracotta,
+    .green_wool,
+    .grindstone,
+    null, // guardian_spawn_egg
+    null, // gunpowder
+    .hanging_roots,
+    .hay_block,
+    null, // heart_of_the_sea
+    .heavy_weighted_pressure_plate,
+    null, // hoglin_spawn_egg
+    .honey_block,
+    null, // honey_bottle
+    null, // honeycomb
+    .honeycomb_block,
+    .hopper,
+    null, // hopper_minecart
+    .horn_coral,
+    .horn_coral_block,
+    .horn_coral_fan,
+    null, // horse_spawn_egg
+    null, // husk_spawn_egg
+    .ice,
+    .infested_chiseled_stone_bricks,
+    .infested_cobblestone,
+    .infested_cracked_stone_bricks,
+    .infested_deepslate,
+    .infested_mossy_stone_bricks,
+    .infested_stone,
+    .infested_stone_bricks,
+    null, // ink_sac
+    null, // iron_axe
+    .iron_bars,
+    .iron_block,
+    null, // iron_boots
+    null, // iron_chestplate
+    .iron_door,
+    null, // iron_helmet
+    null, // iron_hoe
+    null, // iron_horse_armor
+    null, // iron_ingot
+    null, // iron_leggings
+    null, // iron_nugget
+    .iron_ore,
+    null, // iron_pickaxe
+    null, // iron_shovel
+    null, // iron_sword
+    .iron_trapdoor,
+    null, // item_frame
+    .jack_o_lantern,
+    .jigsaw,
+    .jukebox,
+    null, // jungle_boat
+    .jungle_button,
+    null, // jungle_chest_boat
+    .jungle_door,
+    .jungle_fence,
+    .jungle_fence_gate,
+    .jungle_leaves,
+    .jungle_log,
+    .jungle_planks,
+    .jungle_pressure_plate,
+    .jungle_sapling,
+    .jungle_sign,
+    .jungle_slab,
+    .jungle_stairs,
+    .jungle_trapdoor,
+    .jungle_wood,
+    .kelp,
+    null, // knowledge_book
+    .ladder,
+    .lantern,
+    .lapis_block,
+    null, // lapis_lazuli
+    .lapis_ore,
+    .large_amethyst_bud,
+    .large_fern,
+    null, // lava_bucket
+    null, // lead
+    null, // leather
+    null, // leather_boots
+    null, // leather_chestplate
+    null, // leather_helmet
+    null, // leather_horse_armor
+    null, // leather_leggings
+    .lectern,
+    .lever,
+    .light,
+    .light_blue_banner,
+    .light_blue_bed,
+    .light_blue_candle,
+    .light_blue_carpet,
+    .light_blue_concrete,
+    .light_blue_concrete_powder,
+    null, // light_blue_dye
+    .light_blue_glazed_terracotta,
+    .light_blue_shulker_box,
+    .light_blue_stained_glass,
+    .light_blue_stained_glass_pane,
+    .light_blue_terracotta,
+    .light_blue_wool,
+    .light_gray_banner,
+    .light_gray_bed,
+    .light_gray_candle,
+    .light_gray_carpet,
+    .light_gray_concrete,
+    .light_gray_concrete_powder,
+    null, // light_gray_dye
+    .light_gray_glazed_terracotta,
+    .light_gray_shulker_box,
+    .light_gray_stained_glass,
+    .light_gray_stained_glass_pane,
+    .light_gray_terracotta,
+    .light_gray_wool,
+    .light_weighted_pressure_plate,
+    .lightning_rod,
+    .lilac,
+    .lily_of_the_valley,
+    .lily_pad,
+    .lime_banner,
+    .lime_bed,
+    .lime_candle,
+    .lime_carpet,
+    .lime_concrete,
+    .lime_concrete_powder,
+    null, // lime_dye
+    .lime_glazed_terracotta,
+    .lime_shulker_box,
+    .lime_stained_glass,
+    .lime_stained_glass_pane,
+    .lime_terracotta,
+    .lime_wool,
+    null, // lingering_potion
+    null, // llama_spawn_egg
+    .lodestone,
+    .loom,
+    .magenta_banner,
+    .magenta_bed,
+    .magenta_candle,
+    .magenta_carpet,
+    .magenta_concrete,
+    .magenta_concrete_powder,
+    null, // magenta_dye
+    .magenta_glazed_terracotta,
+    .magenta_shulker_box,
+    .magenta_stained_glass,
+    .magenta_stained_glass_pane,
+    .magenta_terracotta,
+    .magenta_wool,
+    .magma_block,
+    null, // magma_cream
+    null, // magma_cube_spawn_egg
+    null, // mangrove_boat
+    .mangrove_button,
+    null, // mangrove_chest_boat
+    .mangrove_door,
+    .mangrove_fence,
+    .mangrove_fence_gate,
+    .mangrove_leaves,
+    .mangrove_log,
+    .mangrove_planks,
+    .mangrove_pressure_plate,
+    .mangrove_propagule,
+    .mangrove_roots,
+    .mangrove_sign,
+    .mangrove_slab,
+    .mangrove_stairs,
+    .mangrove_trapdoor,
+    .mangrove_wood,
+    null, // map
+    .medium_amethyst_bud,
+    .melon,
+    null, // melon_seeds
+    null, // melon_slice
+    null, // milk_bucket
+    null, // minecart
+    null, // mojang_banner_pattern
+    null, // mooshroom_spawn_egg
+    .moss_block,
+    .moss_carpet,
+    .mossy_cobblestone,
+    .mossy_cobblestone_slab,
+    .mossy_cobblestone_stairs,
+    .mossy_cobblestone_wall,
+    .mossy_stone_brick_slab,
+    .mossy_stone_brick_stairs,
+    .mossy_stone_brick_wall,
+    .mossy_stone_bricks,
+    .mud,
+    .mud_brick_slab,
+    .mud_brick_stairs,
+    .mud_brick_wall,
+    .mud_bricks,
+    .muddy_mangrove_roots,
+    null, // mule_spawn_egg
+    .mushroom_stem,
+    null, // mushroom_stew
+    null, // music_disc_11
     null, // music_disc_13
-    null, // music_disc_cat
+    null, // music_disc_5
     null, // music_disc_blocks
+    null, // music_disc_cat
     null, // music_disc_chirp
     null, // music_disc_far
     null, // music_disc_mall
     null, // music_disc_mellohi
-    null, // music_disc_stal
-    null, // music_disc_strad
-    null, // music_disc_ward
-    null, // music_disc_11
-    null, // music_disc_wait
     null, // music_disc_otherside
     null, // music_disc_pigstep
-    null, // trident
-    null, // phantom_membrane
+    null, // music_disc_stal
+    null, // music_disc_strad
+    null, // music_disc_wait
+    null, // music_disc_ward
+    null, // mutton
+    .mycelium,
+    null, // name_tag
     null, // nautilus_shell
-    null, // heart_of_the_sea
-    null, // crossbow
-    null, // suspicious_stew
-    .loom,
-    null, // flower_banner_pattern
-    null, // creeper_banner_pattern
-    null, // skull_banner_pattern
-    null, // mojang_banner_pattern
-    null, // globe_banner_pattern
+    null, // nether_brick
+    .nether_brick_fence,
+    .nether_brick_slab,
+    .nether_brick_stairs,
+    .nether_brick_wall,
+    .nether_bricks,
+    .nether_gold_ore,
+    .nether_quartz_ore,
+    .nether_sprouts,
+    null, // nether_star
+    .nether_wart,
+    .nether_wart_block,
+    null, // netherite_axe
+    .netherite_block,
+    null, // netherite_boots
+    null, // netherite_chestplate
+    null, // netherite_helmet
+    null, // netherite_hoe
+    null, // netherite_ingot
+    null, // netherite_leggings
+    null, // netherite_pickaxe
+    null, // netherite_scrap
+    null, // netherite_shovel
+    null, // netherite_sword
+    .netherrack,
+    .note_block,
+    null, // oak_boat
+    .oak_button,
+    null, // oak_chest_boat
+    .oak_door,
+    .oak_fence,
+    .oak_fence_gate,
+    .oak_leaves,
+    .oak_log,
+    .oak_planks,
+    .oak_pressure_plate,
+    .oak_sapling,
+    .oak_sign,
+    .oak_slab,
+    .oak_stairs,
+    .oak_trapdoor,
+    .oak_wood,
+    .observer,
+    .obsidian,
+    null, // ocelot_spawn_egg
+    .ochre_froglight,
+    .orange_banner,
+    .orange_bed,
+    .orange_candle,
+    .orange_carpet,
+    .orange_concrete,
+    .orange_concrete_powder,
+    null, // orange_dye
+    .orange_glazed_terracotta,
+    .orange_shulker_box,
+    .orange_stained_glass,
+    .orange_stained_glass_pane,
+    .orange_terracotta,
+    .orange_tulip,
+    .orange_wool,
+    .oxeye_daisy,
+    .oxidized_copper,
+    .oxidized_cut_copper,
+    .oxidized_cut_copper_slab,
+    .oxidized_cut_copper_stairs,
+    .packed_ice,
+    .packed_mud,
+    null, // painting
+    null, // panda_spawn_egg
+    null, // paper
+    null, // parrot_spawn_egg
+    .pearlescent_froglight,
+    .peony,
+    .petrified_oak_slab,
+    null, // phantom_membrane
+    null, // phantom_spawn_egg
+    null, // pig_spawn_egg
     null, // piglin_banner_pattern
-    .composter,
-    .barrel,
-    .smoker,
-    .blast_furnace,
-    .cartography_table,
-    .fletching_table,
-    .grindstone,
-    .smithing_table,
-    .stonecutter,
-    .bell,
-    .lantern,
-    .soul_lantern,
-    null, // sweet_berries
-    null, // glow_berries
-    .campfire,
-    .soul_campfire,
-    .shroomlight,
-    null, // honeycomb
-    .bee_nest,
-    .beehive,
-    null, // honey_bottle
-    .honeycomb_block,
-    .lodestone,
-    .crying_obsidian,
-    .blackstone,
-    .blackstone_slab,
-    .blackstone_stairs,
-    .gilded_blackstone,
+    null, // piglin_brute_spawn_egg
+    null, // piglin_spawn_egg
+    null, // pillager_spawn_egg
+    .pink_banner,
+    .pink_bed,
+    .pink_candle,
+    .pink_carpet,
+    .pink_concrete,
+    .pink_concrete_powder,
+    null, // pink_dye
+    .pink_glazed_terracotta,
+    .pink_shulker_box,
+    .pink_stained_glass,
+    .pink_stained_glass_pane,
+    .pink_terracotta,
+    .pink_tulip,
+    .pink_wool,
+    .piston,
+    .player_head,
+    .podzol,
+    .pointed_dripstone,
+    null, // poisonous_potato
+    null, // polar_bear_spawn_egg
+    .polished_andesite,
+    .polished_andesite_slab,
+    .polished_andesite_stairs,
+    .polished_basalt,
     .polished_blackstone,
-    .polished_blackstone_slab,
-    .polished_blackstone_stairs,
-    .chiseled_polished_blackstone,
-    .polished_blackstone_bricks,
     .polished_blackstone_brick_slab,
     .polished_blackstone_brick_stairs,
-    .cracked_polished_blackstone_bricks,
-    .respawn_anchor,
-    .candle,
-    .white_candle,
-    .orange_candle,
-    .magenta_candle,
-    .light_blue_candle,
-    .yellow_candle,
-    .lime_candle,
-    .pink_candle,
-    .gray_candle,
-    .light_gray_candle,
-    .cyan_candle,
+    .polished_blackstone_brick_wall,
+    .polished_blackstone_bricks,
+    .polished_blackstone_button,
+    .polished_blackstone_pressure_plate,
+    .polished_blackstone_slab,
+    .polished_blackstone_stairs,
+    .polished_blackstone_wall,
+    .polished_deepslate,
+    .polished_deepslate_slab,
+    .polished_deepslate_stairs,
+    .polished_deepslate_wall,
+    .polished_diorite,
+    .polished_diorite_slab,
+    .polished_diorite_stairs,
+    .polished_granite,
+    .polished_granite_slab,
+    .polished_granite_stairs,
+    null, // popped_chorus_fruit
+    .poppy,
+    null, // porkchop
+    null, // potato
+    null, // potion
+    null, // powder_snow_bucket
+    .powered_rail,
+    .prismarine,
+    .prismarine_brick_slab,
+    .prismarine_brick_stairs,
+    .prismarine_bricks,
+    null, // prismarine_crystals
+    null, // prismarine_shard
+    .prismarine_slab,
+    .prismarine_stairs,
+    .prismarine_wall,
+    null, // pufferfish
+    null, // pufferfish_bucket
+    null, // pufferfish_spawn_egg
+    .pumpkin,
+    null, // pumpkin_pie
+    null, // pumpkin_seeds
+    .purple_banner,
+    .purple_bed,
     .purple_candle,
-    .blue_candle,
-    .brown_candle,
-    .green_candle,
+    .purple_carpet,
+    .purple_concrete,
+    .purple_concrete_powder,
+    null, // purple_dye
+    .purple_glazed_terracotta,
+    .purple_shulker_box,
+    .purple_stained_glass,
+    .purple_stained_glass_pane,
+    .purple_terracotta,
+    .purple_wool,
+    .purpur_block,
+    .purpur_pillar,
+    .purpur_slab,
+    .purpur_stairs,
+    null, // quartz
+    .quartz_block,
+    .quartz_bricks,
+    .quartz_pillar,
+    .quartz_slab,
+    .quartz_stairs,
+    null, // rabbit
+    null, // rabbit_foot
+    null, // rabbit_hide
+    null, // rabbit_spawn_egg
+    null, // rabbit_stew
+    .rail,
+    null, // ravager_spawn_egg
+    null, // raw_copper
+    .raw_copper_block,
+    null, // raw_gold
+    .raw_gold_block,
+    null, // raw_iron
+    .raw_iron_block,
+    null, // recovery_compass
+    .red_banner,
+    .red_bed,
     .red_candle,
-    .black_candle,
+    .red_carpet,
+    .red_concrete,
+    .red_concrete_powder,
+    null, // red_dye
+    .red_glazed_terracotta,
+    .red_mushroom,
+    .red_mushroom_block,
+    .red_nether_brick_slab,
+    .red_nether_brick_stairs,
+    .red_nether_brick_wall,
+    .red_nether_bricks,
+    .red_sand,
+    .red_sandstone,
+    .red_sandstone_slab,
+    .red_sandstone_stairs,
+    .red_sandstone_wall,
+    .red_shulker_box,
+    .red_stained_glass,
+    .red_stained_glass_pane,
+    .red_terracotta,
+    .red_tulip,
+    .red_wool,
+    null, // redstone
+    .redstone_block,
+    .redstone_lamp,
+    .redstone_ore,
+    .redstone_torch,
+    .reinforced_deepslate,
+    .repeater,
+    .repeating_command_block,
+    .respawn_anchor,
+    .rooted_dirt,
+    .rose_bush,
+    null, // rotten_flesh
+    null, // saddle
+    null, // salmon
+    null, // salmon_bucket
+    null, // salmon_spawn_egg
+    .sand,
+    .sandstone,
+    .sandstone_slab,
+    .sandstone_stairs,
+    .sandstone_wall,
+    .scaffolding,
+    .sculk,
+    .sculk_catalyst,
+    .sculk_sensor,
+    .sculk_shrieker,
+    .sculk_vein,
+    null, // scute
+    .sea_lantern,
+    .sea_pickle,
+    .seagrass,
+    null, // shears
+    null, // sheep_spawn_egg
+    null, // shield
+    .shroomlight,
+    .shulker_box,
+    null, // shulker_shell
+    null, // shulker_spawn_egg
+    null, // silverfish_spawn_egg
+    null, // skeleton_horse_spawn_egg
+    .skeleton_skull,
+    null, // skeleton_spawn_egg
+    null, // skull_banner_pattern
+    null, // slime_ball
+    .slime_block,
+    null, // slime_spawn_egg
     .small_amethyst_bud,
-    .medium_amethyst_bud,
-    .large_amethyst_bud,
-    .amethyst_cluster,
-    .pointed_dripstone,
+    .small_dripleaf,
+    .smithing_table,
+    .smoker,
+    .smooth_basalt,
+    .smooth_quartz,
+    .smooth_quartz_slab,
+    .smooth_quartz_stairs,
+    .smooth_red_sandstone,
+    .smooth_red_sandstone_slab,
+    .smooth_red_sandstone_stairs,
+    .smooth_sandstone,
+    .smooth_sandstone_slab,
+    .smooth_sandstone_stairs,
+    .smooth_stone,
+    .smooth_stone_slab,
+    .snow,
+    .snow_block,
+    null, // snowball
+    .soul_campfire,
+    .soul_lantern,
+    .soul_sand,
+    .soul_soil,
+    .soul_torch,
+    .spawner,
+    null, // spectral_arrow
+    null, // spider_eye
+    null, // spider_spawn_egg
+    null, // splash_potion
+    .sponge,
+    .spore_blossom,
+    null, // spruce_boat
+    .spruce_button,
+    null, // spruce_chest_boat
+    .spruce_door,
+    .spruce_fence,
+    .spruce_fence_gate,
+    .spruce_leaves,
+    .spruce_log,
+    .spruce_planks,
+    .spruce_pressure_plate,
+    .spruce_sapling,
+    .spruce_sign,
+    .spruce_slab,
+    .spruce_stairs,
+    .spruce_trapdoor,
+    .spruce_wood,
+    null, // spyglass
+    null, // squid_spawn_egg
+    null, // stick
+    .sticky_piston,
+    .stone,
+    null, // stone_axe
+    .stone_brick_slab,
+    .stone_brick_stairs,
+    .stone_brick_wall,
+    .stone_bricks,
+    .stone_button,
+    null, // stone_hoe
+    null, // stone_pickaxe
+    .stone_pressure_plate,
+    null, // stone_shovel
+    .stone_slab,
+    .stone_stairs,
+    null, // stone_sword
+    .stonecutter,
+    null, // stray_spawn_egg
+    null, // strider_spawn_egg
+    null, // string
+    .stripped_acacia_log,
+    .stripped_acacia_wood,
+    .stripped_birch_log,
+    .stripped_birch_wood,
+    .stripped_crimson_hyphae,
+    .stripped_crimson_stem,
+    .stripped_dark_oak_log,
+    .stripped_dark_oak_wood,
+    .stripped_jungle_log,
+    .stripped_jungle_wood,
+    .stripped_mangrove_log,
+    .stripped_mangrove_wood,
+    .stripped_oak_log,
+    .stripped_oak_wood,
+    .stripped_spruce_log,
+    .stripped_spruce_wood,
+    .stripped_warped_hyphae,
+    .stripped_warped_stem,
+    .structure_block,
+    .structure_void,
+    null, // sugar
+    .sugar_cane,
+    .sunflower,
+    null, // suspicious_stew
+    null, // sweet_berries
+    null, // tadpole_bucket
+    null, // tadpole_spawn_egg
+    .tall_grass,
+    .target,
+    .terracotta,
+    .tinted_glass,
+    null, // tipped_arrow
+    .tnt,
+    null, // tnt_minecart
+    .torch,
+    null, // totem_of_undying
+    null, // trader_llama_spawn_egg
+    .trapped_chest,
+    null, // trident
+    .tripwire_hook,
+    null, // tropical_fish
+    null, // tropical_fish_bucket
+    null, // tropical_fish_spawn_egg
+    .tube_coral,
+    .tube_coral_block,
+    .tube_coral_fan,
+    .tuff,
+    .turtle_egg,
+    null, // turtle_helmet
+    null, // turtle_spawn_egg
+    .twisting_vines,
+    .verdant_froglight,
+    null, // vex_spawn_egg
+    null, // villager_spawn_egg
+    null, // vindicator_spawn_egg
+    .vine,
+    null, // wandering_trader_spawn_egg
+    null, // warden_spawn_egg
+    .warped_button,
+    .warped_door,
+    .warped_fence,
+    .warped_fence_gate,
+    .warped_fungus,
+    null, // warped_fungus_on_a_stick
+    .warped_hyphae,
+    .warped_nylium,
+    .warped_planks,
+    .warped_pressure_plate,
+    .warped_roots,
+    .warped_sign,
+    .warped_slab,
+    .warped_stairs,
+    .warped_stem,
+    .warped_trapdoor,
+    .warped_wart_block,
+    null, // water_bucket
+    .waxed_copper_block,
+    .waxed_cut_copper,
+    .waxed_cut_copper_slab,
+    .waxed_cut_copper_stairs,
+    .waxed_exposed_copper,
+    .waxed_exposed_cut_copper,
+    .waxed_exposed_cut_copper_slab,
+    .waxed_exposed_cut_copper_stairs,
+    .waxed_oxidized_copper,
+    .waxed_oxidized_cut_copper,
+    .waxed_oxidized_cut_copper_slab,
+    .waxed_oxidized_cut_copper_stairs,
+    .waxed_weathered_copper,
+    .waxed_weathered_cut_copper,
+    .waxed_weathered_cut_copper_slab,
+    .waxed_weathered_cut_copper_stairs,
+    .weathered_copper,
+    .weathered_cut_copper,
+    .weathered_cut_copper_slab,
+    .weathered_cut_copper_stairs,
+    .weeping_vines,
+    .wet_sponge,
+    .wheat,
+    null, // wheat_seeds
+    .white_banner,
+    .white_bed,
+    .white_candle,
+    .white_carpet,
+    .white_concrete,
+    .white_concrete_powder,
+    null, // white_dye
+    .white_glazed_terracotta,
+    .white_shulker_box,
+    .white_stained_glass,
+    .white_stained_glass_pane,
+    .white_terracotta,
+    .white_tulip,
+    .white_wool,
+    null, // witch_spawn_egg
+    .wither_rose,
+    .wither_skeleton_skull,
+    null, // wither_skeleton_spawn_egg
+    null, // wolf_spawn_egg
+    null, // wooden_axe
+    null, // wooden_hoe
+    null, // wooden_pickaxe
+    null, // wooden_shovel
+    null, // wooden_sword
+    null, // writable_book
+    null, // written_book
+    .yellow_banner,
+    .yellow_bed,
+    .yellow_candle,
+    .yellow_carpet,
+    .yellow_concrete,
+    .yellow_concrete_powder,
+    null, // yellow_dye
+    .yellow_glazed_terracotta,
+    .yellow_shulker_box,
+    .yellow_stained_glass,
+    .yellow_stained_glass_pane,
+    .yellow_terracotta,
+    .yellow_wool,
+    null, // zoglin_spawn_egg
+    .zombie_head,
+    null, // zombie_horse_spawn_egg
+    null, // zombie_spawn_egg
+    null, // zombie_villager_spawn_egg
+    null, // zombified_piglin_spawn_egg
 };
 
 pub const BlockProperty = struct { name: []const u8, value: []const u8 };
@@ -24954,6 +26282,19 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "stage"));
             data.stage = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
         },
+        .mangrove_propagule => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "age")) {
+                    data.age = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "hanging")) {
+                    data.hanging = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "stage")) {
+                    data.stage = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .water => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "level"));
             data.level = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
@@ -24986,6 +26327,18 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
+        .mangrove_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .mangrove_roots => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "waterlogged"));
+            data.waterlogged = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .muddy_mangrove_roots => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
         .stripped_spruce_log => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
@@ -25007,6 +26360,10 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
         .stripped_oak_log => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .stripped_mangrove_log => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
@@ -25034,6 +26391,10 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
+        .mangrove_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
         .stripped_oak_wood => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
@@ -25058,12 +26419,18 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
+        .stripped_mangrove_wood => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
         .oak_leaves => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "distance")) {
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25073,6 +26440,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25082,6 +26451,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25091,6 +26462,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25100,6 +26473,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25109,6 +26484,19 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mangrove_leaves => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "distance")) {
+                    data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "persistent")) {
+                    data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25118,6 +26506,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25127,6 +26517,8 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                     data.distance = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
                 } else if (std.mem.eql(u8, property.name, "persistent")) {
                     data.persistent = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
             }
         },
@@ -25372,21 +26764,21 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         },
         .piston_head => |*data| {
             for (property_list) |property| {
-                if (std.mem.eql(u8, property.name, "facing")) {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "short")) {
                     data.short = std.mem.eql(u8, property.value, "true");
-                } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else unreachable;
             }
         },
         .moving_piston => |*data| {
             for (property_list) |property| {
-                if (std.mem.eql(u8, property.name, "facing")) {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
-                } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else unreachable;
             }
         },
@@ -25430,10 +26822,10 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         },
         .chest => |*data| {
             for (property_list) |property| {
-                if (std.mem.eql(u8, property.name, "facing")) {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
-                } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -25517,6 +26909,15 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .dark_oak_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "rotation")) {
+                    data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mangrove_sign => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "rotation")) {
                     data.rotation = std.fmt.parseInt(u8, property.value, 0) catch unreachable;
@@ -25625,6 +27026,15 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .mangrove_wall_sign => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .lever => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "face")) {
@@ -25676,6 +27086,10 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             data.powered = std.mem.eql(u8, property_list[0].value, "true");
         },
         .dark_oak_pressure_plate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
+            data.powered = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .mangrove_pressure_plate => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "powered"));
             data.powered = std.mem.eql(u8, property_list[0].value, "true");
         },
@@ -25873,6 +27287,21 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .mangrove_trapdoor => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .brown_mushroom_block => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "down")) {
@@ -26040,6 +27469,19 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .stone_brick_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mud_brick_stairs => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
@@ -26337,6 +27779,17 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .mangrove_button => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "face")) {
+                    data.face = std.meta.stringToEnum(@TypeOf(data.face), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .skeleton_skull => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "rotation"));
             data.rotation = std.fmt.parseInt(u8, property_list[0].value, 0) catch unreachable;
@@ -26399,10 +27852,10 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         },
         .trapped_chest => |*data| {
             for (property_list) |property| {
-                if (std.mem.eql(u8, property.name, "facing")) {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
-                } else if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26748,6 +28201,19 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .mangrove_stairs => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "shape")) {
+                    data.shape = std.meta.stringToEnum(@TypeOf(data.shape), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .light => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "level")) {
@@ -26814,7 +28280,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .prismarine_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26823,7 +28289,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .prismarine_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -26832,7 +28298,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .dark_prismarine_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27010,7 +28476,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27019,7 +28485,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .spruce_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27028,7 +28494,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .birch_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27037,7 +28503,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .jungle_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27046,7 +28512,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .acacia_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27055,7 +28521,16 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .dark_oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mangrove_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27064,7 +28539,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .stone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27073,7 +28548,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_stone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27082,7 +28557,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27091,7 +28566,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27100,7 +28575,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .petrified_oak_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27109,7 +28584,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cobblestone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27118,7 +28593,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27127,7 +28602,16 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mud_brick_slab => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "type")) {
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27136,7 +28620,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .nether_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27145,7 +28629,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .quartz_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27154,7 +28638,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27163,7 +28647,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27172,7 +28656,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .purpur_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -27231,6 +28715,19 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .dark_oak_fence_gate => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "in_wall")) {
+                    data.in_wall = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mangrove_fence_gate => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
@@ -27318,6 +28815,21 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .mangrove_fence => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .spruce_door => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "facing")) {
@@ -27379,6 +28891,21 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .dark_oak_door => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "facing")) {
+                    data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "half")) {
+                    data.half = std.meta.stringToEnum(@TypeOf(data.half), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "hinge")) {
+                    data.hinge = std.meta.stringToEnum(@TypeOf(data.hinge), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "open")) {
+                    data.open = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "powered")) {
+                    data.powered = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .mangrove_door => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "facing")) {
                     data.facing = std.meta.stringToEnum(@TypeOf(data.facing), property.value) orelse unreachable;
@@ -28002,7 +29529,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_granite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28011,7 +29538,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_red_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28020,7 +29547,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .mossy_stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28029,7 +29556,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_diorite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28038,7 +29565,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .mossy_cobblestone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28047,7 +29574,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .end_stone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28056,7 +29583,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_sandstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28065,7 +29592,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .smooth_quartz_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28074,7 +29601,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .granite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28083,7 +29610,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .andesite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28092,7 +29619,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .red_nether_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28101,7 +29628,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_andesite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28110,7 +29637,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .diorite_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28202,6 +29729,23 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .stone_brick_wall => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.meta.stringToEnum(@TypeOf(data.north), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.meta.stringToEnum(@TypeOf(data.south), property.value) orelse unreachable;
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.meta.stringToEnum(@TypeOf(data.west), property.value) orelse unreachable;
+                } else unreachable;
+            }
+        },
+        .mud_brick_wall => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "east")) {
                     data.east = std.meta.stringToEnum(@TypeOf(data.east), property.value) orelse unreachable;
@@ -28488,7 +30032,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .crimson_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28497,7 +30041,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .warped_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28782,7 +30326,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .blackstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28791,7 +30335,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_blackstone_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -28843,7 +30387,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_blackstone_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29183,6 +30727,40 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
                 } else unreachable;
             }
         },
+        .sculk_vein => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "down")) {
+                    data.down = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "east")) {
+                    data.east = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "north")) {
+                    data.north = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "south")) {
+                    data.south = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "up")) {
+                    data.up = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "west")) {
+                    data.west = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
+        .sculk_catalyst => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "bloom"));
+            data.bloom = std.mem.eql(u8, property_list[0].value, "true");
+        },
+        .sculk_shrieker => |*data| {
+            for (property_list) |property| {
+                if (std.mem.eql(u8, property.name, "can_summon")) {
+                    data.can_summon = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "shrieking")) {
+                    data.shrieking = std.mem.eql(u8, property.value, "true");
+                } else if (std.mem.eql(u8, property.name, "waterlogged")) {
+                    data.waterlogged = std.mem.eql(u8, property.value, "true");
+                } else unreachable;
+            }
+        },
         .oxidized_cut_copper_stairs => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "facing")) {
@@ -29238,7 +30816,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .oxidized_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29247,7 +30825,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .weathered_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29256,7 +30834,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .exposed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29265,7 +30843,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29326,7 +30904,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_oxidized_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29335,7 +30913,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_weathered_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29344,7 +30922,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_exposed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29353,7 +30931,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .waxed_cut_copper_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29449,7 +31027,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .cobbled_deepslate_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29488,7 +31066,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .polished_deepslate_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29527,7 +31105,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .deepslate_tile_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29566,7 +31144,7 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
         .deepslate_brick_slab => |*data| {
             for (property_list) |property| {
                 if (std.mem.eql(u8, property.name, "type")) {
-                    data.@"type" = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
+                    data.type = std.meta.stringToEnum(@TypeOf(data.type), property.value) orelse unreachable;
                 } else if (std.mem.eql(u8, property.name, "waterlogged")) {
                     data.waterlogged = std.mem.eql(u8, property.value, "true");
                 } else unreachable;
@@ -29590,6 +31168,18 @@ pub fn stateFromPropertyList(tag: BlockTag, property_list: []const BlockProperty
             }
         },
         .infested_deepslate => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .ochre_froglight => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .verdant_froglight => |*data| {
+            std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
+            data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
+        },
+        .pearlescent_froglight => |*data| {
             std.debug.assert(std.mem.eql(u8, property_list[0].name, "axis"));
             data.axis = std.meta.stringToEnum(@TypeOf(data.axis), property_list[0].value) orelse unreachable;
         },
@@ -29618,7 +31208,7 @@ test "stateFromPropertyList" {
     try std.testing.expectEqual(air, stateFromPropertyList(.air, &air_list));
 
     const snowy_grass = BlockState{ .grass_block = .{ .snowy = true } };
-    const snowy_grass_list = [_]BlockProperty{ .{ .name = "snowy", .value = "true" }};
+    const snowy_grass_list = [_]BlockProperty{.{ .name = "snowy", .value = "true" }};
     try std.testing.expectEqual(snowy_grass, stateFromPropertyList(.grass_block, &snowy_grass_list));
 
     const bamboo = BlockState{ .bamboo = .{ .age = 4, .leaves = .small } };

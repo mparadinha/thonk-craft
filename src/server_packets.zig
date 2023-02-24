@@ -8,7 +8,6 @@ const VarInt = types.VarInt;
 const String = types.String;
 const Position = types.Position;
 const NBT = types.NBT;
-const State = @import("Session.zig").State;
 
 pub const Packet = union(enum) {
     status: StatusData,
@@ -58,11 +57,10 @@ pub fn genericEncodedDataSize(data: anytype) usize {
     var data_size: usize = 0;
     inline for (struct_info.fields) |field| {
         const field_data = @field(data, field.name);
-        const field_type = field.field_type;
-        data_size += switch (field_type) {
-            u8, u16, u32, u64, u128, i8, i16, i32, i64 => @sizeOf(field_type),
+        data_size += switch (field.type) {
+            u8, u16, u32, u64, u128, i8, i16, i32, i64 => @sizeOf(field.type),
             []u8 => field_data.len,
-            f32, f64 => @sizeOf(field_type),
+            f32, f64 => @sizeOf(field.type),
             bool => 1,
             VarInt => VarInt.encodedSize(field_data.value),
             String => String.encodedSize(field_data.value),
@@ -73,7 +71,7 @@ pub fn genericEncodedDataSize(data: anytype) usize {
             },
             Position => 8,
             NBT => field_data.blob.len,
-            else => @panic("TODO encoded size for type " ++ @typeName(field_type)),
+            else => @panic("TODO encoded size for type " ++ @typeName(field.type)),
         };
     }
 
@@ -90,15 +88,14 @@ pub fn genericEncodeData(data: anytype, writer: anytype) !void {
 
     inline for (struct_info.fields) |field| {
         const field_data = @field(data, field.name);
-        const field_type = field.field_type;
 
-        switch (field_type) {
+        switch (field.type) {
             u8, u16, u32, u64, u128, i8, i16, i32, i64 => {
-                try writer.writeIntBig(field_type, field_data);
+                try writer.writeIntBig(field.type, field_data);
             },
             []u8 => _ = try writer.write(field_data),
             f32, f64 => {
-                const IntType = std.meta.Int(.unsigned, @bitSizeOf(field_type));
+                const IntType = std.meta.Int(.unsigned, @bitSizeOf(field.type));
                 try writer.writeIntBig(IntType, @bitCast(IntType, field_data));
             },
             bool => try writer.writeByte(@intCast(u8, @boolToInt(field_data))),
@@ -109,21 +106,21 @@ pub fn genericEncodeData(data: anytype, writer: anytype) !void {
             },
             Position => try field_data.encode(writer),
             NBT => try field_data.encode(writer),
-            else => @panic("TODO encode type " ++ @typeName(field_type)),
+            else => @panic("TODO encode type " ++ @typeName(field.type)),
         }
     }
 }
 
 pub const StatusId = enum(u7) {
-    response = 0x00,
-    pong = 0x01,
+    status_response = 0x00,
+    ping_response = 0x01,
 };
 
 pub const StatusData = union(StatusId) {
-    response: struct {
+    status_response: struct {
         json_response: String,
     },
-    pong: struct {
+    ping_response: struct {
         payload: i64,
     },
 };
@@ -140,15 +137,14 @@ pub const LoginData = union(LoginId) {
 };
 
 pub const PlayId = enum(u7) {
-    spawn_player = 0x04,
-    block_change = 0x0c,
-    keep_alive = 0x21,
-    chunk_data_and_update_light = 0x22,
-    join_game = 0x26,
-    entity_position = 0x29,
-    player_info = 0x36,
-    player_position_and_look = 0x38,
-    spawn_position = 0x4b,
+    spawn_player = 0x02,
+    block_update = 0x09,
+    keep_alive = 0x20,
+    chunk_data_and_update_light = 0x21,
+    login = 0x25,
+    update_entity_position = 0x28,
+    player_info = 0x37,
+    synchronize_player_position = 0x39,
 };
 
 pub const PlayData = union(PlayId) {
@@ -161,7 +157,7 @@ pub const PlayData = union(PlayId) {
         yaw: u8, // steps of 1/256 of a full turn
         pitch: u8, // steps of 1/256 of a full turn
     },
-    block_change: struct {
+    block_update: struct {
         location: Position,
         block_id: VarInt,
     },
@@ -197,7 +193,7 @@ pub const PlayData = union(PlayId) {
         //    block_light_array: [2048]u8,
         //},
     },
-    join_game: struct {
+    login: struct {
         entity_id: i32,
         is_hardcore: bool,
         gamemode: u8,
@@ -216,7 +212,7 @@ pub const PlayData = union(PlayId) {
         is_debug: bool,
         is_flat: bool,
     },
-    entity_position: struct {
+    update_entity_position: struct {
         entity_id: VarInt,
         delta_x: i16,
         delta_y: i16,
@@ -233,7 +229,7 @@ pub const PlayData = union(PlayId) {
         ping: VarInt,
         has_display_name: bool,
     },
-    player_position_and_look: struct {
+    synchronize_player_position: struct {
         x: f64,
         y: f64,
         z: f64,
@@ -242,10 +238,6 @@ pub const PlayData = union(PlayId) {
         flags: u8,
         teleport_id: VarInt,
         dismount_vehicle: bool,
-    },
-    spawn_position: struct {
-        location: Position,
-        angle: f32,
     },
 };
 
